@@ -1,0 +1,70 @@
+# Copyright (c) 2026 DigiTech Business Pte. Ltd. All rights reserved.
+# BixDot is a trademark of DigiTech Business Pte. Ltd (Singapore).
+# Licensed under the Business Source License 1.1 (BUSL-1.1).
+# Commercial use requires a license: legal@bixdot.app
+# Security disclosures: security@bixdot.app
+# See LICENSE in the project root for full terms.
+
+"""
+BixDot — Configuration
+All config validated at startup. Missing required values = hard fail.
+No silent defaults for security-critical settings.
+"""
+import secrets
+from pydantic_settings import BaseSettings
+from pydantic import Field, validator
+
+
+class Settings(BaseSettings):
+    # ─── App ───────────────────────────────────────────────────────────────
+    app_name: str = "BixDot"
+    version: str = "0.1.0"
+    debug: bool = False
+
+    # ─── Server ────────────────────────────────────────────────────────────
+    host: str = "127.0.0.1"
+    port: int = 8747
+
+    # ─── Auth ──────────────────────────────────────────────────────────────
+    jwt_secret: str = Field(default_factory=lambda: secrets.token_urlsafe(64))
+    jwt_algorithm: str = "HS256"
+    jwt_access_token_expire_minutes: int = 15
+    jwt_refresh_token_expire_days: int = 7
+
+    # ─── Database ──────────────────────────────────────────────────────────
+    db_path: str = "~/.bixdot/data.db"
+
+    # ─── LLM ───────────────────────────────────────────────────────────────
+    anthropic_api_key: str = ""
+    ollama_url: str = "http://localhost:11434"
+    default_model: str = "claude-sonnet-4-20250514"
+    local_model: str = "llama3.2"
+
+    # ─── Security ──────────────────────────────────────────────────────────
+    auth_rate_limit: str = "5/minute"
+    api_rate_limit: str = "60/minute"
+    allowed_origins: list[str] = [
+        "http://localhost:8747",
+        "http://127.0.0.1:8747",
+        "tauri://localhost",
+    ]
+    sandbox_timeout_seconds: int = 30
+    sandbox_max_memory_mb: int = 256
+    sandbox_allow_network: bool = False
+
+    # ─── Audit ─────────────────────────────────────────────────────────────
+    audit_log_enabled: bool = True
+    audit_log_path: str = "~/.bixdot/audit.db"
+
+    @validator("host")
+    def validate_host(cls, v, values):
+        if v not in ("127.0.0.1", "localhost") and not values.get("debug"):
+            raise ValueError("Host must be 127.0.0.1 in production.")
+        return v
+
+    class Config:
+        env_file = ".env"
+        env_file_encoding = "utf-8"
+
+
+settings = Settings()

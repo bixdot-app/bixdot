@@ -1,0 +1,38 @@
+# SecureClaw — Core Dependencies
+# Python 3.12+
+
+# Web framework
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+
+# Authentication
+PyJWT==2.9.0
+bcrypt==4.2.0
+cryptography==43.0.1
+
+# Storage
+sqlcipher3==0.5.3       # Encrypted SQLite
+keyring==25.4.1         # OS keyring for secrets
+
+# LLM
+anthropic==0.34.2       # Claude API
+httpx==0.27.2           # Async HTTP
+
+# Security
+python-multipart==0.0.12
+slowapi==0.1.9          # Rate limiting
+
+# Validation
+pydantic==2.9.2
+pydantic-settings==2.5.2
+
+# Utilities
+python-dotenv==1.0.1
+structlog==24.4.0       # Structured logging
+
+# Dev / testing
+pytest==8.3.3
+pytest-asyncio==0.24.0
+httpx==0.27.2           # Test client
+bandit==1.7.10          # Security linting
+semgrep==1.89.0         # SAST scanning

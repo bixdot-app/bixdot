@@ -1,0 +1,51 @@
+# ─── Python ───────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.venv/
+venv/
+env/
+
+# ─── NEVER COMMIT THESE ───────────────────────────────────────────────────────
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.pfx
+secrets.json
+config.local.*
+
+# ─── SecureClaw Data ──────────────────────────────────────────────────────────
+# User data lives in ~/.bixdot/ — never in the repo
+~/.bixdot/
+*.db
+*.db-wal
+*.db-shm
+
+# ─── IDE ──────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# ─── Testing ──────────────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+bandit-report.json
+
+# ─── Build artifacts ──────────────────────────────────────────────────────────
+*.spec
+dist-tauri/
+target/
+node_modules/

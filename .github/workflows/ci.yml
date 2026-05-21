@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ─── Security Scan ──────────────────────────────────────────────────────────
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install bandit semgrep pip-audit --break-system-packages 2>/dev/null || pip install bandit semgrep pip-audit
+
+      - name: Bandit — Python security linter
+        run: |
+          bandit -r core/ -ll -ii \
+            --skip B101 \
+            -f json -o bandit-report.json || true
+          bandit -r core/ -ll -ii --skip B101
+        # Fails build on HIGH severity issues
+
+      - name: pip-audit — Dependency vulnerability scan
+        run: |
+          pip install -r requirements.txt
+          pip-audit --require-hashes 2>/dev/null || pip-audit
+        # Checks all dependencies against known CVE databases
+
+      - name: Check license headers
+        run: |
+          echo "Checking all Python files have BUSL license headers..."
+          missing=0
+          for f in $(find core/ -name "*.py" ! -name "__init__.py"); do
+            if ! grep -q "DigiTech Business Pte. Ltd" "$f"; then
+              echo "MISSING LICENSE HEADER: $f"
+              missing=$((missing + 1))
+            fi
+          done
+          if [ $missing -gt 0 ]; then
+            echo "❌ $missing file(s) missing license headers"
+            exit 1
+          fi
+          echo "✅ All files have correct license headers"
+
+  # ─── Tests ──────────────────────────────────────────────────────────────────
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    needs: security
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt pytest pytest-asyncio httpx
+
+      - name: Run tests
+        run: pytest tests/ -v --tb=short
+        env:
+          SECURECLAW_DEBUG: "true"
+          SECURECLAW_HOST: "127.0.0.1"
+
+  # ─── Lint ───────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Ruff lint
+        run: ruff check core/ --select E,W,F,S
+
+  # ─── Build check ────────────────────────────────────────────────────────────
+  build:
+    name: Import Check
+    runs-on: ubuntu-latest
+    needs: [test, security]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Verify all modules importable
+        run: |
+          python -c "
+          from core.config import settings
+          from core.storage.db import init_db, is_first_run
+          from core.auth.jwt import create_token_pair, decode_token
+          from core.auth.middleware import require_auth
+          from core.auth.routes import router
+          from core.audit.logger import get_audit_logger
+          from core.agent.permissions import Capability, PermissionStore
+          from core.agent.llm import LLMAdapter, scrub_pii
+          print('✅ All modules import successfully')
+          "
