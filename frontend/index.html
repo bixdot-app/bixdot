@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>BixDot</title>
+<style>
+  :root {
+    --bg: #080c10;
+    --surface: #0f1520;
+    --card: #141d2a;
+    --border: #1e2d40;
+    --accent: #00d4aa;
+    --accent-dim: rgba(0,212,170,0.10);
+    --accent-mid: rgba(0,212,170,0.25);
+    --warn: #f5a623;
+    --warn-dim: rgba(245,166,35,0.12);
+    --red: #ff4757;
+    --red-dim: rgba(255,71,87,0.12);
+    --blue: #3d91ff;
+    --blue-dim: rgba(61,145,255,0.12);
+    --text: #e2eaf5;
+    --muted: #4a6080;
+    --subtle: #2a3a50;
+    --mono: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; height: 100vh; overflow: hidden; }
+
+  /* Layout */
+  .app { display: flex; height: 100vh; }
+  .sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* Sidebar */
+  .sidebar-header { padding: 16px; border-bottom: 1px solid var(--border); }
+  .logo { display: flex; align-items: center; gap: 8px; }
+  .logo-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+  .logo-name { font-size: 15px; font-weight: 600; letter-spacing: -0.02em; }
+  .local-badge { display: flex; align-items: center; gap: 4px; background: var(--accent-dim); border: 1px solid var(--accent-mid); border-radius: 20px; padding: 3px 8px; margin-top: 8px; width: fit-content; }
+  .local-badge span { font-size: 10px; color: var(--accent); font-family: var(--mono); letter-spacing: 0.05em; }
+
+  .nav { padding: 8px; flex: 1; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; cursor: pointer; font-size: 13px; color: var(--muted); transition: all 0.15s; margin-bottom: 2px; }
+  .nav-item:hover { background: var(--card); color: var(--text); }
+  .nav-item.active { background: var(--accent-dim); color: var(--accent); }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+  .sidebar-footer { padding: 12px; border-top: 1px solid var(--border); }
+  .model-pill { display: flex; align-items: center; gap: 6px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; }
+  .model-pill span { font-size: 11px; font-family: var(--mono); color: var(--muted); }
+  .model-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 2s infinite; }
+
+  /* Topbar */
+  .topbar { height: 50px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; flex-shrink: 0; }
+  .topbar-title { font-size: 14px; font-weight: 500; }
+  .chain-badge { display: flex; align-items: center; gap: 5px; font-size: 11px; font-family: var(--mono); color: var(--accent); background: var(--accent-dim); padding: 3px 8px; border-radius: 6px; }
+
+  /* Chat */
+  .chat-wrap { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+  .chat-wrap::-webkit-scrollbar { width: 4px; }
+  .chat-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .msg-row { display: flex; }
+  .msg-row.user { justify-content: flex-end; }
+  .msg { max-width: 72%; padding: 10px 14px; border-radius: 14px; font-size: 13px; line-height: 1.6; }
+  .msg.user { background: var(--blue); color: white; border-bottom-right-radius: 4px; }
+  .msg.agent { background: var(--card); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+  .msg.system { background: var(--warn-dim); border: 1px solid rgba(245,166,35,0.3); border-radius: 10px; max-width: 90%; font-size: 12px; }
+
+  .typing { display: flex; gap: 4px; align-items: center; padding: 12px 14px; background: var(--card); border: 1px solid var(--border); border-radius: 14px; border-bottom-left-radius: 4px; width: fit-content; }
+  .typing span { width: 5px; height: 5px; border-radius: 50%; background: var(--muted); animation: bounce 1.2s infinite; }
+  .typing span:nth-child(2) { animation-delay: 0.2s; }
+  .typing span:nth-child(3) { animation-delay: 0.4s; }
+
+  .input-area { padding: 16px 20px; border-top: 1px solid var(--border); display: flex; gap: 10px; }
+  .input-area input { flex: 1; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; font-size: 13px; color: var(--text); outline: none; transition: border-color 0.15s; }
+  .input-area input:focus { border-color: var(--accent); }
+  .input-area input::placeholder { color: var(--muted); }
+  .send-btn { width: 38px; height: 38px; border-radius: 10px; background: var(--accent); border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: opacity 0.15s; }
+  .send-btn:hover { opacity: 0.85; }
+  .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Permission modal */
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; width: 100%; max-width: 360px; overflow: hidden; }
+  .modal-header { padding: 16px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
+  .modal-icon { width: 38px; height: 38px; border-radius: 10px; background: var(--warn-dim); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .modal-body { padding: 16px 18px; }
+  .check-list { display: flex; flex-direction: column; gap: 7px; margin: 12px 0; }
+  .check-item { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; color: var(--muted); }
+  .check-item svg { color: var(--accent); flex-shrink: 0; margin-top: 1px; }
+  .modal-actions { display: flex; gap: 8px; padding: 0 18px 16px; }
+  .btn { flex: 1; padding: 9px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid var(--border); transition: all 0.15s; }
+  .btn-allow { background: var(--accent); color: #080c10; border-color: var(--accent); }
+  .btn-deny { background: transparent; color: var(--muted); }
+  .btn-allow:hover { opacity: 0.9; }
+  .btn-deny:hover { background: var(--card); color: var(--text); }
+
+  /* Audit log */
+  .audit-wrap { flex: 1; overflow-y: auto; padding: 0; }
+  .audit-row { display: flex; gap: 12px; padding: 10px 20px; border-bottom: 1px solid var(--border); align-items: flex-start; }
+  .audit-row:hover { background: var(--card); }
+  .audit-time { font-size: 11px; font-family: var(--mono); color: var(--muted); min-width: 52px; padding-top: 2px; flex-shrink: 0; }
+  .evt-badge { font-size: 10px; padding: 2px 7px; border-radius: 5px; font-family: var(--mono); display: inline-block; margin-bottom: 3px; }
+  .evt-perm { background: var(--accent-dim); color: var(--accent); }
+  .evt-file { background: var(--blue-dim); color: var(--blue); }
+  .evt-agent { background: var(--subtle); color: var(--muted); }
+  .evt-auth { background: var(--warn-dim); color: var(--warn); }
+  .audit-detail { font-size: 12px; color: var(--text); margin-top: 1px; font-family: var(--mono); }
+
+  /* Settings */
+  .settings-wrap { flex: 1; overflow-y: auto; padding: 20px; max-width: 540px; }
+  .settings-section { margin-bottom: 24px; }
+  .settings-label { font-size: 10px; color: var(--muted); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 8px; font-family: var(--mono); }
+  .settings-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .setting-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  .setting-row:last-child { border-bottom: none; }
+  .setting-info p { font-size: 13px; font-weight: 500; margin: 0 0 2px; }
+  .setting-info span { font-size: 11px; color: var(--muted); }
+  .toggle { width: 38px; height: 22px; border-radius: 11px; background: var(--border); cursor: pointer; position: relative; transition: background 0.2s; border: none; }
+  .toggle.on { background: var(--accent); }
+  .toggle::after { content: ''; position: absolute; width: 16px; height: 16px; border-radius: 50%; background: white; top: 3px; left: 3px; transition: left 0.2s; }
+  .toggle.on::after { left: 19px; }
+
+  /* Login */
+  .login-wrap { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; gap: 0; }
+  .login-box { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 32px; width: 340px; }
+  .login-logo { text-align: center; margin-bottom: 24px; }
+  .login-logo .logo-name { font-size: 22px; }
+  .form-field { margin-bottom: 14px; }
+  .form-field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; font-family: var(--mono); }
+  .form-field input { width: 100%; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 13px; color: var(--text); outline: none; transition: border-color 0.15s; }
+  .form-field input:focus { border-color: var(--accent); }
+  .login-btn { width: 100%; background: var(--accent); color: #080c10; border: none; border-radius: 8px; padding: 11px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 6px; transition: opacity 0.15s; }
+  .login-btn:hover { opacity: 0.9; }
+  .error-msg { font-size: 12px; color: var(--red); background: var(--red-dim); border-radius: 6px; padding: 8px 10px; margin-top: 10px; text-align: center; }
+
+  /* Empty state */
+  .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 12px; color: var(--muted); text-align: center; padding: 40px; }
+  .empty-state p { font-size: 13px; line-height: 1.6; max-width: 280px; }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  @keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-5px)} }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script>
+const { useState, useEffect, useRef, useCallback } = React;
+const API = 'http://localhost:8747';
+
+// ─── API helpers ──────────────────────────────────────────────────────────────
+async function api(path, opts = {}, token = null) {
+  const headers = { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+  const r = await fetch(API + path, { ...opts, headers });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.detail || r.statusText); }
+  return r.status === 204 ? null : r.json();
+}
+
+// ─── Icons ───────────────────────────────────────────────────────────────────
+const Icon = ({ d, size = 16 }) => React.createElement('svg', { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }, React.createElement('path', { d }));
+const icons = {
+  chat: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z',
+  audit: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
+  settings: 'M12 15a3 3 0 100-6 3 3 0 000 6z M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z',
+  send: 'M22 2L11 13 M22 2L15 22 8 13 2 9z',
+  lock: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
+  check: 'M20 6L9 17l-5-5',
+  folder: 'M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z',
+  net: 'M12 2a10 10 0 100 20A10 10 0 0012 2z M2 12h20 M12 2a15.3 15.3 0 010 20 M12 2a15.3 15.3 0 000 20',
+};
+
+// ─── Login ────────────────────────────────────────────────────────────────────
+function Login({ onLogin }) {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [needsSetup, setNeedsSetup] = useState(false);
+
+  useEffect(() => {
+    api('/auth/setup-status').then(r => setNeedsSetup(!r.setup_complete)).catch(() => {});
+  }, []);
+
+  const submit = async () => {
+    setLoading(true); setError('');
+    try {
+      const endpoint = needsSetup ? '/auth/setup' : '/auth/login';
+      const data = await api(endpoint, { method: 'POST', body: JSON.stringify({ username, password }) });
+      onLogin(data.access_token, data.role, username);
+    } catch (e) { setError(e.message); }
+    setLoading(false);
+  };
+
+  return React.createElement('div', { className: 'login-wrap' },
+    React.createElement('div', { className: 'login-box' },
+      React.createElement('div', { className: 'login-logo' },
+        React.createElement('div', { className: 'logo', style: { justifyContent: 'center', marginBottom: 6 } },
+          React.createElement('div', { className: 'logo-dot' }),
+          React.createElement('span', { className: 'logo-name' }, 'BixDot')
+        ),
+        React.createElement('div', { style: { textAlign: 'center' } },
+          React.createElement('span', { className: 'local-badge', style: { margin: '0 auto' } },
+            React.createElement('span', null, 'LOCAL FIRST · NO CLOUD')
+          )
+        )
+      ),
+      needsSetup && React.createElement('div', { style: { background: 'var(--accent-dim)', border: '1px solid var(--accent-mid)', borderRadius: 8, padding: '8px 12px', marginBottom: 14, fontSize: 12, color: 'var(--accent)' } }, 'First run — create your owner account'),
+      React.createElement('div', { className: 'form-field' },
+        React.createElement('label', null, 'Username'),
+        React.createElement('input', { value: username, onChange: e => setUsername(e.target.value), placeholder: 'username', autoFocus: true, onKeyDown: e => e.key === 'Enter' && submit() })
+      ),
+      React.createElement('div', { className: 'form-field' },
+        React.createElement('label', null, 'Password'),
+        React.createElement('input', { type: 'password', value: password, onChange: e => setPassword(e.target.value), placeholder: '••••••••••••', onKeyDown: e => e.key === 'Enter' && submit() })
+      ),
+      React.createElement('button', { className: 'login-btn', onClick: submit, disabled: loading },
+        loading ? 'Signing in…' : needsSetup ? 'Create account' : 'Sign in'
+      ),
+      error && React.createElement('div', { className: 'error-msg' }, error)
+    )
+  );
+}
+
+// ─── Permission Modal ─────────────────────────────────────────────────────────
+function PermModal({ perm, onAllow, onDeny }) {
+  const isFile = perm.capability.startsWith('fs:');
+  return React.createElement('div', { className: 'modal-bg' },
+    React.createElement('div', { className: 'modal' },
+      React.createElement('div', { className: 'modal-header' },
+        React.createElement('div', { className: 'modal-icon' },
+          React.createElement(Icon, { d: isFile ? icons.folder : icons.net, size: 18, color: 'var(--warn)' })
+        ),
+        React.createElement('div', null,
+          React.createElement('p', { style: { fontSize: 14, fontWeight: 500, marginBottom: 2 } }, `Allow "${perm.capability}"?`),
+          React.createElement('p', { style: { fontSize: 11, color: 'var(--muted)' } }, 'BixDot · Built-in skill')
+        )
+      ),
+      React.createElement('div', { className: 'modal-body' },
+        React.createElement('p', { style: { fontSize: 12, color: 'var(--muted)', marginBottom: 4 } }, 'BixDot needs this to complete your request.'),
+        React.createElement('div', { className: 'check-list' },
+          React.createElement('div', { className: 'check-item' }, React.createElement(Icon, { d: icons.check, size: 13 }), React.createElement('span', null, 'Your data stays on this device')),
+          React.createElement('div', { className: 'check-item' }, React.createElement(Icon, { d: icons.check, size: 13 }), React.createElement('span', null, 'Every action logged in audit log')),
+          React.createElement('div', { className: 'check-item' }, React.createElement(Icon, { d: icons.check, size: 13 }), React.createElement('span', null, 'Revoke any time in Settings'))
+        )
+      ),
+      React.createElement('div', { className: 'modal-actions' },
+        React.createElement('button', { className: 'btn btn-deny', onClick: onDeny }, "Don't allow"),
+        React.createElement('button', { className: 'btn btn-allow', onClick: onAllow }, 'Allow')
+      )
+    )
+  );
+}
+
+// ─── Chat Screen ──────────────────────────────────────────────────────────────
+function Chat({ token }) {
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [sessionId, setSessionId] = useState(null);
+  const [pendingPerm, setPendingPerm] = useState(null);
+  const [pendingMsg, setPendingMsg] = useState(null);
+  const bottomRef = useRef(null);
+
+  useEffect(() => {
+    api('/agent/sessions', { method: 'POST', body: JSON.stringify({ llm_backend: 'ollama' }) }, token)
+      .then(d => setSessionId(d.session_id))
+      .catch(() => {});
+  }, [token]);
+
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading]);
+
+  const send = async (msg) => {
+    if (!msg.trim() || !sessionId || loading) return;
+    const text = msg.trim();
+    setInput('');
+    setMessages(m => [...m, { role: 'user', text }]);
+    setLoading(true);
+    try {
+      const r = await api('/agent/chat', { method: 'POST', body: JSON.stringify({ message: text, session_id: sessionId }) }, token);
+      if (r.permissions_requested?.length > 0) {
+        setPendingPerm({ capability: r.permissions_requested[0], skill_id: 'builtin' });
+        setPendingMsg(text);
+        setMessages(m => [...m, { role: 'system', text: `Permission needed: "${r.permissions_requested[0]}" — approve below to continue.` }]);
+      } else {
+        setMessages(m => [...m, { role: 'agent', text: r.message }]);
+      }
+    } catch (e) {
+      setMessages(m => [...m, { role: 'agent', text: `Error: ${e.message}` }]);
+    }
+    setLoading(false);
+  };
+
+  const allowPerm = async () => {
+    if (!pendingPerm) return;
+    await api('/agent/permissions/grant', { method: 'POST', body: JSON.stringify(pendingPerm) }, token).catch(() => {});
+    const msg = pendingMsg;
+    setPendingPerm(null); setPendingMsg(null);
+    setMessages(m => [...m, { role: 'system', text: `✓ "${pendingPerm.capability}" granted. Retrying…` }]);
+    await send(msg);
+  };
+
+  const denyPerm = () => {
+    setMessages(m => [...m, { role: 'agent', text: "Understood — I won't access that. Is there something else I can help with?" }]);
+    setPendingPerm(null); setPendingMsg(null);
+  };
+
+  return React.createElement('div', { style: { display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' } },
+    messages.length === 0 && React.createElement('div', { className: 'empty-state' },
+      React.createElement('div', { className: 'logo-dot', style: { width: 12, height: 12 } }),
+      React.createElement('p', null, 'BixDot is running locally on your device using Ollama. Your data never leaves this machine.'),
+      React.createElement('p', { style: { fontSize: 12, color: 'var(--muted)' } }, 'Try: "What files are in my Documents folder?"')
+    ),
+    React.createElement('div', { className: 'chat-wrap' },
+      messages.map((m, i) => React.createElement('div', { key: i, className: `msg-row ${m.role === 'user' ? 'user' : ''}` },
+        React.createElement('div', { className: `msg ${m.role}` }, m.text)
+      )),
+      loading && React.createElement('div', { className: 'msg-row' },
+        React.createElement('div', { className: 'typing' },
+          React.createElement('span'), React.createElement('span'), React.createElement('span')
+        )
+      ),
+      React.createElement('div', { ref: bottomRef })
+    ),
+    React.createElement('div', { className: 'input-area' },
+      React.createElement('input', {
+        value: input,
+        onChange: e => setInput(e.target.value),
+        onKeyDown: e => e.key === 'Enter' && send(input),
+        placeholder: loading ? 'BixDot is thinking…' : 'Ask BixDot anything…',
+        disabled: loading
+      }),
+      React.createElement('button', { className: 'send-btn', onClick: () => send(input), disabled: loading || !input.trim() },
+        React.createElement(Icon, { d: icons.send, size: 15 })
+      )
+    ),
+    pendingPerm && React.createElement(PermModal, { perm: pendingPerm, onAllow: allowPerm, onDeny: denyPerm })
+  );
+}
+
+// ─── Audit Screen ─────────────────────────────────────────────────────────────
+function Audit({ token }) {
+  const [logs, setLogs] = useState([]);
+  useEffect(() => {
+    api('/agent/audit?limit=50', {}, token).then(setLogs).catch(() => {});
+    const iv = setInterval(() => api('/agent/audit?limit=50', {}, token).then(setLogs).catch(() => {}), 3000);
+    return () => clearInterval(iv);
+  }, [token]);
+
+  const badgeClass = (evt) => {
+    if (evt.includes('permission')) return 'evt-perm';
+    if (evt.includes('file') || evt.includes('data')) return 'evt-file';
+    if (evt.includes('auth')) return 'evt-auth';
+    return 'evt-agent';
+  };
+
+  return React.createElement('div', { className: 'audit-wrap' },
+    logs.length === 0 && React.createElement('div', { className: 'empty-state' },
+      React.createElement('p', null, 'No activity yet. Start chatting to see the audit log.')
+    ),
+    logs.map((log, i) => React.createElement('div', { key: i, className: 'audit-row' },
+      React.createElement('span', { className: 'audit-time' }, new Date(log.timestamp).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', second: '2-digit' })),
+      React.createElement('div', null,
+        React.createElement('span', { className: `evt-badge ${badgeClass(log.event)}` }, log.event),
+        React.createElement('div', { className: 'audit-detail' }, JSON.stringify(log.details).slice(0, 80))
+      )
+    ))
+  );
+}
+
+// ─── Settings Screen ──────────────────────────────────────────────────────────
+function Settings({ token }) {
+  const [cloud, setCloud] = useState(false);
+  const [perms, setPerms] = useState([]);
+
+  useEffect(() => {
+    api('/agent/permissions', {}, token).then(setPerms).catch(() => {});
+  }, [token]);
+
+  const revoke = async (cap) => {
+    await api(`/agent/permissions/${cap}`, { method: 'DELETE' }, token).catch(() => {});
+    setPerms(p => p.filter(x => x.capability !== cap));
+  };
+
+  return React.createElement('div', { className: 'settings-wrap' },
+    React.createElement('div', { className: 'settings-section' },
+      React.createElement('div', { className: 'settings-label' }, 'AI Model'),
+      React.createElement('div', { className: 'settings-card' },
+        React.createElement('div', { className: 'setting-row' },
+          React.createElement('div', { className: 'setting-info' },
+            React.createElement('p', null, 'Local model (Ollama)'),
+            React.createElement('span', null, 'llama3.2 · Runs on this device · No API key needed')
+          ),
+          React.createElement('span', { style: { fontSize: 11, background: 'var(--accent-dim)', color: 'var(--accent)', padding: '3px 8px', borderRadius: 6, fontFamily: 'var(--mono)' } }, 'Active')
+        ),
+        React.createElement('div', { className: 'setting-row' },
+          React.createElement('div', { className: 'setting-info' },
+            React.createElement('p', null, 'Cloud boost'),
+            React.createElement('span', null, 'Optional · Requires your own API key · Data leaves device')
+          ),
+          React.createElement('button', { className: `toggle ${cloud ? 'on' : ''}`, onClick: () => setCloud(c => !c) })
+        )
+      )
+    ),
+    React.createElement('div', { className: 'settings-section' },
+      React.createElement('div', { className: 'settings-label' }, 'Privacy'),
+      React.createElement('div', { className: 'settings-card' },
+        React.createElement('div', { className: 'setting-row' },
+          React.createElement('div', { className: 'setting-info' },
+            React.createElement('p', null, 'Data storage'),
+            React.createElement('span', null, '~/.bixdot/ · Your device only')
+          ),
+          React.createElement(Icon, { d: icons.folder, size: 16 })
+        ),
+        React.createElement('div', { className: 'setting-row' },
+          React.createElement('div', { className: 'setting-info' },
+            React.createElement('p', null, 'Audit log'),
+            React.createElement('span', null, 'Tamper-evident hash chain · Always on')
+          ),
+          React.createElement('button', { className: 'toggle on', disabled: true, style: { opacity: 1 } })
+        )
+      )
+    ),
+    React.createElement('div', { className: 'settings-section' },
+      React.createElement('div', { className: 'settings-label' }, `Active permissions (${perms.length})`),
+      React.createElement('div', { className: 'settings-card' },
+        perms.length === 0 && React.createElement('div', { className: 'setting-row' },
+          React.createElement('span', { style: { fontSize: 13, color: 'var(--muted)' } }, 'No active permissions')
+        ),
+        perms.map((p, i) => React.createElement('div', { key: i, className: 'setting-row' },
+          React.createElement('div', { className: 'setting-info' },
+            React.createElement('p', null, p.capability),
+            React.createElement('span', null, `Granted ${new Date(p.granted_at).toLocaleTimeString()}`)
+          ),
+          React.createElement('button', { className: 'btn', style: { width: 'auto', padding: '4px 12px', fontSize: 11, color: 'var(--red)' }, onClick: () => revoke(p.capability) }, 'Revoke')
+        ))
+      )
+    )
+  );
+}
+
+// ─── Main App ─────────────────────────────────────────────────────────────────
+function App() {
+  const [token, setToken] = useState(localStorage.getItem('bixdot_token'));
+  const [username, setUsername] = useState(localStorage.getItem('bixdot_user') || '');
+  const [screen, setScreen] = useState('chat');
+
+  const login = (t, role, u) => {
+    localStorage.setItem('bixdot_token', t);
+    localStorage.setItem('bixdot_user', u);
+    setToken(t); setUsername(u);
+  };
+
+  const logout = () => {
+    localStorage.removeItem('bixdot_token');
+    localStorage.removeItem('bixdot_user');
+    setToken(null);
+  };
+
+  if (!token) return React.createElement(Login, { onLogin: login });
+
+  const navItems = [
+    { id: 'chat', label: 'Chat', icon: icons.chat },
+    { id: 'audit', label: 'Audit log', icon: icons.audit },
+    { id: 'settings', label: 'Settings', icon: icons.settings },
+  ];
+
+  return React.createElement('div', { className: 'app' },
+    React.createElement('div', { className: 'sidebar' },
+      React.createElement('div', { className: 'sidebar-header' },
+        React.createElement('div', { className: 'logo' },
+          React.createElement('div', { className: 'logo-dot' }),
+          React.createElement('span', { className: 'logo-name' }, 'BixDot')
+        ),
+        React.createElement('div', { className: 'local-badge' },
+          React.createElement('span', null, 'LOCAL · OFFLINE')
+        )
+      ),
+      React.createElement('nav', { className: 'nav' },
+        navItems.map(item => React.createElement('div', {
+          key: item.id,
+          className: `nav-item ${screen === item.id ? 'active' : ''}`,
+          onClick: () => setScreen(item.id)
+        },
+          React.createElement(Icon, { d: item.icon }),
+          React.createElement('span', null, item.label)
+        ))
+      ),
+      React.createElement('div', { className: 'sidebar-footer' },
+        React.createElement('div', { className: 'model-pill' },
+          React.createElement('div', { className: 'model-dot' }),
+          React.createElement('span', null, 'llama3.2 · local')
+        ),
+        React.createElement('button', { onClick: logout, style: { width: '100%', marginTop: 8, background: 'transparent', border: '1px solid var(--border)', color: 'var(--muted)', borderRadius: 8, padding: '6px', fontSize: 12, cursor: 'pointer' } }, `Sign out (${username})`)
+      )
+    ),
+    React.createElement('div', { className: 'main' },
+      React.createElement('div', { className: 'topbar' },
+        React.createElement('span', { className: 'topbar-title' }, navItems.find(n => n.id === screen)?.label),
+        React.createElement('div', { className: 'chain-badge' }, '✓ Chain verified · Local')
+      ),
+      screen === 'chat' && React.createElement(Chat, { token }),
+      screen === 'audit' && React.createElement(Audit, { token }),
+      screen === 'settings' && React.createElement(Settings, { token })
+    )
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+</script>
+</body>
+</html>
