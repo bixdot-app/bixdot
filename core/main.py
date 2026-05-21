@@ -129,3 +129,6 @@ if __name__ == "__main__":
 # ─── Routers ──────────────────────────────────────────────────────────────────
 from core.auth.routes import router as auth_router
 app.include_router(auth_router)
+
+from core.agent.routes import router as agent_router
+app.include_router(agent_router)

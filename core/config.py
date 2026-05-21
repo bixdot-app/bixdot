@@ -7,8 +7,14 @@
 
 """
 BixDot — Configuration
-All config validated at startup. Missing required values = hard fail.
-No silent defaults for security-critical settings.
+
+LOCAL FIRST. ALWAYS.
+
+BixDot runs entirely on the user's device using Ollama.
+No API key required. No cloud dependency. No data leaves the machine.
+
+Cloud LLM is an optional add-on the user explicitly enables.
+It is never the default. It is never a fallback.
 """
 import secrets
 from pydantic_settings import BaseSettings
@@ -22,6 +28,7 @@ class Settings(BaseSettings):
     debug: bool = False
 
     # ─── Server ────────────────────────────────────────────────────────────
+    # Binds to localhost ONLY. Never exposed to network.
     host: str = "127.0.0.1"
     port: int = 8747
 
@@ -33,12 +40,19 @@ class Settings(BaseSettings):
 
     # ─── Database ──────────────────────────────────────────────────────────
     db_path: str = "~/.bixdot/data.db"
+    audit_log_path: str = "~/.bixdot/audit.db"
 
-    # ─── LLM ───────────────────────────────────────────────────────────────
-    anthropic_api_key: str = ""
+    # ─── LLM — LOCAL FIRST ─────────────────────────────────────────────────
+    # Ollama is the default. Always. No exceptions.
+    # Cloud LLM is opt-in only — user must explicitly enable it.
     ollama_url: str = "http://localhost:11434"
-    default_model: str = "claude-sonnet-4-20250514"
-    local_model: str = "llama3.2"
+    local_model: str = "llama3.2"          # Default local model
+    local_model_fallback: str = "llama3.2:1b"  # For lower-spec devices
+
+    # Cloud LLM — OPTIONAL. User provides their own key.
+    # Empty by default. Product works fully without this.
+    cloud_llm_enabled: bool = False        # Off by default
+    cloud_api_key: str = ""               # Never pre-filled
 
     # ─── Security ──────────────────────────────────────────────────────────
     auth_rate_limit: str = "5/minute"
@@ -54,7 +68,6 @@ class Settings(BaseSettings):
 
     # ─── Audit ─────────────────────────────────────────────────────────────
     audit_log_enabled: bool = True
-    audit_log_path: str = "~/.bixdot/audit.db"
 
     @validator("host")
     def validate_host(cls, v, values):
