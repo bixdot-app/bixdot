@@ -136,6 +136,9 @@ app.include_router(agent_router)
 from core.skills.calendar.routes import router as calendar_router
 app.include_router(calendar_router)
 
+from core.skills.terminal.routes import router as terminal_router
+app.include_router(terminal_router)
+
 # ─── Serve Frontend ───────────────────────────────────────────────────────────
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse

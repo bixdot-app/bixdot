@@ -110,6 +110,18 @@ BUILTIN_TOOLS = [
         }
     },
     {
+        "name": "run_command",
+        "description": "Run a safe terminal command from the allowlist. ONLY use when user explicitly asks to run a command, check a version, or use a specific CLI tool.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "command": {"type": "string", "description": "The command to run (e.g. 'python --version', 'git status', 'pip list')"},
+                "cwd":     {"type": "string", "description": "Working directory (optional, defaults to home)"}
+            },
+            "required": ["command"]
+        }
+    },
+    {
         "name": "get_events",
         "description": "Get upcoming calendar events. Only use when user asks about their calendar, schedule, or upcoming events.",
         "input_schema": {
@@ -196,6 +208,10 @@ _TOOL_KEYWORDS = (
     "search the web", "search web", "google", "look up", "lookup",
     "find out", "what is the latest", "latest news", "current news",
     "web search", "browse",
+    # terminal
+    "run", "execute", "command", "terminal", "cmd", "shell",
+    "python ", "pip ", "git ", "node ", "npm ", "ollama ",
+    "version", "--version", "-v",
     # calendar
     "calendar", "schedule", "event", "appointment", "meeting",
     "what's on", "whats on", "my day", "upcoming", "remind",
@@ -373,6 +389,8 @@ class AgentRuntime:
             elif tool_name == "web_search":
                 return await self._web_search(
                     tool_input.get("query", ""), tool_input.get("max_results", 3), user_id)
+            elif tool_name == "run_command":
+                return await self._run_command(tool_input.get("command",""), tool_input.get("cwd"), user_id)
             elif tool_name == "get_events":
                 days = int(tool_input.get("days_ahead", 7))
                 return await self._get_events(days, user_id)
@@ -459,6 +477,18 @@ class AgentRuntime:
         except Exception as e:
             import traceback; traceback.print_exc()
             return f"Search error: {type(e).__name__}: {e}"
+
+    async def _run_command(self, command: str, cwd: str | None, user_id: str) -> str:
+        from core.skills.terminal.sandbox import run_command
+        self.audit.log(AuditEvent.AGENT_TOOL_CALL, {"tool": "terminal", "command": command}, user_id=user_id)
+        result = run_command(command, cwd)
+        if result["blocked"]:
+            return f"⛔ Blocked: {result['blocked']}"
+        out = ""
+        if result["stdout"]: out += result["stdout"]
+        if result["stderr"]: out += ("\n" if out else "") + f"[stderr] {result['stderr']}"
+        if not out: out = f"(exit {result['exit']})"
+        return out.strip()
 
     async def _get_events(self, days_ahead: int, user_id: str) -> str:
         try:
