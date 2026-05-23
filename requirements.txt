@@ -36,3 +36,4 @@ httpx==0.27.2           # Test client
 bandit==1.7.10          # Security linting
 semgrep==1.89.0         # SAST scanning
 aiofiles==24.1.0        # Serve static frontend files
+ddgs==0.1.0                  # Web search — no API key needed

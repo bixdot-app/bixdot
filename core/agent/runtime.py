@@ -1,53 +1,46 @@
 # Copyright (c) 2026 DigiTech Business Pte. Ltd. All rights reserved.
 # BixDot is a trademark of DigiTech Business Pte. Ltd (Singapore).
 # Licensed under the Business Source License 1.1 (BUSL-1.1).
-# Commercial use requires a license: legal@bixdot.app
-# Security disclosures: security@bixdot.app
-# See LICENSE in the project root for full terms.
 
 """
 BixDot — Agent Runtime
-The core loop: user message → LLM → tool calls → results → response
 
-Architecture:
-- Agent receives a message and session context
-- Sends to LLM (Claude or Ollama) with available tools
-- If LLM calls a tool: check permissions → execute in sandbox → feed result back
-- Repeat until LLM produces a final text response
-- Every action logged to tamper-evident audit log
+Uses a two-phase approach compatible with llama3.2 via Ollama:
 
-Security guarantees:
-- Tool calls only execute if permission grant exists
-- Every tool call logged before execution
-- Sandbox enforces resource limits
-- PII scrubbed before cloud LLM calls
+Phase 1 — Tool Detection:
+  Send user message with tool definitions. If llama3.2 calls a tool,
+  execute it and collect the result.
+
+Phase 2 — Synthesis:
+  Send tool results back as context and ask the model to give a
+  final plain-text answer. This avoids the loop where smaller models
+  keep calling tools instead of responding.
 """
 import json
-from typing import Optional, AsyncGenerator
+import os
+import warnings
+from pathlib import Path
+from typing import Optional
 from pydantic import BaseModel
 
 from core.agent.llm import LLMAdapter
 from core.agent.permissions import PermissionStore, Capability, get_permission_store
 from core.audit.logger import AuditLogger, AuditEvent, get_audit_logger
-from core.sandbox.executor import SkillExecutor
 from core.config import settings
+from core.agent.paths import resolve_path, get_system_context
 
 
 # ─── Models ───────────────────────────────────────────────────────────────────
 
 class Message(BaseModel):
-    role: str       # "user" | "assistant" | "tool"
+    role: str
     content: str
-    tool_call_id: Optional[str] = None
-    tool_name: Optional[str] = None
-
 
 class AgentSession(BaseModel):
     session_id: str
     user_id: str
     messages: list[Message] = []
-    llm_backend: str = "claude"
-
+    llm_backend: str = "ollama"
 
 class AgentResponse(BaseModel):
     message: str
@@ -56,183 +49,206 @@ class AgentResponse(BaseModel):
     session_id: str
 
 
-# ─── Built-in Tool Definitions ────────────────────────────────────────────────
+# ─── Tool Definitions ─────────────────────────────────────────────────────────
 
 BUILTIN_TOOLS = [
     {
         "name": "read_file",
-        "description": "Read the contents of a file on the user's machine. "
-                       "Only works on paths the user has explicitly granted access to.",
+        "description": "Read the text contents of a file. Requires fs:read permission.",
         "input_schema": {
             "type": "object",
             "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "Absolute path to the file to read"
-                }
+                "path": {"type": "string", "description": "Full file path. Use ~ for home directory."}
             },
             "required": ["path"]
         }
     },
     {
         "name": "write_file",
-        "description": "Write content to a file on the user's machine. "
-                       "Only works on paths the user has explicitly granted access to.",
+        "description": "Write text to a file. Creates file if needed. Requires fs:write permission.",
         "input_schema": {
             "type": "object",
             "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "Absolute path to the file to write"
-                },
-                "content": {
-                    "type": "string",
-                    "description": "Content to write to the file"
-                }
+                "path": {"type": "string", "description": "Full file path."},
+                "content": {"type": "string", "description": "Text content to write."}
             },
             "required": ["path", "content"]
         }
     },
     {
         "name": "list_directory",
-        "description": "List files and folders in a directory. "
-                       "Only works on paths the user has explicitly granted access to.",
+        "description": "List files and folders in a directory. Requires fs:read permission.",
         "input_schema": {
             "type": "object",
             "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "Absolute path to the directory to list"
-                }
+                "path": {"type": "string", "description": "Directory path. Use ~ for home directory."}
             },
             "required": ["path"]
         }
     },
     {
-        "name": "web_search",
-        "description": "Search the web for current information.",
+        "name": "search_files",
+        "description": "Find files by name pattern. Requires fs:read permission.",
         "input_schema": {
             "type": "object",
             "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "Search query"
-                }
+                "directory": {"type": "string", "description": "Directory to search."},
+                "pattern": {"type": "string", "description": "Pattern like '*.pdf', '*.txt', 'report*'"}
+            },
+            "required": ["directory", "pattern"]
+        }
+    },
+    {
+        "name": "web_search",
+        "description": "Search the web for current information. Requires net:fetch permission.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Search query"},
+                "max_results": {"type": "integer", "description": "Results (1-5)", "default": 3}
             },
             "required": ["query"]
         }
     },
 ]
 
-# Map tool names to required capabilities
 TOOL_CAPABILITY_MAP = {
-    "read_file": Capability.FS_READ,
-    "write_file": Capability.FS_WRITE,
+    "read_file":      Capability.FS_READ,
+    "write_file":     Capability.FS_WRITE,
     "list_directory": Capability.FS_READ,
-    "web_search": Capability.NET_FETCH,
+    "search_files":   Capability.FS_READ,
+    "web_search":     Capability.NET_FETCH,
 }
 
-# BixDot system prompt
-SYSTEM_PROMPT = """You are BixDot, a personal AI agent that runs entirely on your device using local AI models.
+def get_system_prompt() -> str:
+    """Build system prompt with actual filesystem context."""
+    ctx = get_system_context()
+    return f"""You are BixDot, a personal AI agent running on the user's device using Ollama.
+No data leaves this machine.
 
-Your key principles:
-- You are private, local, and trustworthy
-- You only access files and resources the user has explicitly permitted
-- You always explain what you're about to do before doing it
-- You never exfiltrate data or make unexpected network calls
-- If you need a permission you don't have, tell the user clearly
+CRITICAL — TOOL USE RULES (read carefully):
+- Only call a tool when the user EXPLICITLY asks you to read a file, list a folder, search files, write a file, or search the web.
+- For normal conversation, questions, sharing personal facts, or opinions — respond directly. Do NOT call any tool.
+- Examples where you must NOT use tools:
+  * "my favourite colour is blue" → just acknowledge it
+  * "I love my dog Hazel" → just respond warmly
+  * "what do you think about X" → just answer
+  * "tell me a joke" → just tell one
+- Examples where you SHOULD use tools:
+  * "what files are in my Documents?" → use list_directory
+  * "search the web for Ollama news" → use web_search
+  * "read my notes.txt file" → use read_file
+  * "create a file called todo.txt" → use write_file
 
-You have access to tools for reading/writing files and searching the web.
-Always ask for permission before accessing any file or folder for the first time.
-Be concise, helpful, and transparent about every action you take."""
+When you have tool results, summarise them clearly and concisely.
 
+{ctx}
+
+When the user asks about their Documents, Downloads, Desktop, Videos, Pictures or Music,
+use the exact paths listed above. Do not guess paths."""
+
+# ─── Block helpers ─────────────────────────────────────────────────────────────
+
+def _type(b):  return b.get("type")  if isinstance(b, dict) else getattr(b, "type",  None)
+def _text(b):  return b.get("text","") if isinstance(b, dict) else getattr(b, "text",  "")
+def _id(b):    return b.get("id")    if isinstance(b, dict) else getattr(b, "id",    None)
+def _name(b):  return b.get("name")  if isinstance(b, dict) else getattr(b, "name",  None)
+def _input(b): return b.get("input",{}) if isinstance(b, dict) else getattr(b, "input", {})
+
+
+
+# ─── Message Classifier ───────────────────────────────────────────────────────
+
+# Keywords that signal the user wants a tool-based action
+_TOOL_KEYWORDS = (
+    # filesystem
+    "read", "open", "load", "show me", "what's in", "whats in",
+    "list", "folder", "directory", "files in", "file in",
+    "find file", "search file", "search for file",
+    "write", "create file", "save file", "make file", "create a file",
+    "delete file", "rename",
+    # web
+    "search the web", "search web", "google", "look up", "lookup",
+    "find out", "what is the latest", "latest news", "current news",
+    "web search", "browse",
+)
+
+def _needs_tools(message: str) -> bool:
+    """
+    Return True only if the message clearly requests a file or web action.
+    For everything else (chat, questions, personal statements) return False.
+    This prevents llama3.2 from calling tools on conversational messages.
+    """
+    lower = message.lower()
+    return any(kw in lower for kw in _TOOL_KEYWORDS)
 
 # ─── Agent Runtime ────────────────────────────────────────────────────────────
 
 class AgentRuntime:
-    """
-    The BixDot agent runtime.
-    Orchestrates the LLM ↔ tool loop with full permission checking and audit logging.
-    """
+    MAX_TOOL_ROUNDS = 5
 
-    MAX_TOOL_ROUNDS = 10  # Prevent infinite loops
-
-    def __init__(
-        self,
-        permission_store: Optional[PermissionStore] = None,
-        audit_logger: Optional[AuditLogger] = None,
-    ):
+    def __init__(self, permission_store=None, audit_logger=None):
         self.permissions = permission_store or get_permission_store()
-        self.audit = audit_logger or get_audit_logger()
+        self.audit       = audit_logger       or get_audit_logger()
 
-    async def run(
-        self,
-        session: AgentSession,
-        user_message: str,
-    ) -> AgentResponse:
-        """
-        Process a user message and return the agent's response.
-        Handles multi-round tool use loops internally.
-        """
-        # Add user message to session
+    async def run(self, session: AgentSession, user_message: str) -> AgentResponse:
         session.messages.append(Message(role="user", content=user_message))
+        self.audit.log(AuditEvent.AGENT_QUERY,
+                       {"preview": user_message[:100], "session_id": session.session_id},
+                       user_id=session.user_id)
 
-        self.audit.log(
-            AuditEvent.AGENT_QUERY,
-            {"message_preview": user_message[:100], "session_id": session.session_id},
-            user_id=session.user_id,
-        )
-
-        # Initialise LLM adapter
         llm = LLMAdapter(backend=session.llm_backend, user_id=session.user_id)
-
-        tool_calls_made = []
+        tool_calls_made      = []
         permissions_requested = []
+        collected_results    = []   # gather tool results before synthesis
         rounds = 0
 
+        # ── Phase 1: tool calling loop ───────────────────────────────────────
         while rounds < self.MAX_TOOL_ROUNDS:
             rounds += 1
 
-            # Build messages for LLM
-            messages = self._build_messages(session.messages)
+            messages = [{"role": m.role, "content": m.content}
+                        for m in session.messages]
 
-            # Call LLM with available tools
+            # Only give the model tools if the message actually needs them.
+            # Passing tools to llama3.2 for conversational messages causes it
+            # to call tools inappropriately — stripping them forces plain text.
+            active_tools = BUILTIN_TOOLS if _needs_tools(user_message) else None
             response = await llm.chat(
                 messages=messages,
-                system=SYSTEM_PROMPT,
-                tools=BUILTIN_TOOLS,
+                system=get_system_prompt(),
+                tools=active_tools,
             )
 
-            # Check if LLM wants to use a tool
-            # Handle both dict responses (Ollama) and object responses (Anthropic API)
-            def block_type(b): return b.get("type") if isinstance(b, dict) else getattr(b, "type", None)
-            def block_text(b): return b.get("text", "") if isinstance(b, dict) else getattr(b, "text", "")
-            def block_id(b): return b.get("id") if isinstance(b, dict) else getattr(b, "id", None)
-            def block_name(b): return b.get("name") if isinstance(b, dict) else getattr(b, "name", None)
-            def block_input(b): return b.get("input", {}) if isinstance(b, dict) else getattr(b, "input", {})
-
+            # Filter out null/invalid tool calls that confused models emit for plain conversation
             tool_uses = [
-                block for block in response["content"]
-                if block_type(block) == "tool_use"
+                b for b in response["content"]
+                if _type(b) == "tool_use"
+                and _name(b) not in (None, "null", "", "none")
             ]
 
+            # No tool calls → model gave a final answer
             if not tool_uses:
-                # LLM gave a final text response — we're done
                 final_text = " ".join(
-                    block_text(block)
-                    for block in response["content"]
-                    if block_type(block) == "text"
-                )
-                session.messages.append(
-                    Message(role="assistant", content=final_text)
-                )
-                self.audit.log(
-                    AuditEvent.AGENT_RESPONSE,
-                    {"session_id": session.session_id,
-                     "tool_calls": tool_calls_made,
-                     "rounds": rounds},
-                    user_id=session.user_id,
-                )
+                    _text(b) for b in response["content"] if _type(b) == "text"
+                ).strip()
+                # Guard: if model returned raw JSON or tool artifact, treat as empty
+                if final_text.startswith('{"') or final_text.startswith("{'"):
+                    final_text = ""
+
+                if not final_text and collected_results:
+                    # Model gave empty response but we have results — synthesise
+                    final_text = await self._synthesise(
+                        llm, user_message, collected_results
+                    )
+
+                if not final_text:
+                    final_text = "Done."
+
+                session.messages.append(Message(role="assistant", content=final_text))
+                self.audit.log(AuditEvent.AGENT_RESPONSE,
+                               {"tools_used": tool_calls_made, "rounds": rounds},
+                               user_id=session.user_id)
                 return AgentResponse(
                     message=final_text,
                     tool_calls_made=tool_calls_made,
@@ -240,174 +256,171 @@ class AgentRuntime:
                     session_id=session.session_id,
                 )
 
-            # Process tool calls
-            tool_results = []
+            # Execute tools
             for tool_use in tool_uses:
-                tool_name = block_name(tool_use)
-                tool_input = block_input(tool_use)
-                tool_id = block_id(tool_use)
+                tool_name  = _name(tool_use)
+                tool_input = _input(tool_use)
 
-                self.audit.log(
-                    AuditEvent.AGENT_TOOL_CALL,
-                    {"tool": tool_name, "input": tool_input,
-                     "session_id": session.session_id},
-                    user_id=session.user_id,
-                )
+                self.audit.log(AuditEvent.AGENT_TOOL_CALL,
+                               {"tool": tool_name, "input": tool_input},
+                               user_id=session.user_id)
 
-                # Check permission
                 required_cap = TOOL_CAPABILITY_MAP.get(tool_name)
                 if required_cap and not self.permissions.check("builtin", required_cap):
-                    # Permission not granted — tell LLM
-                    permissions_requested.append(tool_name)
-                    result = (
-                        f"Permission denied: '{tool_name}' requires "
-                        f"'{required_cap}' permission. "
-                        f"Please ask the user to grant this permission first."
+                    permissions_requested.append(required_cap.value)
+                    # Return immediately — UI will ask user to grant then retry
+                    return AgentResponse(
+                        message="Permission required.",
+                        tool_calls_made=tool_calls_made,
+                        permissions_requested=list(set(permissions_requested)),
+                        session_id=session.session_id,
                     )
-                else:
-                    # Execute the tool
-                    result = await self._execute_tool(
-                        tool_name, tool_input, session.user_id
-                    )
-                    tool_calls_made.append(tool_name)
 
-                tool_results.append({
-                    "type": "tool_result",
-                    "tool_use_id": tool_id,
-                    "content": str(result),
-                })
+                result = await self._execute_tool(tool_name, tool_input, session.user_id)
+                tool_calls_made.append(tool_name)
+                collected_results.append({"tool": tool_name, "result": result})
 
-            # Add assistant message with tool use + tool results to session
-            session.messages.append(
-                Message(role="assistant",
-                        content=json.dumps([{
-                            "type": "tool_use",
-                            "id": block_id(t),
-                            "name": block_name(t),
-                            "input": block_input(t)
-                        } for t in tool_uses]))
-            )
-            session.messages.append(
-                Message(role="user", content=json.dumps(tool_results))
+            # After tools: synthesise immediately rather than looping
+            # This prevents llama3.2 from going into a tool-calling loop
+            final_text = await self._synthesise(llm, user_message, collected_results)
+            session.messages.append(Message(role="assistant", content=final_text))
+            self.audit.log(AuditEvent.AGENT_RESPONSE,
+                           {"tools_used": tool_calls_made, "rounds": rounds},
+                           user_id=session.user_id)
+            return AgentResponse(
+                message=final_text,
+                tool_calls_made=tool_calls_made,
+                permissions_requested=permissions_requested,
+                session_id=session.session_id,
             )
 
-        # Max rounds reached
+        # Fallback
         return AgentResponse(
-            message="I reached the maximum number of steps. Please try a simpler request.",
+            message="I took too many steps. Please try a simpler request.",
             tool_calls_made=tool_calls_made,
             permissions_requested=permissions_requested,
             session_id=session.session_id,
         )
 
-    async def _execute_tool(
-        self,
-        tool_name: str,
-        tool_input: dict,
-        user_id: str,
-    ) -> str:
-        """Execute a tool and return its result as a string."""
+    async def _synthesise(self, llm: LLMAdapter, original_question: str,
+                          results: list[dict]) -> str:
+        """
+        After tools run, ask the model to give a clean final answer.
+        No tools passed — forces a text response.
+        """
+        context = "\n\n".join(
+            f"[{r['tool']} result]\n{r['result']}" for r in results
+        )
+        synthesis_prompt = (
+            f"The user asked: {original_question}\n\n"
+            f"Here are the results from the tools you used:\n\n"
+            f"{context}\n\n"
+            f"Now give the user a clear, helpful answer based on these results."
+        )
+        response = await llm.chat(
+            messages=[{"role": "user", "content": synthesis_prompt}],
+            system=get_system_prompt(),
+            tools=None,  # No tools — forces plain text answer
+        )
+        text = " ".join(
+            _text(b) for b in response["content"] if _type(b) == "text"
+        ).strip()
+        return text or context[:500]  # Fallback: return raw result
+
+    # ── Tool execution ────────────────────────────────────────────────────────
+
+    async def _execute_tool(self, tool_name: str, tool_input: dict, user_id: str) -> str:
         try:
             if tool_name == "read_file":
-                return await self._read_file(tool_input["path"], user_id)
+                return await self._read_file(tool_input.get("path", ""), user_id)
             elif tool_name == "write_file":
                 return await self._write_file(
-                    tool_input["path"], tool_input["content"], user_id
-                )
+                    tool_input.get("path", ""), tool_input.get("content", ""), user_id)
             elif tool_name == "list_directory":
-                return await self._list_directory(tool_input["path"], user_id)
+                return await self._list_directory(tool_input.get("path", "~"), user_id)
+            elif tool_name == "search_files":
+                return await self._search_files(
+                    tool_input.get("directory", "~"), tool_input.get("pattern", "*"), user_id)
             elif tool_name == "web_search":
-                return await self._web_search(tool_input["query"], user_id)
-            else:
-                return f"Unknown tool: {tool_name}"
+                return await self._web_search(
+                    tool_input.get("query", ""), tool_input.get("max_results", 3), user_id)
+            return f"Unknown tool: {tool_name}"
         except Exception as e:
-            return f"Tool error: {str(e)}"
+            return f"Tool error: {e}"
+
+    def _resolve(self, path: str) -> Path:
+        return resolve_path(path)
 
     async def _read_file(self, path: str, user_id: str) -> str:
-        """Read a file — path validated, symlinks not followed."""
-        import os
-        from pathlib import Path
-
-        # Resolve path safely — no symlink following
+        if not path: return "Error: no path"
         try:
-            resolved = Path(path).resolve(strict=True)
-        except (FileNotFoundError, OSError) as e:
-            return f"File not found: {path}"
-
-        # Check it's actually a file
-        if not resolved.is_file():
-            return f"Not a file: {path}"
-
-        # Read with size limit (1MB for safety)
-        MAX_SIZE = 1024 * 1024
-        if resolved.stat().st_size > MAX_SIZE:
-            return f"File too large to read (max 1MB): {path}"
-
-        self.audit.log(
-            AuditEvent.FILE_READ,
-            {"path": str(resolved)},
-            user_id=user_id,
-        )
-
-        try:
-            return resolved.read_text(encoding="utf-8", errors="replace")
+            p = self._resolve(path)
+            if not p.exists(): return f"Not found: {path}"
+            if not p.is_file(): return f"Not a file: {path}"
+            if p.stat().st_size > 1_048_576: return "File too large (max 1MB)"
+            self.audit.log(AuditEvent.FILE_READ, {"path": str(p)}, user_id=user_id)
+            return p.read_text(encoding="utf-8", errors="replace")
         except Exception as e:
-            return f"Could not read file: {e}"
+            return f"Read error: {e}"
 
     async def _write_file(self, path: str, content: str, user_id: str) -> str:
-        """Write a file safely."""
-        from pathlib import Path
-
+        if not path: return "Error: no path"
         try:
-            resolved = Path(path).resolve()
-            resolved.parent.mkdir(parents=True, exist_ok=True)
-            resolved.write_text(content, encoding="utf-8")
-
-            self.audit.log(
-                AuditEvent.FILE_WRITE,
-                {"path": str(resolved), "size": len(content)},
-                user_id=user_id,
-            )
-            return f"File written successfully: {path}"
+            p = self._resolve(path)
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(content, encoding="utf-8")
+            self.audit.log(AuditEvent.FILE_WRITE, {"path": str(p), "size": len(content)}, user_id=user_id)
+            return f"Written: {p} ({len(content):,} chars)"
         except Exception as e:
-            return f"Could not write file: {e}"
+            return f"Write error: {e}"
 
     async def _list_directory(self, path: str, user_id: str) -> str:
-        """List directory contents safely."""
-        from pathlib import Path
-
         try:
-            resolved = Path(path).resolve(strict=True)
-            if not resolved.is_dir():
-                return f"Not a directory: {path}"
-
+            p = self._resolve(path or "~")
+            if not p.exists(): return f"Not found: {path}"
+            if not p.is_dir(): return f"Not a directory: {path}"
             entries = []
-            for entry in sorted(resolved.iterdir()):
-                kind = "📁" if entry.is_dir() else "📄"
-                entries.append(f"{kind} {entry.name}")
-
-            self.audit.log(
-                AuditEvent.FILE_READ,
-                {"path": str(resolved), "type": "directory_list"},
-                user_id=user_id,
-            )
-            return "\n".join(entries) if entries else "Empty directory"
+            for e in sorted(p.iterdir()):
+                if e.is_dir():
+                    entries.append(f"📁 {e.name}/")
+                else:
+                    sz = e.stat().st_size
+                    entries.append(f"📄 {e.name} ({sz:,} B)" if sz < 1024 else f"📄 {e.name} ({sz//1024:,} KB)")
+            self.audit.log(AuditEvent.FILE_READ, {"path": str(p), "count": len(entries)}, user_id=user_id)
+            return f"{p}:\n" + ("\n".join(entries) if entries else "(empty)")
         except Exception as e:
-            return f"Could not list directory: {e}"
+            return f"List error: {e}"
 
-    async def _web_search(self, query: str, user_id: str) -> str:
-        """Placeholder web search — real implementation in Week 3."""
-        self.audit.log(
-            AuditEvent.NET_REQUEST,
-            {"query": query, "type": "web_search"},
-            user_id=user_id,
-        )
-        return f"Web search for '{query}' — search integration coming in Week 3."
+    async def _search_files(self, directory: str, pattern: str, user_id: str) -> str:
+        import fnmatch
+        try:
+            p = self._resolve(directory)
+            if not p.is_dir(): return f"Not a directory: {directory}"
+            matches = []
+            for root, dirs, files in os.walk(p):
+                dirs[:] = [d for d in dirs if not d.startswith('.')]
+                for f in files:
+                    if fnmatch.fnmatch(f.lower(), pattern.lower()):
+                        matches.append(str(Path(root) / f))
+                if len(matches) >= 50: break
+            self.audit.log(AuditEvent.FILE_READ, {"dir": str(p), "pattern": pattern, "found": len(matches)}, user_id=user_id)
+            if not matches: return f"No files matching '{pattern}' in {p}"
+            return f"Found {len(matches)} file(s):\n" + "\n".join(matches[:50])
+        except Exception as e:
+            return f"Search error: {e}"
 
-    @staticmethod
-    def _build_messages(messages: list[Message]) -> list[dict]:
-        """Convert session messages to LLM API format."""
-        result = []
-        for msg in messages:
-            if msg.role in ("user", "assistant"):
-                result.append({"role": msg.role, "content": msg.content})
-        return result
+    async def _web_search(self, query: str, max_results: int, user_id: str) -> str:
+        self.audit.log(AuditEvent.NET_REQUEST, {"query": query}, user_id=user_id)
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                from duckduckgo_search import DDGS
+                with DDGS() as ddgs:
+                    results = list(ddgs.text(query, max_results=min(max_results, 5)))
+            if not results: return f"No results for: {query}"
+            out = f"Search results for '{query}':\n\n"
+            for i, r in enumerate(results, 1):
+                out += f"{i}. {r.get('title','')}\n   {r.get('href','')}\n   {r.get('body','')[:200]}\n\n"
+            return out.strip()
+        except Exception as e:
+            return f"Search error: {e}"

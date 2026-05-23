@@ -3,23 +3,15 @@
 # Licensed under the Business Source License 1.1 (BUSL-1.1).
 # Commercial use requires a license: legal@bixdot.app
 # Security disclosures: security@bixdot.app
-# See LICENSE in the project root for full terms.
 
 """
 BixDot — LLM Adapter
 
 LOCAL FIRST. ALWAYS.
-
-Ollama is the default and only required backend.
-BixDot works fully offline with no API keys.
-
-Cloud LLM is an explicit opt-in:
-- User must enable it in settings
-- User must provide their own API key
-- PII is scrubbed before any cloud call
-- User sees a clear warning before enabling
+Ollama is the default. Cloud is explicit opt-in only.
 """
 import re
+import json
 import httpx
 from typing import Optional, Literal
 from core.config import settings
@@ -27,29 +19,79 @@ from core.audit.logger import get_audit_logger, AuditEvent
 
 audit = get_audit_logger()
 
-# ─── PII Scrubbing ────────────────────────────────────────────────────────────
-# Only relevant if user opts into cloud LLM
-
+# ─── PII Scrubbing ─────────────────────────────────────────────────────────────
 _PII_PATTERNS = [
     (re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'), "[EMAIL]"),
     (re.compile(r'\b(?:\+?65)?[689]\d{7}\b'), "[SG_PHONE]"),
     (re.compile(r'\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b'), "[PHONE]"),
-    (re.compile(r'\b[A-Z]\d{7}[A-Z]\b'), "[NRIC]"),
-    (re.compile(r'\b4[0-9]{12}(?:[0-9]{3})?\b'), "[CARD]"),
-    (re.compile(r'\b5[1-5][0-9]{14}\b'), "[CARD]"),
     (re.compile(r'\b(?:sk|pk)[-_](?:live|test)[-_][A-Za-z0-9]{20,}\b'), "[API_KEY]"),
     (re.compile(r'\bghp_[A-Za-z0-9]{36}\b'), "[GITHUB_TOKEN]"),
     (re.compile(r'\bsk-ant-[A-Za-z0-9\-_]{95}\b'), "[ANTHROPIC_KEY]"),
 ]
 
-
 def scrub_pii(text: str) -> tuple[str, int]:
-    """Scrub PII before any cloud call."""
     count = 0
     for pattern, replacement in _PII_PATTERNS:
         text, n = pattern.subn(replacement, text)
         count += n
     return text, count
+
+# ─── Tool format converters ───────────────────────────────────────────────────
+
+def tools_to_ollama_format(tools: list) -> list:
+    """Convert Anthropic-style tool definitions to Ollama format."""
+    ollama_tools = []
+    for tool in tools:
+        ollama_tools.append({
+            "type": "function",
+            "function": {
+                "name": tool["name"],
+                "description": tool["description"],
+                "parameters": tool.get("input_schema", {
+                    "type": "object",
+                    "properties": {},
+                }),
+            }
+        })
+    return ollama_tools
+
+def ollama_response_to_standard(data: dict) -> dict:
+    """
+    Convert Ollama response to a standard format that matches
+    our runtime's expectations (similar to Anthropic format).
+    """
+    message = data.get("message", {})
+    content = []
+
+    # Handle tool calls from Ollama
+    tool_calls = message.get("tool_calls", [])
+    if tool_calls:
+        import uuid
+        for tc in tool_calls:
+            fn = tc.get("function", {})
+            args = fn.get("arguments", {})
+            # Ollama may return args as string or dict
+            if isinstance(args, str):
+                try:
+                    args = json.loads(args)
+                except Exception:
+                    args = {}
+            content.append({
+                "type": "tool_use",
+                "id": str(uuid.uuid4()),
+                "name": fn.get("name", ""),
+                "input": args,
+            })
+    else:
+        # Regular text response
+        text = message.get("content", "")
+        content.append({"type": "text", "text": text})
+
+    return {
+        "content": content,
+        "stop_reason": "tool_use" if tool_calls else "end_turn",
+        "usage": {},
+    }
 
 
 # ─── LLM Adapter ─────────────────────────────────────────────────────────────
@@ -57,9 +99,8 @@ def scrub_pii(text: str) -> tuple[str, int]:
 class LLMAdapter:
     """
     BixDot LLM adapter.
-
-    DEFAULT: Ollama (local, no API key, works offline)
-    OPTIONAL: Cloud LLM (user must explicitly enable + provide own key)
+    DEFAULT: Ollama (local, no API key, offline capable)
+    OPTIONAL: Cloud (user must enable + provide own key)
     """
 
     def __init__(
@@ -69,8 +110,8 @@ class LLMAdapter:
     ):
         if backend == "cloud" and not settings.cloud_llm_enabled:
             raise RuntimeError(
-                "Cloud LLM is disabled. "
-                "Enable it in Settings and provide your own API key first."
+                "Cloud LLM is disabled. Enable it in Settings and "
+                "provide your own API key first."
             )
         self.backend = backend
         self.user_id = user_id
@@ -82,40 +123,45 @@ class LLMAdapter:
         tools: Optional[list] = None,
         max_tokens: int = 4096,
     ) -> dict:
-        """Send a chat request. Defaults to local Ollama."""
         if self.backend == "ollama":
-            return await self._chat_ollama(messages, system, max_tokens)
-        elif self.backend == "cloud":
-            return await self._chat_cloud(messages, system, tools, max_tokens)
+            return await self._chat_ollama(messages, system, tools, max_tokens)
+        return await self._chat_cloud(messages, system, tools, max_tokens)
 
     async def _chat_ollama(
         self,
         messages: list[dict],
         system: str,
+        tools: Optional[list],
         max_tokens: int,
     ) -> dict:
         """
-        Send to local Ollama instance.
-        100% local. No data leaves the device. No API key needed.
-        Works offline on a plane, train, anywhere.
+        Local Ollama inference — no data leaves the device.
+        Passes tool definitions so llama3.2 can call them.
         """
         audit.log(
             AuditEvent.AGENT_QUERY,
             {"backend": "ollama", "model": settings.local_model,
-             "local": True, "data_leaves_device": False},
+             "local": True, "data_leaves_device": False,
+             "has_tools": bool(tools)},
             user_id=self.user_id,
         )
 
+        # Build message list with system prompt
+        all_messages = []
+        if system:
+            all_messages.append({"role": "system", "content": system})
+        all_messages.extend(messages)
+
         payload = {
             "model": settings.local_model,
-            "messages": messages,
+            "messages": all_messages,
             "stream": False,
             "options": {"num_predict": max_tokens},
         }
-        if system:
-            payload["messages"] = [
-                {"role": "system", "content": system}
-            ] + messages
+
+        # Pass tools if provided — enables agent tool use
+        if tools:
+            payload["tools"] = tools_to_ollama_format(tools)
 
         async with httpx.AsyncClient(
             base_url=settings.ollama_url,
@@ -128,24 +174,19 @@ class LLMAdapter:
             except httpx.ConnectError:
                 raise RuntimeError(
                     f"Cannot connect to Ollama at {settings.ollama_url}.\n"
-                    "BixDot needs Ollama to run locally.\n"
-                    "Install Ollama from https://ollama.ai then run:\n"
-                    f"  ollama pull {settings.local_model}"
+                    "Make sure Ollama is running. Install from https://ollama.ai\n"
+                    f"Then run: ollama pull {settings.local_model}"
                 )
 
-        content = data.get("message", {}).get("content", "")
+        result = ollama_response_to_standard(data)
 
         audit.log(
             AuditEvent.AGENT_RESPONSE,
-            {"backend": "ollama", "model": settings.local_model},
+            {"backend": "ollama", "stop_reason": result["stop_reason"]},
             user_id=self.user_id,
         )
 
-        return {
-            "content": [{"type": "text", "text": content}],
-            "stop_reason": "end_turn",
-            "usage": {},
-        }
+        return result
 
     async def _chat_cloud(
         self,
@@ -154,27 +195,21 @@ class LLMAdapter:
         tools: Optional[list],
         max_tokens: int,
     ) -> dict:
-        """
-        OPTIONAL cloud LLM — only if user explicitly enabled it.
-        PII scrubbed before sending. User's own API key used.
-        """
+        """Optional cloud — user's own key, PII scrubbed first."""
         if not settings.cloud_api_key:
-            raise RuntimeError(
-                "Cloud LLM enabled but no API key set. "
-                "Add your API key in Settings."
-            )
+            raise RuntimeError("Cloud LLM enabled but no API key set.")
 
         # Scrub PII before anything leaves the device
-        scrubbed_messages = []
+        scrubbed = []
         total_scrubbed = 0
         for msg in messages:
             content = msg.get("content", "")
             if isinstance(content, str):
-                scrubbed, n = scrub_pii(content)
+                scrubbed_content, n = scrub_pii(content)
                 total_scrubbed += n
-                scrubbed_messages.append({**msg, "content": scrubbed})
+                scrubbed.append({**msg, "content": scrubbed_content})
             else:
-                scrubbed_messages.append(msg)
+                scrubbed.append(msg)
 
         if total_scrubbed > 0:
             audit.log(
@@ -183,21 +218,13 @@ class LLMAdapter:
                 user_id=self.user_id,
             )
 
-        # Use Anthropic client with user's own key
         from anthropic import AsyncAnthropic
         client = AsyncAnthropic(api_key=settings.cloud_api_key)
-
-        audit.log(
-            AuditEvent.AGENT_QUERY,
-            {"backend": "cloud", "local": False, "data_leaves_device": True,
-             "pii_scrubbed": total_scrubbed > 0},
-            user_id=self.user_id,
-        )
 
         kwargs = dict(
             model="claude-sonnet-4-20250514",
             max_tokens=max_tokens,
-            messages=scrubbed_messages,
+            messages=scrubbed,
         )
         if system:
             kwargs["system"] = system
@@ -205,13 +232,6 @@ class LLMAdapter:
             kwargs["tools"] = tools
 
         response = await client.messages.create(**kwargs)
-
-        audit.log(
-            AuditEvent.AGENT_RESPONSE,
-            {"backend": "cloud",
-             "stop_reason": response.stop_reason},
-            user_id=self.user_id,
-        )
 
         return {
             "content": response.content,

@@ -21,11 +21,19 @@ from core.auth.middleware import require_auth
 from core.agent.runtime import AgentRuntime, AgentSession, AgentResponse
 from core.agent.permissions import get_permission_store, Capability
 from core.audit.logger import get_audit_logger
+from core.agent.session_store import (
+    get_session_store,
+    save_session,
+    load_session,
+    load_user_sessions,
+    delete_session,
+    session_belongs_to,
+)
 
 router = APIRouter(prefix="/agent", tags=["agent"])
 
-# In-memory session store (persisted to DB in Week 3)
-_sessions: dict[str, AgentSession] = {}
+# Initialise SQLite session store on first import
+get_session_store()
 
 
 # ─── Request / Response Models ────────────────────────────────────────────────
@@ -64,7 +72,7 @@ async def create_session(
         user_id=user.sub,
         llm_backend=request.llm_backend,
     )
-    _sessions[session_id] = session
+    save_session(session)  # persisted to SQLite
 
     return SessionResponse(
         session_id=session_id,
@@ -75,25 +83,24 @@ async def create_session(
 
 @router.get("/sessions", response_model=list[SessionResponse])
 async def list_sessions(user=Depends(require_auth)):
-    """List all active sessions for the current user."""
+    """List all sessions for the current user (loaded from SQLite)."""
+    sessions = load_user_sessions(user.sub)
     return [
         SessionResponse(
             session_id=s.session_id,
             llm_backend=s.llm_backend,
             message_count=len(s.messages),
         )
-        for s in _sessions.values()
-        if s.user_id == user.sub
+        for s in sessions
     ]
 
 
 @router.delete("/sessions/{session_id}")
 async def end_session(session_id: str, user=Depends(require_auth)):
     """End and delete a session."""
-    session = _sessions.get(session_id)
-    if not session or session.user_id != user.sub:
+    if not session_belongs_to(session_id, user.sub):
         raise HTTPException(status_code=404, detail="Session not found")
-    del _sessions[session_id]
+    delete_session(session_id)
     return {"status": "ended", "session_id": session_id}
 
 
@@ -104,9 +111,9 @@ async def chat(
 ):
     """
     Send a message to the agent and receive a response.
-    The agent will use available tools if needed, with permission checks.
+    Session is loaded from SQLite, updated after each message.
     """
-    session = _sessions.get(request.session_id)
+    session = load_session(request.session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found. Create a session first.")
     if session.user_id != user.sub:
@@ -114,6 +121,10 @@ async def chat(
 
     runtime = AgentRuntime()
     response = await runtime.run(session, request.message)
+
+    # Persist updated session (with new messages) back to SQLite
+    save_session(session)
+
     return response
 
 
