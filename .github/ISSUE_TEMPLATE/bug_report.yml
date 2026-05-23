@@ -6,7 +6,7 @@ body:
     attributes:
       value: |
         **Security vulnerability?** Do NOT use this form.
-        Email security@secureclaw.dev instead. See [SECURITY.md](../SECURITY.md).
+        Email security@bixdot.dev instead. See [SECURITY.md](../SECURITY.md).
 
   - type: textarea
     id: description

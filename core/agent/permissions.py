@@ -1,15 +1,15 @@
 # Copyright (c) 2026 DigiTech Business Pte. Ltd. All rights reserved.
 # BixDot is a trademark of DigiTech Business Pte. Ltd (Singapore).
 # Licensed under the Business Source License 1.1 (BUSL-1.1).
-# Commercial use requires a license: legal@bixdot.dev
-# Security disclosures: security@bixdot.dev
+# Commercial use requires a license: legal@bixdot.app
+# Security disclosures: security@bixdot.app
 # See LICENSE in the project root for full terms.
 
 """
 BixDot — Permission System
 Agent starts with ZERO permissions. Every capability must be explicitly granted.
 
-This is the core architectural fix for OpenClaw's biggest design flaw:
+This is the core architectural fix for BixDot's biggest design flaw:
 "The agent has the same rights as the user, connected to all their services."
 
 Here, the agent has NO rights until the user grants them — one at a time,

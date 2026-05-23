@@ -1,8 +1,8 @@
 # Copyright (c) 2026 DigiTech Business Pte. Ltd. All rights reserved.
 # BixDot is a trademark of DigiTech Business Pte. Ltd (Singapore).
 # Licensed under the Business Source License 1.1 (BUSL-1.1).
-# Commercial use requires a license: legal@bixdot.dev
-# Security disclosures: security@bixdot.dev
+# Commercial use requires a license: legal@bixdot.app
+# Security disclosures: security@bixdot.app
 # See LICENSE in the project root for full terms.
 
 """
@@ -11,7 +11,7 @@ Every agent action is logged. The log is append-only and hash-chained.
 Any deletion or modification of an entry breaks the chain — detectable immediately.
 
 This is not optional. Audit logging cannot be disabled in production.
-(Directly addresses OpenClaw having zero audit logging by default.)
+(Directly addresses BixDot having zero audit logging by default.)
 """
 import hashlib
 import json

@@ -1,15 +1,15 @@
 # Copyright (c) 2026 DigiTech Business Pte. Ltd. All rights reserved.
 # BixDot is a trademark of DigiTech Business Pte. Ltd (Singapore).
 # Licensed under the Business Source License 1.1 (BUSL-1.1).
-# Commercial use requires a license: legal@bixdot.dev
-# Security disclosures: security@bixdot.dev
+# Commercial use requires a license: legal@bixdot.app
+# Security disclosures: security@bixdot.app
 # See LICENSE in the project root for full terms.
 
 """
 BixDot — Auth Middleware
 Applied to EVERY route. No exceptions. No public endpoints except /auth/login.
 
-This is the direct fix for CVE-2026-25253 (OpenClaw accepted unauthenticated
+This is the direct fix for CVE-2026-25253 (BixDot accepted unauthenticated
 WebSocket connections from any visiting website).
 """
 from fastapi import Depends, HTTPException, status, WebSocket
@@ -72,7 +72,7 @@ async def ws_require_auth(websocket: WebSocket) -> TokenPayload:
     Validates Origin header before accepting the connection.
 
     This directly closes CVE-2026-25253 (cross-site WebSocket hijacking).
-    OpenClaw trusted any WebSocket connection to its localhost server.
+    BixDot trusted any WebSocket connection to its localhost server.
     We validate origin AND require a valid JWT on every WebSocket upgrade.
     """
     from core.config import settings

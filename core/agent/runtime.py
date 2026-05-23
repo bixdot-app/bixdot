@@ -204,17 +204,24 @@ class AgentRuntime:
             )
 
             # Check if LLM wants to use a tool
+            # Handle both dict responses (Ollama) and object responses (Anthropic API)
+            def block_type(b): return b.get("type") if isinstance(b, dict) else getattr(b, "type", None)
+            def block_text(b): return b.get("text", "") if isinstance(b, dict) else getattr(b, "text", "")
+            def block_id(b): return b.get("id") if isinstance(b, dict) else getattr(b, "id", None)
+            def block_name(b): return b.get("name") if isinstance(b, dict) else getattr(b, "name", None)
+            def block_input(b): return b.get("input", {}) if isinstance(b, dict) else getattr(b, "input", {})
+
             tool_uses = [
                 block for block in response["content"]
-                if hasattr(block, "type") and block.type == "tool_use"
+                if block_type(block) == "tool_use"
             ]
 
             if not tool_uses:
                 # LLM gave a final text response — we're done
                 final_text = " ".join(
-                    block.text
+                    block_text(block)
                     for block in response["content"]
-                    if hasattr(block, "type") and block.type == "text"
+                    if block_type(block) == "text"
                 )
                 session.messages.append(
                     Message(role="assistant", content=final_text)
@@ -236,9 +243,9 @@ class AgentRuntime:
             # Process tool calls
             tool_results = []
             for tool_use in tool_uses:
-                tool_name = tool_use.name
-                tool_input = tool_use.input
-                tool_id = tool_use.id
+                tool_name = block_name(tool_use)
+                tool_input = block_input(tool_use)
+                tool_id = block_id(tool_use)
 
                 self.audit.log(
                     AuditEvent.AGENT_TOOL_CALL,
@@ -275,9 +282,9 @@ class AgentRuntime:
                 Message(role="assistant",
                         content=json.dumps([{
                             "type": "tool_use",
-                            "id": t.id,
-                            "name": t.name,
-                            "input": t.input
+                            "id": block_id(t),
+                            "name": block_name(t),
+                            "input": block_input(t)
                         } for t in tool_uses]))
             )
             session.messages.append(

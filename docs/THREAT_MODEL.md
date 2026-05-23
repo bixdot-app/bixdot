@@ -20,9 +20,9 @@ We design against the following threat actors:
 
 ---
 
-## OpenClaw CVE Map → Our Mitigations
+## BixDot CVE Map → Our Mitigations
 
-Every known OpenClaw vulnerability class is addressed by a specific architectural decision.
+Every known BixDot vulnerability class is addressed by a specific architectural decision.
 
 ### CVE-2026-25253 (ClawBleed) — CVSS 8.8
 **Attack:** Any website the user visits can send requests to the localhost agent server via unvalidated WebSocket. One click → full RCE.
@@ -112,7 +112,7 @@ Transparency about limitations:
 
 ## Responsible Disclosure
 
-Found a vulnerability? Please report to: security@bixdot.dev (DigiTech Business Pte. Ltd)
+Found a vulnerability? Please report to: security@bixdot.app (DigiTech Business Pte. Ltd)
 
 We commit to:
 - Acknowledge within 48 hours

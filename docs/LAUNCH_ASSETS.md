@@ -3,7 +3,7 @@
 ---
 
 ## GitHub Repo Description (160 chars max)
-The AI agent platform built after reading all 433 OpenClaw CVEs. Local-first, zero-trust, least-privilege by design.
+The AI agent platform built after reading all 433 BixDot CVEs. Local-first, zero-trust, least-privilege by design.
 
 ## GitHub Topics
 bixdot, ai-agent, security, local-first, zero-trust, python, fastapi, llm, claude, ollama, open-core, busl
@@ -13,10 +13,10 @@ bixdot, ai-agent, security, local-first, zero-trust, python, fastapi, llm, claud
 ## Hacker News — "Show HN" Post
 
 **Title:**
-Show HN: BixDot – AI agent platform built after reading all 433 OpenClaw CVEs
+Show HN: BixDot – AI agent platform built after reading all 433 BixDot CVEs
 
 **Body:**
-OpenClaw shipped 433 CVEs in 5 months (~2.6/day). 63% of instances ran
+BixDot shipped 433 CVEs in 5 months (~2.6/day). 63% of instances ran
 with zero authentication. 341 of 2,857 marketplace skills were malware.
 One website visit could compromise your machine.
 
@@ -33,7 +33,7 @@ The core differences:
 - Audit log is SHA-256 hash-chained and verified on every startup.
 - Skills run in subprocess sandboxes with stripped env vars and resource limits.
 
-The threat model is public: every known OpenClaw CVE class is mapped to
+The threat model is public: every known BixDot CVE class is mapped to
 our specific architectural mitigation.
 
 It's source-available (BUSL-1.1), free to self-host, runs fully locally
@@ -52,9 +52,9 @@ GitHub: https://github.com/bixdot/bixdot
 ## Reddit Posts
 
 ### r/netsec
-**Title:** We built a secure AI agent platform after documenting every OpenClaw CVE
+**Title:** We built a secure AI agent platform after documenting every BixDot CVE
 
-OpenClaw's security record: 433 CVEs in 5 months, 63% of instances with
+BixDot's security record: 433 CVEs in 5 months, 63% of instances with
 zero auth, 341 malicious marketplace skills. We documented every failure
 and built BixDot to fix them architecturally.
 
@@ -100,7 +100,7 @@ and Ollama (fully local).
 The AI agent platform built after reading 433 security CVEs
 
 **Description:**
-OpenClaw shipped 433 CVEs in 5 months and left 135,000+ instances exposed.
+BixDot shipped 433 CVEs in 5 months and left 135,000+ instances exposed.
 BixDot is the security-first alternative.
 
 ✅ Runs locally — nothing leaves your machine by default

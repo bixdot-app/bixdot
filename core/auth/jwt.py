@@ -1,15 +1,15 @@
 # Copyright (c) 2026 DigiTech Business Pte. Ltd. All rights reserved.
 # BixDot is a trademark of DigiTech Business Pte. Ltd (Singapore).
 # Licensed under the Business Source License 1.1 (BUSL-1.1).
-# Commercial use requires a license: legal@bixdot.dev
-# Security disclosures: security@bixdot.dev
+# Commercial use requires a license: legal@bixdot.app
+# Security disclosures: security@bixdot.app
 # See LICENSE in the project root for full terms.
 
 """
 BixDot — Authentication
 JWT implementation with zero bypass paths.
 
-Design decisions (directly addressing OpenClaw CVEs):
+Design decisions (directly addressing BixDot CVEs):
 - senderIsOwner is ALWAYS derived from the authenticated token.
   Never from a client-provided header, body param, or query string.
 - Access tokens expire in 15 minutes.

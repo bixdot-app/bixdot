@@ -5,11 +5,11 @@ build-backend = "setuptools.backends.legacy:build"
 [project]
 name = "bixdot"
 version = "0.1.0"
-description = "The AI agent platform built after reading all 433 OpenClaw CVEs."
+description = "The AI agent platform built after reading all 433 BixDot CVEs."
 readme = "README.md"
 license = { file = "LICENSE" }
 authors = [
-    { name = "DigiTech Business Pte. Ltd", email = "hello@bixdot.dev" }
+    { name = "DigiTech Business Pte. Ltd", email = "hello@bixdot.app" }
 ]
 keywords = ["ai-agent", "security", "local-first", "zero-trust", "llm"]
 classifiers = [
@@ -48,7 +48,7 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://bixdot.dev"
+Homepage = "https://bixdot.app"
 Repository = "https://github.com/bixdot/bixdot"
 "Bug Tracker" = "https://github.com/bixdot/bixdot/issues"
 Security = "https://github.com/bixdot/bixdot/security/policy"
