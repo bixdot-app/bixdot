@@ -112,6 +112,40 @@
   .login-btn:disabled{opacity:.5;cursor:not-allowed;}
   .err-box{font-size:12px;color:var(--red);background:var(--red-dim);border-radius:6px;padding:8px 10px;margin-top:8px;text-align:center;}
   .note-box{font-size:12px;color:var(--accent);background:var(--accent-dim);border-radius:6px;padding:8px 10px;margin-bottom:12px;}
+
+  /* Calendar */
+  .cal-body{flex:1;overflow-y:auto;padding:18px;}
+  .cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+  .cal-title{font-size:14px;font-weight:500;}
+  .cal-actions{display:flex;gap:8px;}
+  .cal-btn{background:var(--accent);color:#080c10;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;}
+  .cal-btn-sec{background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:7px 14px;font-size:12px;cursor:pointer;}
+  .cal-btn-sec:hover{color:var(--text);border-color:var(--text);}
+  .event-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:flex-start;gap:12px;}
+  .event-date{background:var(--accent-dim);border:1px solid var(--accent-mid);border-radius:8px;padding:6px 10px;text-align:center;min-width:48px;flex-shrink:0;}
+  .event-day{font-size:18px;font-weight:700;color:var(--accent);line-height:1;}
+  .event-mon{font-size:10px;color:var(--accent);font-family:var(--mono);text-transform:uppercase;}
+  .event-info{flex:1;}
+  .event-title{font-size:13px;font-weight:500;margin-bottom:3px;}
+  .event-meta{font-size:11px;color:var(--muted);}
+  .no-cal{display:flex;flex-direction:column;align-items:center;justify-content:center;height:60%;color:var(--muted);text-align:center;gap:10px;}
+  .no-cal p{font-size:13px;max-width:260px;line-height:1.6;}
+  /* Create event modal */
+  .create-form{display:flex;flex-direction:column;gap:10px;padding:14px 16px;}
+  .form-field{display:flex;flex-direction:column;gap:4px;}
+  .form-label{font-size:11px;color:var(--muted);font-family:var(--mono);}
+  .form-input{background:var(--card);border:1px solid var(--border);border-radius:7px;padding:8px 10px;font-size:13px;color:var(--text);outline:none;}
+  .form-input:focus{border-color:var(--accent);}
+  /* Settings cal section */
+  .provider-card{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid var(--border);}
+  .provider-card:last-child{border-bottom:none;}
+  .provider-info p{font-size:13px;font-weight:500;margin:0 0 2px;}
+  .provider-info span{font-size:11px;color:var(--muted);}
+  .connect-btn{background:var(--accent);color:#080c10;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;}
+  .connected-badge{font-size:11px;background:var(--accent-dim);color:var(--accent);padding:3px 8px;border-radius:6px;font-family:var(--mono);}
+  .setup-form{padding:10px 14px;background:var(--subtle);border-top:1px solid var(--border);}
+  .setup-input{width:100%;background:var(--card);border:1px solid var(--border);border-radius:7px;padding:7px 10px;font-size:12px;color:var(--text);outline:none;margin-bottom:6px;font-family:var(--mono);}
+  .setup-input:focus{border-color:var(--accent);}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
   @keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
 </style>
@@ -151,6 +185,7 @@ const CHAT_ICON='M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z';
 const AUDIT_ICON='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z';
 const SETTINGS_ICON='M12 15a3 3 0 100-6 3 3 0 000 6z M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z';
 const SEND_ICON='M22 2L11 13 M22 2L15 22 8 13 2 9z';
+const CAL_ICON='M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z';
 
 // ── Login ─────────────────────────────────────────────────────────────────────
 function Login({onLogin}){
@@ -348,6 +383,92 @@ function Audit({token}){
   );
 }
 
+
+// ── Calendar Settings ─────────────────────────────────────────────────────────
+function CalendarSettings({token}){
+  const[status,setStatus]=useState(null);
+  const[showGoogle,setShowGoogle]=useState(false);
+  const[showIcal,setShowIcal]=useState(false);
+  const[cid,setCid]=useState('');
+  const[csec,setCsec]=useState('');
+  const[icalPath,setIcalPath]=useState('');
+  const[connecting,setConnecting]=useState(false);
+  const[msg,setMsg]=useState('');
+
+  const load=()=>api('/calendar/status',{},token).then(setStatus).catch(()=>{});
+  useEffect(()=>load(),[token]);
+
+  const connectGoogle=async()=>{
+    if(!cid) return;
+    setConnecting(true); setMsg('');
+    try{
+      const r=await api('/calendar/connect/google',{method:'POST',body:JSON.stringify({client_id:cid,client_secret:csec})},token);
+      window.open(r.auth_url,'_blank');
+      setMsg('Browser tab opened — sign in with Google, then come back and refresh.');
+      setShowGoogle(false);
+    }catch(e){ setMsg('Error: '+e.message); }
+    setConnecting(false);
+  };
+
+  const connectIcal=async()=>{
+    if(!icalPath) return;
+    setConnecting(true); setMsg('');
+    try{
+      await api('/calendar/connect/ical',{method:'POST',body:JSON.stringify({file_path:icalPath})},token);
+      setMsg('Local calendar file connected!');
+      setShowIcal(false);
+      load();
+    }catch(e){ setMsg('Error: '+e.message); }
+    setConnecting(false);
+  };
+
+  const disconnect=async(provider)=>{
+    await api('/calendar/disconnect/'+provider,{method:'DELETE'},token).catch(()=>{});
+    load();
+  };
+
+  if(!status) return el('div',{className:'s-card'},el('div',{className:'s-row'},el('span',{style:{fontSize:12,color:'var(--muted)'}},'Loading…')));
+
+  const providers=status.providers||[];
+
+  return el('div',{className:'s-card'},
+    // Google Calendar row
+    el('div',{className:'provider-card'},
+      el('div',{className:'provider-info'},
+        el('p',null,'Google Calendar'),
+        el('span',null,providers.includes('google')?'Connected':'Not connected')
+      ),
+      providers.includes('google')
+        ? el('button',{className:'revoke-btn',onClick:()=>disconnect('google')},'Disconnect')
+        : el('button',{className:'connect-btn',onClick:()=>{ setShowGoogle(s=>!s); setShowIcal(false); }},'Connect')
+    ),
+    showGoogle&&el('div',{className:'setup-form'},
+      el('div',{style:{fontSize:11,color:'var(--muted)',marginBottom:8,lineHeight:1.5}},'Enter your Google OAuth credentials. ',el('a',{href:'https://console.cloud.google.com',target:'_blank',style:{color:'var(--accent)'}},'Get them here'),' → Enable Calendar API → Create OAuth 2.0 credentials → Web app → Redirect: http://127.0.0.1:8747/calendar/oauth/callback'),
+      el('input',{className:'setup-input',placeholder:'Client ID (ends with .apps.googleusercontent.com)',value:cid,onChange:e=>setCid(e.target.value)}),
+      el('input',{className:'setup-input',placeholder:'Client Secret',type:'password',value:csec,onChange:e=>setCsec(e.target.value)}),
+      el('button',{className:'connect-btn',onClick:connectGoogle,disabled:connecting||!cid},connecting?'Opening…':'Open Google sign-in')
+    ),
+
+    // Local .ics row
+    el('div',{className:'provider-card'},
+      el('div',{className:'provider-info'},
+        el('p',null,'Local .ics file'),
+        el('span',null,providers.includes('ical')?'Connected':'No auth needed')
+      ),
+      providers.includes('ical')
+        ? el('button',{className:'revoke-btn',onClick:()=>disconnect('ical')},'Disconnect')
+        : el('button',{className:'connect-btn',onClick:()=>{ setShowIcal(s=>!s); setShowGoogle(false); }},'Connect')
+    ),
+    showIcal&&el('div',{className:'setup-form'},
+      el('div',{style:{fontSize:11,color:'var(--muted)',marginBottom:8,lineHeight:1.5}},'Path to your .ics file. Export from Google Calendar (Settings → Export) or Outlook (File → Save Calendar).'),
+      el('input',{className:'setup-input',placeholder:'C:\\Users\\you\\calendar.ics or ~/calendar.ics',value:icalPath,onChange:e=>setIcalPath(e.target.value)}),
+      el('button',{className:'connect-btn',onClick:connectIcal,disabled:connecting||!icalPath},connecting?'Connecting…':'Connect file')
+    ),
+
+    msg&&el('div',{style:{padding:'8px 14px',fontSize:12,color:'var(--accent)',background:'var(--accent-dim)',borderTop:'1px solid var(--border)'}},msg)
+  );
+}
+
 // ── Settings ──────────────────────────────────────────────────────────────────
 function Settings({token}){
   const[cloud,setCloud]=useState(false);
@@ -379,6 +500,10 @@ function Settings({token}){
       )
     ),
     el('div',{className:'s-section'},
+      el('div',{className:'s-label'},'Calendar'),
+      el(CalendarSettings,{token}),
+    ),
+    el('div',{className:'s-section'},
       el('div',{className:'s-label'},'Active permissions ('+perms.length+')'),
       el('div',{className:'s-card'},
         perms.length===0&&el('div',{className:'s-row'},el('span',{style:{fontSize:13,color:'var(--muted)'}},'No active permissions')),
@@ -388,6 +513,131 @@ function Settings({token}){
         ))
       )
     )
+  );
+}
+
+
+// ── Calendar ──────────────────────────────────────────────────────────────────
+function CreateEventModal({token, onClose, onCreated}){
+  const[title,setTitle]=useState('');
+  const[date,setDate]=useState(new Date().toISOString().split('T')[0]);
+  const[time,setTime]=useState('09:00');
+  const[duration,setDuration]=useState(60);
+  const[desc,setDesc]=useState('');
+  const[loading,setLoading]=useState(false);
+  const[err,setErr]=useState('');
+
+  const create=async()=>{
+    if(!title||!date||!time) return;
+    setLoading(true); setErr('');
+    try{
+      const r=await api('/calendar/events',{method:'POST',body:JSON.stringify({title,date,time,duration_minutes:parseInt(duration),description:desc})},token);
+      onCreated(r);
+    }catch(e){ setErr(e.message); }
+    setLoading(false);
+  };
+
+  return el('div',{className:'modal-bg'},
+    el('div',{className:'modal'},
+      el('div',{className:'modal-h'},
+        el('div',{className:'modal-icon'},'📅'),
+        el('div',null,
+          el('p',{style:{fontSize:14,fontWeight:500,marginBottom:2}},'New event'),
+          el('p',{style:{fontSize:11,color:'var(--muted)'}},'Add to your calendar')
+        )
+      ),
+      el('div',{className:'create-form'},
+        el('div',{className:'form-field'},el('span',{className:'form-label'},'TITLE'),el('input',{className:'form-input',value:title,onChange:e=>setTitle(e.target.value),placeholder:'Meeting with team',autoFocus:true})),
+        el('div',{style:{display:'flex',gap:8}},
+          el('div',{className:'form-field',style:{flex:1}},el('span',{className:'form-label'},'DATE'),el('input',{className:'form-input',type:'date',value:date,onChange:e=>setDate(e.target.value)})),
+          el('div',{className:'form-field',style:{flex:1}},el('span',{className:'form-label'},'TIME'),el('input',{className:'form-input',type:'time',value:time,onChange:e=>setTime(e.target.value)}))
+        ),
+        el('div',{className:'form-field'},el('span',{className:'form-label'},'DURATION (min)'),el('input',{className:'form-input',type:'number',value:duration,onChange:e=>setDuration(e.target.value),min:15,step:15})),
+        el('div',{className:'form-field'},el('span',{className:'form-label'},'DESCRIPTION (optional)'),el('input',{className:'form-input',value:desc,onChange:e=>setDesc(e.target.value),placeholder:'Optional notes'})),
+        err&&el('div',{style:{fontSize:12,color:'var(--red)',background:'var(--red-dim)',padding:'6px 8px',borderRadius:6}},err)
+      ),
+      el('div',{className:'modal-btns'},
+        el('button',{className:'btn btn-deny',onClick:onClose},'Cancel'),
+        el('button',{className:'btn btn-allow',onClick:create,disabled:loading||!title||!date||!time},loading?'Creating…':'Create event')
+      )
+    )
+  );
+}
+
+function Calendar({token}){
+  const[events,setEvents]=useState([]);
+  const[loading,setLoading]=useState(true);
+  const[err,setErr]=useState('');
+  const[days,setDays]=useState(7);
+  const[connected,setConnected]=useState(null);
+  const[showCreate,setShowCreate]=useState(false);
+
+  const loadStatus=()=>api('/calendar/status',{},token).then(r=>{setConnected(r);}).catch(()=>setConnected({connected:false,providers:[]}));
+  const loadEvents=()=>{
+    setLoading(true); setErr('');
+    api('/calendar/events?days='+days,{},token)
+      .then(r=>{ setEvents(r); setLoading(false); })
+      .catch(e=>{ setErr(e.message); setLoading(false); });
+  };
+
+  useEffect(()=>{ loadStatus(); },[token]);
+  useEffect(()=>{ if(connected&&connected.connected) loadEvents(); else setLoading(false); },[connected,days]);
+
+  if(!connected) return el('div',{className:'cal-body'},el('div',{className:'empty'},el('p',null,'Checking calendar…')));
+
+  if(!connected.connected) return el('div',{className:'cal-body'},
+    el('div',{className:'no-cal'},
+      el('div',{style:{fontSize:36,marginBottom:8}},'📅'),
+      el('p',null,'No calendar connected yet.'),
+      el('p',{style:{fontSize:12}},'Go to Settings → Calendar to connect Google Calendar or a local .ics file.'),
+    )
+  );
+
+  const grouped={};
+  events.forEach(e=>{
+    const d=e.start.split('T')[0];
+    if(!grouped[d]) grouped[d]=[];
+    grouped[d].push(e);
+  });
+
+  return el('div',{className:'cal-body'},
+    el('div',{className:'cal-header'},
+      el('span',{className:'cal-title'},'Next '+days+' days · '+events.length+' event'+(events.length!==1?'s':'')),
+      el('div',{className:'cal-actions'},
+        el('select',{style:{background:'var(--card)',border:'1px solid var(--border)',color:'var(--text)',borderRadius:7,padding:'5px 8px',fontSize:12,cursor:'pointer'},value:days,onChange:e=>setDays(parseInt(e.target.value))},
+          el('option',{value:3},'3 days'),
+          el('option',{value:7},'7 days'),
+          el('option',{value:14},'14 days'),
+          el('option',{value:30},'30 days')
+        ),
+        connected.active_provider==='google'&&el('button',{className:'cal-btn',onClick:()=>setShowCreate(true)},'+ New event'),
+        el('button',{className:'cal-btn-sec',onClick:loadEvents},'Refresh')
+      )
+    ),
+    loading&&el('div',{className:'empty'},el('p',null,'Loading events…')),
+    err&&el('div',{style:{fontSize:12,color:'var(--red)',background:'var(--red-dim)',padding:'10px 12px',borderRadius:8,marginBottom:12}},err),
+    !loading&&!err&&events.length===0&&el('div',{className:'no-cal'},el('p',null,'No events in the next '+days+' days. Enjoy the free time!')),
+    Object.entries(grouped).map(([date,evts])=>el('div',{key:date},
+      el('div',{style:{fontSize:11,color:'var(--muted)',fontFamily:'var(--mono)',marginBottom:6,marginTop:12}},
+        new Date(date+'T12:00:00').toLocaleDateString('en',{weekday:'long',day:'numeric',month:'long'})
+      ),
+      evts.map(e=>el('div',{key:e.id,className:'event-card'},
+        el('div',{className:'event-date'},
+          el('div',{className:'event-day'},new Date(e.start).getDate()),
+          el('div',{className:'event-mon'},new Date(e.start).toLocaleDateString('en',{month:'short'}))
+        ),
+        el('div',{className:'event-info'},
+          el('div',{className:'event-title'},e.title),
+          el('div',{className:'event-meta'},
+            e.all_day?'All day':
+            new Date(e.start).toLocaleTimeString('en',{hour:'2-digit',minute:'2-digit'})+
+            ' – '+new Date(e.end).toLocaleTimeString('en',{hour:'2-digit',minute:'2-digit'}),
+            e.location&&' · 📍 '+e.location
+          )
+        )
+      ))
+    )),
+    showCreate&&el(CreateEventModal,{token,onClose:()=>setShowCreate(false),onCreated:(evt)=>{ setShowCreate(false); setEvents(evs=>[...evs,evt].sort((a,b)=>a.start.localeCompare(b.start))); }})
   );
 }
 
@@ -404,6 +654,7 @@ function App(){
 
   const nav=[
     {id:'chat',label:'Chat',icon:CHAT_ICON},
+    {id:'calendar',label:'Calendar',icon:CAL_ICON},
     {id:'audit',label:'Audit log',icon:AUDIT_ICON},
     {id:'settings',label:'Settings',icon:SETTINGS_ICON},
   ];
@@ -430,6 +681,7 @@ function App(){
         el('span',{className:'chain-ok'},'✓ Chain verified · Local')
       ),
       screen==='chat'&&el(Chat,{token}),
+      screen==='calendar'&&el(Calendar,{token}),
       screen==='audit'&&el(Audit,{token}),
       screen==='settings'&&el(Settings,{token})
     )

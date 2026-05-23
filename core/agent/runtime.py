@@ -18,7 +18,6 @@ Phase 2 — Synthesis:
 """
 import json
 import os
-import warnings
 from pathlib import Path
 from typing import Optional
 from pydantic import BaseModel
@@ -110,6 +109,32 @@ BUILTIN_TOOLS = [
             "required": ["query"]
         }
     },
+    {
+        "name": "get_events",
+        "description": "Get upcoming calendar events. Only use when user asks about their calendar, schedule, or upcoming events.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "days_ahead": {"type": "integer", "description": "How many days ahead to look (default 7)", "default": 7}
+            }
+        }
+    },
+    {
+        "name": "create_event",
+        "description": "Create a new calendar event. Only use when user explicitly asks to create/add/schedule an event.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "title":            {"type": "string",  "description": "Event title"},
+                "date":             {"type": "string",  "description": "Date in YYYY-MM-DD format"},
+                "time":             {"type": "string",  "description": "Time in HH:MM format (24h)"},
+                "duration_minutes": {"type": "integer", "description": "Duration in minutes (default 60)"},
+                "description":      {"type": "string",  "description": "Optional event description"},
+                "location":         {"type": "string",  "description": "Optional location"}
+            },
+            "required": ["title", "date", "time"]
+        }
+    },
 ]
 
 TOOL_CAPABILITY_MAP = {
@@ -171,6 +196,10 @@ _TOOL_KEYWORDS = (
     "search the web", "search web", "google", "look up", "lookup",
     "find out", "what is the latest", "latest news", "current news",
     "web search", "browse",
+    # calendar
+    "calendar", "schedule", "event", "appointment", "meeting",
+    "what's on", "whats on", "my day", "upcoming", "remind",
+    "book", "create event", "add event", "new event", "schedule a",
 )
 
 def _needs_tools(message: str) -> bool:
@@ -344,8 +373,14 @@ class AgentRuntime:
             elif tool_name == "web_search":
                 return await self._web_search(
                     tool_input.get("query", ""), tool_input.get("max_results", 3), user_id)
+            elif tool_name == "get_events":
+                days = int(tool_input.get("days_ahead", 7))
+                return await self._get_events(days, user_id)
+            elif tool_name == "create_event":
+                return await self._create_event(tool_input, user_id)
             return f"Unknown tool: {tool_name}"
         except Exception as e:
+            import traceback; traceback.print_exc()
             return f"Tool error: {e}"
 
     def _resolve(self, path: str) -> Path:
@@ -412,15 +447,81 @@ class AgentRuntime:
     async def _web_search(self, query: str, max_results: int, user_id: str) -> str:
         self.audit.log(AuditEvent.NET_REQUEST, {"query": query}, user_id=user_id)
         try:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                from duckduckgo_search import DDGS
-                with DDGS() as ddgs:
-                    results = list(ddgs.text(query, max_results=min(max_results, 5)))
+            from ddgs import DDGS
+            with DDGS() as ddgs:
+                results = list(ddgs.text(query, max_results=min(int(max_results), 5)))
             if not results: return f"No results for: {query}"
             out = f"Search results for '{query}':\n\n"
             for i, r in enumerate(results, 1):
-                out += f"{i}. {r.get('title','')}\n   {r.get('href','')}\n   {r.get('body','')[:200]}\n\n"
+                href = r.get('href', r.get('url', ''))
+                out += f"{i}. {r.get('title','')}\n   {href}\n   {r.get('body','')[:200]}\n\n"
             return out.strip()
         except Exception as e:
-            return f"Search error: {e}"
+            import traceback; traceback.print_exc()
+            return f"Search error: {type(e).__name__}: {e}"
+
+    async def _get_events(self, days_ahead: int, user_id: str) -> str:
+        try:
+            from core.skills.calendar.store import load_active_provider
+            from core.skills.calendar.google_cal import GoogleCalendarProvider
+            from core.skills.calendar.ical_cal import ICalProvider
+
+            result = load_active_provider(user_id)
+            if not result:
+                return "No calendar connected. Please set one up in Settings \u2192 Calendar."
+
+            name, config = result
+            if name == "google":
+                provider = GoogleCalendarProvider(config)
+            elif name == "ical":
+                provider = ICalProvider(config)
+            else:
+                return f"Unknown calendar provider: {name}"
+
+            events = await provider.get_events(days_ahead=days_ahead)
+            if not events:
+                return f"No events in the next {days_ahead} days."
+
+            lines = [f"You have {len(events)} upcoming event(s):"]
+            for e in events:
+                lines.append(f"\u2022 {e.friendly()}")
+                if e.location:
+                    lines.append(f"  \U0001f4cd {e.location}")
+
+            if hasattr(provider, 'to_config'):
+                from core.skills.calendar.store import save_provider
+                save_provider(user_id, name, provider.to_config())
+
+            return "\n".join(lines)
+        except Exception as e:
+            import traceback; traceback.print_exc()
+            return f"Calendar error: {type(e).__name__}: {e}"
+
+    async def _create_event(self, tool_input: dict, user_id: str) -> str:
+        try:
+            from datetime import datetime, timedelta, timezone
+            from core.skills.calendar.store import load_active_provider, save_provider
+            from core.skills.calendar.google_cal import GoogleCalendarProvider
+            result = load_active_provider(user_id)
+            if not result:
+                return "No calendar connected. Please set one up in Settings → Calendar."
+            name, config = result
+            if name != "google":
+                return "Event creation is only available with Google Calendar. Local .ics files are read-only."
+            provider = GoogleCalendarProvider(config)
+            title    = tool_input.get("title", "New Event")
+            date     = tool_input.get("date", "")
+            time     = tool_input.get("time", "09:00")
+            duration = int(tool_input.get("duration_minutes", 60))
+            desc     = tool_input.get("description", "")
+            location = tool_input.get("location", "")
+            if not date:
+                return "Please specify a date (YYYY-MM-DD format)."
+            start = datetime.fromisoformat(f"{date}T{time}:00+00:00")
+            end   = start + timedelta(minutes=duration)
+            event = await provider.create_event(title, start, end, desc, location)
+            save_provider(user_id, name, provider.to_config())
+            return f"✓ Created: {event.friendly()}"
+        except Exception as e:
+            import traceback; traceback.print_exc()
+            return f"Create event error: {type(e).__name__}: {e}"
