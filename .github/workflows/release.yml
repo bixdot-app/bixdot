@@ -27,6 +27,9 @@ jobs:
 
     runs-on: ${{ matrix.platform }}
 
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -51,10 +54,6 @@ jobs:
         with:
           workspaces: './src-tauri -> target'
 
-      # ── Install Tauri CLI ─────────────────────────────────────────────────
-      - name: Install Tauri CLI
-        run: cargo install tauri-cli --version "^2.0" --locked
-
       # ── Linux system deps (WebKit, AppIndicator) ──────────────────────────
       - name: Linux system dependencies
         if: matrix.platform == 'ubuntu-22.04'
@@ -68,10 +67,11 @@ jobs:
 
       # ── Build + publish to GitHub Releases ───────────────────────────────
       - name: Build and release
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v0.5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          projectPath: '.'
           tagName:     ${{ github.ref_name }}
           releaseName: 'BixDot ${{ github.ref_name }}'
           releaseBody: |
@@ -111,4 +111,3 @@ jobs:
             © 2026 DigiTech Business Pte. Ltd. · [bixdot.app](https://bixdot.app) · [Security](mailto:security@bixdot.app)
           releaseDraft:  true    # review before publishing
           prerelease:    false
-          tauriScript:   cargo tauri
