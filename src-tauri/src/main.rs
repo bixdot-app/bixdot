@@ -10,7 +10,8 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     AppHandle, Manager, RunEvent, WindowEvent,
 };
-use bixdot_lib::{kill_backend, PythonBackend};
+// Import backend_status by name so generate_handler! works without module prefix
+use bixdot_lib::{backend_status, kill_backend, PythonBackend};
 
 fn main() {
     tauri::Builder::default()
@@ -23,10 +24,8 @@ fn main() {
 
             // Decide which page to show
             let start_url = if python.is_none() {
-                // No Python found — show setup guide
                 "setup.html".to_string()
             } else {
-                // Python found — try to start the backend
                 let py = python.unwrap();
                 println!("[BixDot] Starting backend: {py} -m core.main in {app_dir:?}");
 
@@ -37,7 +36,7 @@ fn main() {
                 {
                     Ok(child) => {
                         *app.state::<PythonBackend>().0.lock().unwrap() = Some(child);
-                        "loading.html".to_string() // loading screen polls health
+                        "loading.html".to_string()
                     }
                     Err(e) => {
                         eprintln!("[BixDot] Failed to start backend: {e}");
@@ -81,11 +80,11 @@ fn main() {
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![bixdot_lib::backend_status])
+        // Use bare name — NOT bixdot_lib::backend_status (causes macro conflict)
+        .invoke_handler(tauri::generate_handler![backend_status])
         .build(tauri::generate_context!())
         .expect("Error building BixDot")
         .run(|app, event| match event {
-            // Close button → hide to tray
             RunEvent::WindowEvent {
                 label,
                 event: WindowEvent::CloseRequested { api, .. },
@@ -96,7 +95,6 @@ fn main() {
                     let _ = window.hide();
                 }
             }
-            // App quit → kill Python
             RunEvent::Exit => {
                 kill_backend(&app.state::<PythonBackend>());
             }
@@ -125,14 +123,12 @@ fn find_app_dir() -> std::path::PathBuf {
     cwd
 }
 
-/// Returns Some("python") / Some("python3") if found, None if not installed.
 fn find_python() -> Option<String> {
     for candidate in &["python3", "python", "py"] {
         if let Ok(out) = Command::new(candidate).arg("--version").output() {
             if out.status.success() {
                 let ver = String::from_utf8_lossy(&out.stdout).to_string()
                     + &String::from_utf8_lossy(&out.stderr);
-                // Require 3.11+
                 if ver.contains("3.11") || ver.contains("3.12") || ver.contains("3.13") {
                     return Some(candidate.to_string());
                 }
