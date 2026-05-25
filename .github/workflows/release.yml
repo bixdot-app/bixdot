@@ -53,7 +53,7 @@ jobs:
       - name: Install Tauri CLI v2
         run: cargo install tauri-cli --version "^2.0" --locked
 
-      # ── Generate macOS .icns from PNGs (macOS runner has iconutil built in) ──
+      # ── Generate .icns on macOS only (iconutil is a macOS-only tool) ──────
       - name: Generate macOS icon
         if: matrix.platform == 'macos-latest'
         run: |
@@ -66,8 +66,7 @@ jobs:
           cp src-tauri/icons/512x512.png src-tauri/icons/icon.iconset/icon_256x256@2x.png
           cp src-tauri/icons/512x512.png src-tauri/icons/icon.iconset/icon_512x512.png
           iconutil -c icns src-tauri/icons/icon.iconset -o src-tauri/icons/icon.icns
-          echo "✅ icon.icns generated"
-          ls -lh src-tauri/icons/icon.icns
+          echo "✅ icon.icns generated: $(ls -lh src-tauri/icons/icon.icns)"
 
       - name: Linux system dependencies
         if: matrix.platform == 'ubuntu-22.04'
@@ -79,7 +78,26 @@ jobs:
             librsvg2-dev \
             patchelf
 
-      - name: Build Tauri app
+      # macOS: build with .icns injected via --config
+      - name: Build Tauri app (macOS)
+        if: matrix.platform == 'macos-latest'
+        run: |
+          cargo tauri build ${{ matrix.args }} --config '{
+            "bundle": {
+              "icon": [
+                "icons/32x32.png",
+                "icons/128x128.png",
+                "icons/256x256.png",
+                "icons/512x512.png",
+                "icons/icon.ico",
+                "icons/icon.icns"
+              ]
+            }
+          }'
+
+      # Windows / Linux: build normally (no .icns needed)
+      - name: Build Tauri app (Windows + Linux)
+        if: matrix.platform != 'macos-latest'
         run: cargo tauri build ${{ matrix.args }}
 
       - name: Upload bundle artifacts
