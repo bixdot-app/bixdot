@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   # ─── Security Scan ──────────────────────────────────────────────────────────
   security:
@@ -26,9 +29,9 @@ jobs:
       - name: Bandit — Python security linter
         run: |
           bandit -r core/ -ll -ii \
-            --skip B101 \
+            --skip B101,B603,B607 \
             -f json -o bandit-report.json || true
-          bandit -r core/ -ll -ii --skip B101
+          bandit -r core/ -ll -ii --skip B101,B603,B607
         # Fails build on HIGH severity issues
 
       - name: pip-audit — Dependency vulnerability scan
@@ -91,7 +94,7 @@ jobs:
         run: pip install ruff
 
       - name: Ruff lint
-        run: ruff check core/ --select E,W,F,S
+        run: ruff check core/   # config from ruff.toml in repo root
 
   # ─── Build check ────────────────────────────────────────────────────────────
   build:

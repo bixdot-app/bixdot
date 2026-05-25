@@ -18,11 +18,8 @@ Setup steps for users:
 
 import base64
 import hashlib
-import json
-import os
 import secrets
 from datetime import datetime, timezone, timedelta
-from typing import Optional
 
 import httpx
 

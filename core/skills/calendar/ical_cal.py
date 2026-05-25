@@ -15,7 +15,6 @@ How to get your .ics file:
 
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from typing import Optional
 
 from core.skills.calendar.base import CalendarEvent, CalendarProvider
 

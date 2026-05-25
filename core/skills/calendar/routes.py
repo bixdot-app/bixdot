@@ -23,8 +23,7 @@ from pydantic import BaseModel
 
 from core.auth.middleware import require_auth
 from core.skills.calendar.store import (
-    init_calendar_db, save_provider, load_provider,
-    load_active_provider, delete_provider, list_providers,
+    init_calendar_db, save_provider, load_active_provider, delete_provider, list_providers,
 )
 from core.skills.calendar.google_cal import GoogleCalendarProvider
 from core.skills.calendar.ical_cal import ICalProvider

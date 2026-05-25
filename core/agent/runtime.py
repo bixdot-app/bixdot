@@ -16,16 +16,13 @@ Phase 2 — Synthesis:
   final plain-text answer. This avoids the loop where smaller models
   keep calling tools instead of responding.
 """
-import json
 import os
 from pathlib import Path
-from typing import Optional
 from pydantic import BaseModel
 
 from core.agent.llm import LLMAdapter
-from core.agent.permissions import PermissionStore, Capability, get_permission_store
-from core.audit.logger import AuditLogger, AuditEvent, get_audit_logger
-from core.config import settings
+from core.agent.permissions import Capability, get_permission_store
+from core.audit.logger import AuditEvent, get_audit_logger
 from core.agent.paths import resolve_path, get_system_context
 
 
@@ -529,7 +526,7 @@ class AgentRuntime:
 
     async def _create_event(self, tool_input: dict, user_id: str) -> str:
         try:
-            from datetime import datetime, timedelta, timezone
+            from datetime import datetime, timedelta
             from core.skills.calendar.store import load_active_provider, save_provider
             from core.skills.calendar.google_cal import GoogleCalendarProvider
             result = load_active_provider(user_id)

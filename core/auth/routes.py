@@ -17,8 +17,6 @@ Security notes:
 - Rate limiting applied at the route level.
 """
 import uuid
-from datetime import datetime, UTC
-from typing import Annotated
 
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -40,7 +38,7 @@ from core.auth.models import (
 )
 from core.audit.logger import AuditEvent, get_audit_logger
 from core.config import settings
-from core.storage.db import get_connection, is_first_run, init_db
+from core.storage.db import get_connection, is_first_run
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 audit = get_audit_logger()

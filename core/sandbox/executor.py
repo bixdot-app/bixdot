@@ -14,11 +14,11 @@ import sys
 import json
 import subprocess
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 # resource module is Unix-only
 try:
-    import resource
+    import resource # noqa: F401
     HAS_RESOURCE = True
 except ImportError:
     HAS_RESOURCE = False  # Windows — resource limits handled differently

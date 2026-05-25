@@ -8,7 +8,7 @@ POST /terminal/run     — execute a sandboxed command
 GET  /terminal/allowed — list allowed executables
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from core.auth.middleware import require_auth

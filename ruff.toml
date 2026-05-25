@@ -1,0 +1,49 @@
+# BixDot — Ruff linter configuration
+# https://docs.astral.sh/ruff/configuration/
+
+line-length = 120
+target-version = "py311"
+
+[lint]
+select = ["E", "W", "F", "S"]
+ignore = [
+    # ── Layout (intentional patterns) ─────────────────────────────────────────
+    "E402",   # Module imports not at top — FastAPI router registration pattern
+              # in main.py requires imports after app creation
+
+    "E501",   # Line too long — handled by line-length = 120 above;
+              # remaining long lines are string literals that can't be split
+
+    "E701",   # Multiple statements on one line (colon) — used for compact
+              # guard clauses (if not x: return ...) for readability
+
+    "E702",   # Multiple statements on one line (semicolon) — used for
+              # traceback.print_exc() paired with error return
+
+    # ── Security false positives ───────────────────────────────────────────────
+    "S105",   # Possible hardcoded password — false positives on:
+              #   "bearer"           (OAuth token type constant)
+              #   "auth.token.refresh"  (audit event name string)
+              #   OAuth endpoint URLs   (not passwords)
+
+    "S112",   # try-except-continue — used in calendar .ics parser to skip
+              # malformed events; swallowing is intentional
+
+    "S603",   # subprocess call without check — BixDot terminal sandbox uses
+              # subprocess.run() with shell=False enforced. This is the secure
+              # pattern. See core/skills/terminal/sandbox.py for full details.
+
+    "S607",   # Starting process with partial path — intentional; we resolve
+              # the full path via PATH lookup, which is correct behaviour
+]
+
+# Exclude generated files and test fixtures
+exclude = [
+    ".git",
+    "__pycache__",
+    "*.pyc",
+    ".venv",
+    "venv",
+    "build",
+    "dist",
+]
