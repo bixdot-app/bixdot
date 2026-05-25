@@ -3,15 +3,39 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::process::Command;
+use std::process::{Child, Command};
 use std::sync::Mutex;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     AppHandle, Manager, RunEvent, WindowEvent,
 };
-// FIX: import backend_status by name so generate_handler! doesn't need a qualified path
-use bixdot_lib::{backend_status, kill_backend, PythonBackend};
+
+// ── State ─────────────────────────────────────────────────────────────────────
+
+struct PythonBackend(Mutex<Option<Child>>);
+
+fn kill_backend(guard: &Mutex<Option<Child>>) {
+    if let Ok(mut lock) = guard.lock() {
+        if let Some(mut child) = lock.take() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+    }
+}
+
+// ── Tauri command ─────────────────────────────────────────────────────────────
+
+#[tauri::command]
+fn backend_status(backend: tauri::State<PythonBackend>) -> String {
+    if backend.0.lock().map(|g| g.is_some()).unwrap_or(false) {
+        "running".to_string()
+    } else {
+        "stopped".to_string()
+    }
+}
+
+// ── Main ─────────────────────────────────────────────────────────────────────
 
 fn main() {
     tauri::Builder::default()
@@ -19,18 +43,14 @@ fn main() {
         .manage(PythonBackend(Mutex::new(None)))
         .setup(|app| {
             // ── 1. Check dependencies ─────────────────────────────────────
-            let python = find_python();
+            let python  = find_python();
             let app_dir = find_app_dir();
 
-            // Decide which page to show
             let start_url = if python.is_none() {
-                // No Python found — show setup guide
                 "setup.html".to_string()
             } else {
-                // Python found — try to start the backend
                 let py = python.unwrap();
                 println!("[BixDot] Starting backend: {py} -m core.main in {app_dir:?}");
-
                 match Command::new(&py)
                     .args(["-m", "core.main"])
                     .current_dir(&app_dir)
@@ -38,7 +58,7 @@ fn main() {
                 {
                     Ok(child) => {
                         *app.state::<PythonBackend>().0.lock().unwrap() = Some(child);
-                        "loading.html".to_string() // loading screen polls health
+                        "loading.html".to_string()
                     }
                     Err(e) => {
                         eprintln!("[BixDot] Failed to start backend: {e}");
@@ -47,7 +67,7 @@ fn main() {
                 }
             };
 
-            // ── 2. Navigate to correct start page ─────────────────────────
+            // ── 2. Navigate to start page ─────────────────────────────────
             if let Some(window) = app.get_webview_window("main") {
                 let url = format!("tauri://localhost/{}", start_url);
                 let _ = window.navigate(url.parse().unwrap());
@@ -64,7 +84,7 @@ fn main() {
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "open" => show_window(app),
                     "quit" => {
-                        kill_backend(&app.state::<PythonBackend>());
+                        kill_backend(&app.state::<PythonBackend>().0);
                         app.exit(0);
                     }
                     _ => {}
@@ -82,59 +102,53 @@ fn main() {
 
             Ok(())
         })
-        // FIX: use bare name, NOT bixdot_lib::backend_status (qualified path causes macro conflict)
         .invoke_handler(tauri::generate_handler![backend_status])
         .build(tauri::generate_context!())
         .expect("Error building BixDot")
         .run(|app, event| match event {
-            // Close button → hide to tray
             RunEvent::WindowEvent {
                 label,
                 event: WindowEvent::CloseRequested { api, .. },
                 ..
             } if label == "main" => {
                 api.prevent_close();
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.hide();
+                if let Some(w) = app.get_webview_window("main") {
+                    let _ = w.hide();
                 }
             }
-            // App quit → kill Python
             RunEvent::Exit => {
-                kill_backend(&app.state::<PythonBackend>());
+                kill_backend(&app.state::<PythonBackend>().0);
             }
             _ => {}
         });
 }
 
 fn show_window(app: &AppHandle) {
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.show();
-        let _ = window.set_focus();
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.show();
+        let _ = w.set_focus();
     }
 }
 
 fn find_app_dir() -> std::path::PathBuf {
     let cwd = std::env::current_dir().unwrap_or_default();
     if cwd.join("core").exists() { return cwd; }
-
     if let Ok(exe) = std::env::current_exe() {
-        let exe_dir = exe.parent().unwrap_or(&exe).to_path_buf();
-        if exe_dir.join("core").exists() { return exe_dir.clone(); }
-        if let Some(p) = exe_dir.parent() {
+        let d = exe.parent().unwrap_or(&exe).to_path_buf();
+        if d.join("core").exists() { return d.clone(); }
+        if let Some(p) = d.parent() {
             if p.join("core").exists() { return p.to_path_buf(); }
         }
     }
     cwd
 }
 
-/// Returns Some("python") / Some("python3") if found, None if not installed.
 fn find_python() -> Option<String> {
     for candidate in &["python3", "python", "py"] {
         if let Ok(out) = Command::new(candidate).arg("--version").output() {
             if out.status.success() {
                 let ver = String::from_utf8_lossy(&out.stdout).to_string()
                     + &String::from_utf8_lossy(&out.stderr);
-                // Require 3.11+
                 if ver.contains("3.11") || ver.contains("3.12") || ver.contains("3.13") {
                     return Some(candidate.to_string());
                 }

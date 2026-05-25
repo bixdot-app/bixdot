@@ -8,22 +8,16 @@ repository = "https://github.com/bixdot-app/bixdot"
 edition = "2021"
 rust-version = "1.77"
 
-[lib]
-name = "bixdot_lib"
-crate-type = ["lib", "cdylib", "staticlib"]
-
-[[bin]]
-name = "bixdot"
-path = "src/main.rs"
+# No [lib] section — single binary, avoids #[tauri::command] macro_export conflicts
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri            = { version = "2", features = ["tray-icon"] }
+tauri              = { version = "2", features = ["tray-icon"] }
 tauri-plugin-shell = "2"
-serde            = { version = "1", features = ["derive"] }
-serde_json       = "1"
+serde              = { version = "1", features = ["derive"] }
+serde_json         = "1"
 
 [profile.release]
 panic         = "abort"
