@@ -51,6 +51,10 @@ jobs:
         with:
           workspaces: './src-tauri -> target'
 
+      # ── Install Tauri CLI ─────────────────────────────────────────────────
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --version "^2.0" --locked
+
       # ── Linux system deps (WebKit, AppIndicator) ──────────────────────────
       - name: Linux system dependencies
         if: matrix.platform == 'ubuntu-22.04'
