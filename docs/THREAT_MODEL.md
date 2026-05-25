@@ -1,7 +1,7 @@
 # BixDot — Threat Model
 
 > Version: 0.1.0  
-> Last updated: 2026-05-19  
+> Last updated: 2026-05-25  
 > Status: Living document — updated with every release
 
 ---
