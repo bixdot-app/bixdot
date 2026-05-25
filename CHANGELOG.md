@@ -1,82 +1,57 @@
 # Changelog
 
-All notable changes to BixDot are documented here.
-
-Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
-Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
+All notable changes to BixDot are documented here.  
+Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).  
+Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
-## [0.1.0] — 2026-05-21
+## [0.1.0] — 2026-05-25
 
-### 🎉 First Release
-
-BixDot v0.1.0 — the first local-first AI agent that actually works.
-
-**Built by DigiTech Business Pte. Ltd · Singapore**
+First public release. 🎉
 
 ### Added
+- **Chat** — conversational AI powered by local Ollama models (llama3.2 default)
+- **Session persistence** — chat history survives server restarts via SQLite
+- **Filesystem skill** — read files, list directories, search by pattern with `fs:read` / `fs:write` permissions
+- **Web search skill** — DuckDuckGo search via `ddgs`, no API key required
+- **Calendar skill** — connect Google Calendar (OAuth2) or a local `.ics` file; read events and create new ones
+- **Terminal skill** — sandboxed command execution with strict allowlist; shell operators and destructive commands blocked
+- **Permission system** — explicit user approval required before any tool accesses files, network, or calendar
+- **Audit log** — tamper-evident SHA-256 chained log of every action; viewable in the UI
+- **Tauri desktop wrapper** — native window, system tray, hide-to-tray on close, auto-starts Python backend
+- **Setup guide** — friendly first-run page detects missing Python / Ollama and links to installers
+- **Release pipeline** — GitHub Actions builds Windows (`.exe`, `.msi`), macOS (`.dmg`), and Linux (`.deb`, `.AppImage`) on every version tag
+- **Security CI** — Bandit, pip-audit, semgrep, and license header checks run on every push
 
-**Core Agent**
-- Agent runtime with multi-round tool use loop (up to 10 rounds)
-- Permission-gated tool execution — zero access without explicit user approval
-- Full conversation session management
-- Graceful permission denial — tells LLM to ask user, never silently accesses
+### Security
+- Backend bound to `127.0.0.1` only — never exposed to the network
+- JWT authentication on all API routes (15-minute access tokens, 7-day refresh)
+- Terminal sandbox: `shell=False` always, 30s timeout, 5000-char output cap, environment variable stripping
+- Path traversal protection on all filesystem operations
+- Tool classifier prevents llama3.2 from calling tools on conversational messages
+- Null tool call filter blocks malformed model outputs
 
-**Local-First LLM**
-- Ollama integration as the only default — no API key required
-- Works fully offline — plane, train, anywhere
-- Cloud LLM as explicit opt-in — user must enable + provide their own key
-- PII scrubbing before any cloud call
-
-**Security**
-- Zero-trust auth with mandatory JWT on every route
-- Refresh token rotation with replay detection
-- Least-privilege permission system — agent starts with zero permissions
-- Tamper-evident audit log with SHA-256 hash chain
-- Subprocess skill sandbox with timeout + resource limits
-- OS keyring integration for secret storage (never stored in plaintext)
-- Localhost-only binding — never exposed to network
-
-**Frontend**
-- React UI served from FastAPI at localhost:8747
-- Chat interface with typing indicator
-- Permission approval modal
-- Live audit log viewer (refreshes every 3 seconds)
-- Settings with permission management and cloud toggle
-- Works in Chrome, Brave, Firefox
-
-**Developer Experience**
-- BUSL-1.1 license — source-available, auditable, converts to Apache 2.0 after 4 years
-- Full threat model documentation
-- Security disclosure policy
-- CI pipeline with security scanning
-- Contributor License Agreement process
-
-### Technical Stack
-- Python 3.11+
-- FastAPI + Uvicorn
-- Ollama (local LLM)
-- React 18 (via CDN)
-- SQLite (local storage)
-- OS Keyring (secret management)
-
-### Platforms
-- ✅ Windows 10/11
-- ✅ macOS 12+
-- ✅ Linux (Ubuntu 22.04+)
+### Known limitations
+- Google Calendar OAuth requires manual client ID setup (no bundled credentials)
+- Python and Ollama must be installed separately by the user (Option A installer)
+- Session memory limited by llama3.2 context window (~8k tokens)
+- `.icns` for macOS generated from PNG source — proper vector `.icns` in v0.2
 
 ---
 
-## What's Next — v0.2.0
+## [Unreleased]
 
-- Tauri desktop app — one-click `.exe` / `.dmg` installer
-- First-party filesystem skill (full read/write)
-- Web search skill
-- Calendar skill
-- Persistent sessions across server restarts
-- Auto-updater
+### Planned for v0.2
+- Bundled Python backend via PyInstaller (Option B — no separate Python install)
+- Mobile app (iOS + Android via Capacitor)
+- Google Calendar bundled OAuth credentials
+- Onboarding flow for first-time users
+- Model selector in UI (switch between llama3.2, llama3.2:1b, custom models)
+- Outlook / Microsoft 365 calendar support
+- Plugin system for community skills
 
 ---
 
-© 2026 DigiTech Business Pte. Ltd
+*Security disclosures: security@bixdot.app*  
+*© 2026 DigiTech Business Pte. Ltd (Singapore)*

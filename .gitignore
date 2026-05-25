@@ -1,6 +1,7 @@
-# ─── Python ───────────────────────────────────────────────────────────────────
+# ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
+*$py.class
 *.pyo
 *.pyd
 .Python
@@ -8,14 +9,27 @@ __pycache__/
 *.egg-info/
 dist/
 build/
-.eggs/
-.venv/
-venv/
-env/
+eggs/
+parts/
+var/
+sdist/
+wheels/
+pip-wheel-metadata/
+.installed.cfg
+MANIFEST
 
-# ─── NEVER COMMIT THESE ───────────────────────────────────────────────────────
+# ── Virtual environments ──────────────────────────────────────────────────────
 .env
-.env.*
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# ── Secrets & config ──────────────────────────────────────────────────────────
+.env.local
+.env.*.local
 *.key
 *.pem
 *.p12
@@ -23,29 +37,72 @@ env/
 secrets.json
 config.local.*
 
-# ─── SecureClaw Data ──────────────────────────────────────────────────────────
-# User data lives in ~/.bixdot/ — never in the repo
+# ── BixDot data (local only, never committed) ─────────────────────────────────
 ~/.bixdot/
+audit.log
+audit.db
+data.db
 *.db
-*.db-wal
-*.db-shm
+*.sqlite
+*.sqlite3
 
-# ─── IDE ──────────────────────────────────────────────────────────────────────
+# ── Rust / Tauri ──────────────────────────────────────────────────────────────
+src-tauri/target/
+src-tauri/gen/
+
+# ── Built installers (distributed via GitHub Releases, not Git) ───────────────
+*.exe
+*.msi
+*.dmg
+*.deb
+*.AppImage
+*.rpm
+*.pkg
+bundle/
+
+# ── Node / npm (if added later) ───────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+dist/
+.next/
+.nuxt/
+
+# ── IDE ───────────────────────────────────────────────────────────────────────
 .vscode/
 .idea/
-*.swp
-*.swo
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 .DS_Store
+Thumbs.db
+desktop.ini
 
-# ─── Testing ──────────────────────────────────────────────────────────────────
+# ── Test & coverage ───────────────────────────────────────────────────────────
 .pytest_cache/
 .coverage
-coverage.xml
 htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+.hypothesis/
+
+# ── Linting / tooling ─────────────────────────────────────────────────────────
+.ruff_cache/
+.mypy_cache/
+.dmypy.json
 bandit-report.json
 
-# ─── Build artifacts ──────────────────────────────────────────────────────────
-*.spec
-dist-tauri/
-target/
-node_modules/
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
