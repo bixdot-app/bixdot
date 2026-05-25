@@ -36,4 +36,5 @@ httpx==0.27.2           # Test client
 bandit==1.7.10          # Security linting
 semgrep==1.89.0         # SAST scanning
 aiofiles==24.1.0        # Serve static frontend files
-ddgs==0.1.0                  # Web search — no API key needed
+ddgs>=9.0.0          # Web search — renamed from duckduckgo_search in v6+
+icalendar>=5.0.0        # Local .ics calendar file support

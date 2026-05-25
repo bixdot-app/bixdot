@@ -72,8 +72,8 @@ jobs:
       - name: Run tests
         run: pytest tests/ -v --tb=short
         env:
-          SECURECLAW_DEBUG: "true"
-          SECURECLAW_HOST: "127.0.0.1"
+          BIXDOT_DEBUG: "true"
+          BIXDOT_HOST: "127.0.0.1"
 
   # ─── Lint ───────────────────────────────────────────────────────────────────
   lint:

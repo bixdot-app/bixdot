@@ -1,0 +1,110 @@
+name: Release
+
+# Triggered when you push a version tag: git tag v0.1.0 && git push --tags
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  # ─── Build installers for all platforms ─────────────────────────────────────
+  release:
+    permissions:
+      contents: write   # needed to create GitHub Releases
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            args: '--target x86_64-pc-windows-msvc'
+          - platform: macos-latest
+            args: '--target aarch64-apple-darwin'   # Apple Silicon
+          - platform: macos-latest
+            args: '--target x86_64-apple-darwin'    # Intel Mac
+          - platform: ubuntu-22.04
+            args: ''
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── Python (needed to verify backend imports during build) ──────────────
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      # ── Rust ─────────────────────────────────────────────────────────────────
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      # ── Linux system deps (WebKit, AppIndicator) ──────────────────────────
+      - name: Linux system dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      # ── Build + publish to GitHub Releases ───────────────────────────────
+      - name: Build and release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName:     ${{ github.ref_name }}
+          releaseName: 'BixDot ${{ github.ref_name }}'
+          releaseBody: |
+            ## BixDot ${{ github.ref_name }} — Local AI Agent
+
+            Your AI agent. Your device. Your data. No cloud required.
+
+            ---
+
+            ### Download
+
+            | Platform | File | Notes |
+            |----------|------|-------|
+            | Windows  | `BixDot_x64-setup.exe` | Recommended |
+            | Windows  | `BixDot_x64_en-US.msi` | MSI alternative |
+            | Mac (Apple Silicon) | `BixDot_aarch64.dmg` | M1/M2/M3 |
+            | Mac (Intel) | `BixDot_x64.dmg` | Intel Macs |
+            | Linux | `BixDot_amd64.AppImage` | Universal |
+            | Linux | `BixDot_amd64.deb` | Debian/Ubuntu |
+
+            ---
+
+            ### Requirements (installed separately)
+            1. **Python 3.11+** — https://python.org/downloads
+            2. **Ollama** — https://ollama.ai
+            3. **llama3.2 model** — run `ollama pull llama3.2` after installing Ollama
+
+            BixDot will guide you through setup on first launch.
+
+            ---
+
+            ### What's new
+            See [CHANGELOG.md](https://github.com/bixdot-app/bixdot/blob/main/CHANGELOG.md)
+
+            ---
+
+            © 2026 DigiTech Business Pte. Ltd. · [bixdot.app](https://bixdot.app) · [Security](mailto:security@bixdot.app)
+          releaseDraft:  true    # review before publishing
+          prerelease:    false
+          tauriScript:   cargo tauri
