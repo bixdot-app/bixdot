@@ -7,35 +7,35 @@ uvicorn[standard]>=0.30.6
 
 # Authentication
 PyJWT>=2.10.0
-bcrypt==4.2.0
+bcrypt>=4.2.0
 cryptography>=46.0.7
 
 # Storage
-keyring==25.4.1         # OS keyring for secrets
+keyring>=25.4.1         # OS keyring for secrets
 
 # LLM
-anthropic==0.34.2       # Claude API
+anthropic>=0.34.2       # Claude API
 httpx>=0.28.1           # Async HTTP
 
 # Security
-python-multipart==0.0.12
-slowapi==0.1.9          # Rate limiting
+python-multipart>=0.0.27
+slowapi>=0.1.9          # Rate limiting
 
 # Validation
 pydantic>=2.9.2
 pydantic-settings>=2.5.2
 
 # Utilities
-python-dotenv==1.0.1
-structlog==24.4.0       # Structured logging
+python-dotenv>=1.2.2
+structlog>=24.4.0       # Structured logging
 
 # Dev / testing
-pytest==8.3.3
-pytest-asyncio==0.24.0
+pytest>=9.0.3
+pytest-asyncio>=0.24.0
 httpx>=0.28.1           # Test client
-bandit==1.7.10          # Security linting
-semgrep==1.89.0         # SAST scanning
-aiofiles==24.1.0        # Serve static frontend files
+bandit>=1.7.10          # Security linting
+semgrep>=1.89.0         # SAST scanning
+aiofiles>=24.1.0        # Serve static frontend files
 ddgs>=9.0.0                  # Web search — no API key needed
 
 icalendar>=5.0.0       # .ics calendar file support
