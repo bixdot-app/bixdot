@@ -1,5 +1,5 @@
 # BixDot — Core Dependencies
-# Python 3.12+
+# Python 3.11+
 
 # Web framework
 fastapi>=0.115.0
