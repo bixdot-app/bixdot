@@ -5,22 +5,23 @@ build-backend = "setuptools.backends.legacy:build"
 [project]
 name = "bixdot"
 version = "0.1.0"
-description = "The AI agent platform built after reading all 433 BixDot CVEs."
+description = "The secure, local-first AI agent. No cloud required."
 readme = "README.md"
 license = { file = "LICENSE" }
 authors = [
     { name = "DigiTech Business Pte. Ltd", email = "hello@bixdot.app" }
 ]
-keywords = ["ai-agent", "security", "local-first", "zero-trust", "llm"]
+keywords = ["ai-agent", "security", "local-first", "zero-trust", "llm", "ollama"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Security",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.30.6",
@@ -49,16 +50,17 @@ dev = [
 
 [project.urls]
 Homepage = "https://bixdot.app"
-Repository = "https://github.com/bixdot/bixdot"
-"Bug Tracker" = "https://github.com/bixdot/bixdot/issues"
-Security = "https://github.com/bixdot/bixdot/security/policy"
+Repository = "https://github.com/bixdot-app/bixdot"
+"Bug Tracker" = "https://github.com/bixdot-app/bixdot/issues"
+Security = "https://github.com/bixdot-app/bixdot/security/policy"
+Changelog = "https://github.com/bixdot-app/bixdot/blob/main/CHANGELOG.md"
 
 [project.scripts]
 bixdot = "core.main:app"
 
 [tool.ruff]
 line-length = 100
-target-version = "py312"
+target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "W", "F"]

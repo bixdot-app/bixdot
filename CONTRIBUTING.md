@@ -52,16 +52,36 @@ We don't want you to spend time on something we're already building.
 
 ## Development Setup
 
+### Option A — Python backend only (fastest)
+
 ```bash
 git clone https://github.com/bixdot-app/bixdot.git
 cd bixdot
 pip install -r requirements.txt
 
-# You need Ollama running locally
+# Install Ollama from https://ollama.ai then pull a model
 ollama pull llama3.2
 
-# Run
+# Run the backend
 python -m core.main
+# Open http://localhost:8747
+```
+
+### Option B — Full desktop app (Tauri)
+
+Requires Option A working first, plus:
+
+1. **Rust** — [rustup.rs](https://rustup.rs)
+2. **Tauri CLI** — `cargo install tauri-cli --version "^2.0" --locked`
+3. **Linux only** — `sudo apt-get install libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf`
+
+```bash
+# Build the desktop app
+cd src-tauri
+cargo tauri build
+
+# Or run in dev mode (hot reload)
+cargo tauri dev
 ```
 
 ---
@@ -77,16 +97,21 @@ Never add cloud dependencies as a default. Cloud is opt-in, never opt-out.
 - Every external action must be logged to the audit log
 - New capabilities must be added to `Capability` enum and default to denied
 
-**Code style**
+**Python style**
 - Python 3.11+
 - Type hints on all function signatures
 - Docstrings on all public functions
 - No line over 100 characters
+- Run `ruff check core/` before submitting
+
+**Rust style**
+- Follow standard `cargo fmt` and `cargo clippy` output
+- No `unwrap()` in production paths — use proper error handling
 
 **Testing**
 - Tests required for all new functionality
 - Security-critical code requires both unit and integration tests
-- Run `pytest` before submitting
+- Run `pytest` before submitting Python PRs
 
 ---
 
@@ -115,9 +140,8 @@ We have a responsible disclosure policy in [.github/SECURITY.md](.github/SECURIT
 
 ## Questions?
 
-- General: [hello@bixdot.app](mailto:hello@bixdot.app)
-- GitHub Discussions: [github.com/bixdot-app/bixdot/discussions](https://github.com/bixdot-app/bixdot/discussions)
+Open a [Discussion](https://github.com/bixdot-app/bixdot/discussions) — not an Issue.
 
 ---
 
-© 2026 DigiTech Business Pte. Ltd · Singapore · [bixdot.app](https://bixdot.app)
+© 2026 DigiTech Business Pte. Ltd.

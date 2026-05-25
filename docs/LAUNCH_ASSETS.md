@@ -3,122 +3,77 @@
 ---
 
 ## GitHub Repo Description (160 chars max)
-The AI agent platform built after reading all 433 BixDot CVEs. Local-first, zero-trust, least-privilege by design.
+The secure, local-first AI agent. Runs entirely on your device — no cloud, no API key. Zero-trust architecture, mandatory auth, tamper-evident audit log.
 
 ## GitHub Topics
-bixdot, ai-agent, security, local-first, zero-trust, python, fastapi, llm, claude, ollama, open-core, busl
+bixdot, ai-agent, security, local-first, zero-trust, python, fastapi, tauri, llm, ollama, open-core, busl
 
 ---
 
 ## Hacker News — "Show HN" Post
 
 **Title:**
-Show HN: BixDot – AI agent platform built after reading all 433 BixDot CVEs
+Show HN: BixDot – Secure local-first AI agent (desktop app for Win/Mac/Linux)
 
 **Body:**
-BixDot shipped 433 CVEs in 5 months (~2.6/day). 63% of instances ran
-with zero authentication. 341 of 2,857 marketplace skills were malware.
-One website visit could compromise your machine.
+BixDot is an AI agent that runs entirely on your machine. No cloud, no API key, no data leaves your device. Built on Ollama for local LLM inference.
 
-We built BixDot to fix this at the architecture level — not with patches.
+We built it after studying every known CVE class from existing agent platforms and fixing each one architecturally — not with patches.
 
-The core differences:
+The core security differences:
 - Auth is mandatory and enforced in the binary. No config flag disables it.
-- The agent starts with zero OS permissions. Every capability requires an
-  explicit user grant.
-- senderIsOwner (the field that enabled CVE-2026-44118) is derived from
-  the authenticated JWT server-side. No client header can influence it.
-- File ops use fd-based access to eliminate the TOCTOU race condition class
-  (CVE-2026-44112/44113). Path is never re-resolved after validation.
-- Audit log is SHA-256 hash-chained and verified on every startup.
-- Skills run in subprocess sandboxes with stripped env vars and resource limits.
+- The agent starts with zero OS permissions. Every capability requires an explicit user grant.
+- Backend binds to 127.0.0.1 only — never network-exposed
+- File ops use permission-gated access, audit-logged
+- Terminal skill runs with shell=False always, strict allowlist, stripped env vars
+- Audit log is SHA-256 hash-chained and verified on every startup
 
-The threat model is public: every known BixDot CVE class is mapped to
-our specific architectural mitigation.
+Ships as native installers — .exe/.msi for Windows, .dmg for macOS (Intel + Apple Silicon), .deb/.AppImage for Linux. Built with Tauri + Python backend.
 
-It's source-available (BUSL-1.1), free to self-host, runs fully locally
-with Ollama or via Claude API. Claude + Ollama are both supported —
-if you use cloud mode, a PII scrubbing pass runs before anything hits
-the API.
+Source-available (BUSL-1.1), free to self-host, converts to Apache 2.0 after 4 years.
 
-Still early (Week 1 of a 90-day build plan, roadmap in the README) but
-the security foundation is solid. Would love feedback from the security
-community especially.
-
-GitHub: https://github.com/bixdot/bixdot
+GitHub: https://github.com/bixdot-app/bixdot
 
 ---
 
 ## Reddit Posts
 
-### r/netsec
-**Title:** We built a secure AI agent platform after documenting every BixDot CVE
-
-BixDot's security record: 433 CVEs in 5 months, 63% of instances with
-zero auth, 341 malicious marketplace skills. We documented every failure
-and built BixDot to fix them architecturally.
-
-Public threat model maps each CVE class to our specific mitigation.
-Source-available, local-first, free to self-host.
-
-Would appreciate review from this community — especially on the sandbox
-isolation and token architecture.
-
-→ https://github.com/bixdot/bixdot
-→ Threat model: https://github.com/bixdot/bixdot/blob/main/docs/THREAT_MODEL.md
-
----
-
 ### r/selfhosted
-**Title:** BixDot – self-hostable AI agent that actually takes security seriously
+**Title:** BixDot v0.1.0 – self-hostable AI agent with native desktop app (Win/Mac/Linux)
 
-Runs entirely on your machine. Zero data leaves unless you explicitly choose
-cloud LLM mode (with automatic PII scrubbing). Auth mandatory even on localhost.
-Secrets stored in OS keyring, never in config files or .env.
+Runs entirely on your machine. Zero data leaves unless you explicitly choose cloud LLM mode (with automatic PII scrubbing). Auth mandatory even on localhost. Native installers for all platforms.
 
-Free to self-host forever under BUSL-1.1 (source-available, not "open source"
-in the OSI sense — being transparent about that).
+Free to self-host forever under BUSL-1.1.
 
-→ https://github.com/bixdot/bixdot
+→ https://github.com/bixdot-app/bixdot
+→ Releases: https://github.com/bixdot-app/bixdot/releases
 
----
+### r/netsec
+**Title:** BixDot – AI agent built with zero-trust architecture, public threat model
 
-### r/MachineLearning
-**Title:** BixDot – local-first AI agent with zero-trust architecture
+Zero-trust local AI agent. Every capability requires explicit user grant. SHA-256 audit log. Terminal sandbox. No ambient permissions.
 
-Built for developers who want a capable AI agent without their credentials
-being stolen by a marketplace skill. Supports Claude (cloud with PII scrubbing)
-and Ollama (fully local).
+Public threat model maps each CVE class to specific architectural mitigations.
 
-→ https://github.com/bixdot/bixdot
+→ https://github.com/bixdot-app/bixdot
+→ Threat model: https://github.com/bixdot-app/bixdot/blob/main/docs/THREAT_MODEL.md
 
 ---
 
-## Product Hunt
+## v0.1.0 What Shipped
+- Chat (local Ollama LLM)
+- Filesystem, web search, calendar, terminal skills
+- Permission system + audit log
+- Native desktop app — Windows (.exe/.msi), macOS (.dmg), Linux (.deb/.AppImage)
+- Zero-trust JWT auth
 
-**Tagline:**
-The AI agent platform built after reading 433 security CVEs
-
-**Description:**
-BixDot shipped 433 CVEs in 5 months and left 135,000+ instances exposed.
-BixDot is the security-first alternative.
-
-✅ Runs locally — nothing leaves your machine by default
-✅ Mandatory auth — no "skip for now" button
-✅ Zero-trust — agent starts with zero permissions
-✅ Vetted skills — signed and scanned before listing
-✅ Tamper-evident audit log — every action recorded
-
-Free to self-host. Source code is public and auditable.
-Built by DigiTech Business (Singapore).
+## v0.2.0 Coming Next
+- Bundled Python (no separate install)
+- Model selector in UI
+- Onboarding wizard
+- Outlook/M365 calendar
+- Plugin system
 
 ---
 
-## Launch Sequence
-
-Day 0 (T-1 week):   Push repo to GitHub (code + README + docs)
-Day 1 (Launch):     Post "Show HN" at 9am San Francisco time (peak HN traffic)
-Day 2:              Reddit r/netsec + r/selfhosted
-Day 3:              Reddit r/MachineLearning + r/LocalLLaMA
-Day 7:              Product Hunt (coordinate upvotes for morning push)
-Day 14:             Follow-up HN post with community feedback incorporated
+© 2026 DigiTech Business Pte. Ltd. · [bixdot.app](https://bixdot.app)
