@@ -1,98 +1,62 @@
-# ◉ BixDot
+<div align="center">
+  <img src="src-tauri/icons/icon.png" alt="BixDot" width="96"/>
+  <h1>BixDot</h1>
+  <p><strong>The secure, local-first AI agent. No cloud required.</strong></p>
 
-> **Your AI agent. Your device. Your data. No cloud required.**
+  [![CI](https://github.com/bixdot-app/bixdot/actions/workflows/ci.yml/badge.svg)](https://github.com/bixdot-app/bixdot/actions/workflows/ci.yml)
+  [![Release](https://github.com/bixdot-app/bixdot/actions/workflows/release.yml/badge.svg)](https://github.com/bixdot-app/bixdot/actions/workflows/release.yml)
+  [![License: BUSL-1.1](https://img.shields.io/badge/License-BUSL--1.1-blue.svg)](LICENSE)
+  [![Version](https://img.shields.io/badge/version-0.1.0-green.svg)](https://github.com/bixdot-app/bixdot/releases/tag/v0.1.0)
 
-The first AI agent that runs entirely on your device — desktop and mobile.
-No API key. No internet. No server. Just install and go.
-
-[![License: BUSL-1.1](https://img.shields.io/badge/License-BUSL--1.1-orange.svg)](LICENSE)
-[![Security Policy](https://img.shields.io/badge/Security-Policy-red.svg)](.github/SECURITY.md)
-[![CI](https://github.com/bixdot-app/bixdot/actions/workflows/ci.yml/badge.svg)](https://github.com/bixdot-app/bixdot/actions)
-[![CVEs](https://img.shields.io/badge/CVEs-0-brightgreen.svg)](docs/THREAT_MODEL.md)
-[![Made in Singapore](https://img.shields.io/badge/Made%20in-Singapore-red.svg)](https://bixdot.app)
-
----
-
-## Why BixDot Exists
-
-Every AI agent today sends your data to a cloud server.
-
-Your conversations. Your files. Your calendar. Your emails.
-All of it sitting on someone else's hardware, under someone else's policy.
-
-**BixDot is different.** It runs on your hardware. Uses your CPU and RAM.
-Stores everything in your home folder. Works on a plane with no internet.
-No monthly compute bill. No terms of service over your data. No breach risk.
+  [Download](https://github.com/bixdot-app/bixdot/releases/latest) · [Docs](docs/) · [Security](mailto:security@bixdot.app)
+</div>
 
 ---
 
-## Local First. Always.
+## What Is BixDot?
 
-```
-Your Machine
-├── BixDot agent          → runs at localhost:8747
-├── Ollama (local LLM)    → runs at localhost:11434
-├── Your data             → stored in ~/.bixdot/
-└── Zero network calls    → unless you explicitly choose cloud
-```
+BixDot is an AI agent that runs **entirely on your device**. Your conversations, files, and commands never leave your machine unless you explicitly choose otherwise.
 
-| | Cloud AI Agents | BixDot |
-|---|---|---|
-| Your data | Sent to their servers | Stays on your device |
-| Works offline | ❌ | ✅ |
-| API key required | Always | Never |
-| Monthly bill | $20–$200+ | $0 |
-| Privacy | Their policy | You own it |
+Every other AI agent today sends your data to a cloud server. BixDot doesn't. It uses [Ollama](https://ollama.ai) to run models locally — no API key, no internet required, no data leaves your device.
+
+It's also the most secure AI agent available. We built it after studying every known CVE class from existing agent platforms and fixing each one at the architecture level — not with patches.
 
 ---
 
-## Quick Start
+## Download
 
-**Requirements:** Python 3.11+, [Ollama](https://ollama.ai)
+**[→ Download BixDot v0.1.0](https://github.com/bixdot-app/bixdot/releases/latest)**
 
-```bash
-# Step 1 — Install Ollama and pull a model
-# Download from https://ollama.ai then:
-ollama pull llama3.2
+| Platform | Installer |
+|---|---|
+| Windows | `BixDot_x64-setup.exe` |
+| Mac (Apple Silicon) | `BixDot_aarch64.dmg` |
+| Mac (Intel) | `BixDot_x64.dmg` |
+| Linux | `BixDot_amd64.AppImage` / `.deb` |
 
-# Step 2 — Clone and install BixDot
-git clone https://github.com/bixdot-app/bixdot.git
-cd bixdot
-pip install -r requirements.txt
-
-# Step 3 — Run
-python -m core.main
-
-# Step 4 — Open in your browser
-# Go to http://localhost:8747
-# Create your account on first run
-# Start chatting
-```
-
-That's it. No API key. No cloud account. No configuration.
+**Requirements:** [Python 3.11+](https://python.org/downloads) · [Ollama](https://ollama.ai) · `ollama pull llama3.2`
 
 ---
 
-## What BixDot Can Do
+## Features
 
-| Capability | Runs locally? | Permission required? |
-|---|---|---|
-| Chat and answer questions | ✅ Always | No |
-| Read files on your device | ✅ Always | ✅ You approve |
-| Write files on your device | ✅ Always | ✅ You approve |
-| List directory contents | ✅ Always | ✅ You approve |
-| Web search | ✅ Local request | ✅ You approve |
-| Cloud LLM boost | ☁️ Optional only | Your own API key |
+- **Chat** — talk to llama3.2 (or any Ollama model) running locally
+- **Filesystem skill** — read, list, and search files with explicit permission grants
+- **Web search skill** — DuckDuckGo search, no API key required
+- **Calendar skill** — connect Google Calendar or a local `.ics` file
+- **Terminal skill** — sandboxed command execution with strict allowlist
+- **Permission prompts** — you approve every action before it runs
+- **Audit log** — tamper-evident SHA-256 hash chain of everything BixDot does
+- **Desktop app** — native Tauri wrapper for Windows, macOS, and Linux
+- **Zero-trust auth** — mandatory JWT on every route, no bypass
 
-Every action that touches your system requires your explicit permission.
 No silent access. No ambient permissions. You see everything in the audit log.
 
 ---
 
 ## Security
 
-BixDot is built on a zero-trust architecture because AI agents
-need stronger security guarantees than any existing tool provides.
+BixDot is built on a zero-trust architecture because AI agents need stronger security guarantees than any existing tool provides.
 
 - **Runs on localhost only** — never exposed to your network
 - **Mandatory auth** — JWT on every request, no bypass possible
@@ -109,32 +73,54 @@ Full threat model: [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md)
 
 | Component | Status |
 |---|---|
-| Local-first Ollama integration | ✅ Complete |
-| Zero-trust auth (JWT) | ✅ Complete |
-| Least-privilege permissions | ✅ Complete |
-| Tamper-evident audit log | ✅ Complete |
-| Agent runtime + tool use | ✅ Complete |
-| Subprocess skill sandbox | ✅ Complete |
-| Local storage + keyring | ✅ Complete |
-| Desktop UI (React) | ✅ Complete |
-| Desktop app (Tauri) | 🔨 In progress |
-| First-party skills | 🔨 In progress |
+| Local-first Ollama integration | ✅ v0.1.0 |
+| Zero-trust auth (JWT) | ✅ v0.1.0 |
+| Least-privilege permissions | ✅ v0.1.0 |
+| Tamper-evident audit log | ✅ v0.1.0 |
+| Agent runtime + tool use | ✅ v0.1.0 |
+| Subprocess skill sandbox | ✅ v0.1.0 |
+| Desktop app (Tauri) | ✅ v0.1.0 |
+| Windows installer (.exe/.msi) | ✅ v0.1.0 |
+| macOS installer (.dmg) | ✅ v0.1.0 |
+| Linux installer (.deb/.AppImage) | ✅ v0.1.0 |
+| Filesystem skill | ✅ v0.1.0 |
+| Web search skill | ✅ v0.1.0 |
+| Calendar skill | ✅ v0.1.0 |
+| Terminal skill | ✅ v0.1.0 |
+| Bundled Python (no install needed) | 📅 v0.2.0 |
 | Mobile (iOS + Android) | 📅 Phase 2 |
 | Skill marketplace | 📅 Phase 2 |
 
 ---
 
+## Quick Start (Developer)
+
+```bash
+git clone https://github.com/bixdot-app/bixdot.git
+cd bixdot
+pip install -r requirements.txt
+
+# Install Ollama from https://ollama.ai and pull a model
+ollama pull llama3.2
+
+# Run the backend
+python -m core.main
+# Open http://localhost:8747
+```
+
+For the desktop app, [download the installer](https://github.com/bixdot-app/bixdot/releases/latest) instead.
+
+---
+
 ## Contributing
 
-We welcome contributors. BixDot is built in the open and we want
-the best engineers working on the hardest problems in local AI.
+We welcome contributors. BixDot is built in the open and we want the best engineers working on the hardest problems in local AI.
 
 **Before your first PR:**
 Sign our CLA (2 minutes, one time): [cla.bixdot.app](https://cla.bixdot.app)
 
 **Security vulnerabilities:**
-Email **security@bixdot.app** — never open a public issue.
-We respond within 48 hours and credit every researcher.
+Email **security@bixdot.app** — never open a public issue. We respond within 48 hours and credit every researcher.
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) for full guidelines.
 
@@ -142,14 +128,14 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) for full guidelines.
 
 ## Roadmap
 
-**Now — v0.1 (current)**
-Core agent, local LLM, permissions, audit log, browser UI
+**v0.1.0 — Released 25 May 2026**
+Core agent, local LLM, permissions, audit log, desktop app (Win/Mac/Linux)
 
-**Soon — v0.2**
-Tauri desktop app (one-click install), filesystem + web skills
+**v0.2.0 — Coming soon**
+Bundled Python (no separate install), model selector, onboarding flow, Outlook/M365 calendar
 
-**Later — v0.3**
-Skill marketplace, mobile app, enterprise features
+**v0.3.0**
+Skill marketplace, mobile app (iOS + Android), enterprise features
 
 ---
 

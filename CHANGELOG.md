@@ -19,10 +19,15 @@ First public release. 🎉
 - **Terminal skill** — sandboxed command execution with strict allowlist; shell operators and destructive commands blocked
 - **Permission system** — explicit user approval required before any tool accesses files, network, or calendar
 - **Audit log** — tamper-evident SHA-256 chained log of every action; viewable in the UI
-- **Tauri desktop wrapper** — native window, system tray, hide-to-tray on close, auto-starts Python backend
-- **Setup guide** — friendly first-run page detects missing Python / Ollama and links to installers
-- **Release pipeline** — GitHub Actions builds Windows (`.exe`, `.msi`), macOS (`.dmg`), and Linux (`.deb`, `.AppImage`) on every version tag
-- **Security CI** — Bandit, pip-audit, semgrep, and license header checks run on every push
+- **Desktop app** — Tauri native wrapper for Windows, macOS, and Linux
+  - System tray with hide-to-tray on window close
+  - Auto-starts Python backend on launch
+  - Setup guide on first run if Python/Ollama not detected
+- **Windows installers** — `.exe` (NSIS) and `.msi` (WiX) via GitHub Actions
+- **macOS installers** — `.dmg` for Apple Silicon (aarch64) and Intel (x86_64)
+- **Linux installers** — `.deb` (Debian/Ubuntu) and `.AppImage` (universal)
+- **Release pipeline** — GitHub Actions builds all platforms on every version tag
+- **Security CI** — Bandit, pip-audit, semgrep, and license header checks on every push
 
 ### Security
 - Backend bound to `127.0.0.1` only — never exposed to the network
@@ -34,22 +39,22 @@ First public release. 🎉
 
 ### Known limitations
 - Google Calendar OAuth requires manual client ID setup (no bundled credentials)
-- Python and Ollama must be installed separately by the user (Option A installer)
+- Python 3.11+ and Ollama must be installed separately by the user
 - Session memory limited by llama3.2 context window (~8k tokens)
-- `.icns` for macOS generated from PNG source — proper vector `.icns` in v0.2
+- macOS `.icns` generated from PNG at build time — proper vector source in v0.2
 
 ---
 
-## [Unreleased]
+## [Unreleased] — v0.2.0
 
-### Planned for v0.2
-- Bundled Python backend via PyInstaller (Option B — no separate Python install)
-- Mobile app (iOS + Android via Capacitor)
-- Google Calendar bundled OAuth credentials
-- Onboarding flow for first-time users
-- Model selector in UI (switch between llama3.2, llama3.2:1b, custom models)
+### Planned
+- Bundled Python via PyInstaller — no separate Python install required
+- Model selector in UI (switch between llama3.2, llama3.2:1b, custom Ollama models)
+- Onboarding wizard for first-time users
 - Outlook / Microsoft 365 calendar support
+- Google Calendar bundled OAuth credentials
 - Plugin system for community skills
+- Mobile app (iOS + Android via Capacitor)
 
 ---
 
