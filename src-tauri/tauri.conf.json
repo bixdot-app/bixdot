@@ -38,7 +38,7 @@
       "icons/256x256.png",
       "icons/512x512.png",
       "icons/icon.ico",
-      "icons/icon.png"
+      "icons/icon.icns"
     ],
     "resources": [
       "../frontend/**/*"
@@ -49,29 +49,19 @@
     "copyright": "© 2026 DigiTech Business Pte. Ltd.",
     "publisher": "DigiTech Business Pte. Ltd.",
     "windows": {
-      "wix": {
-        "language": "en-US"
-      },
-      "nsis": {
-        "installMode": "currentUser"
-      }
+      "wix": { "language": "en-US" },
+      "nsis": { "installMode": "currentUser" }
     },
     "macOS": {
       "minimumSystemVersion": "10.15",
       "signingIdentity": null
     },
     "linux": {
-      "deb": {
-        "depends": []
-      },
-      "appimage": {
-        "bundleMediaFramework": false
-      }
+      "deb": { "depends": [] },
+      "appimage": { "bundleMediaFramework": false }
     }
   },
   "plugins": {
-    "shell": {
-      "open": false
-    }
+    "shell": { "open": false }
   }
 }
