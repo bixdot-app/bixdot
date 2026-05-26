@@ -53,7 +53,6 @@ jobs:
       - name: Install Tauri CLI v2
         run: cargo install tauri-cli --version "^2.0" --locked
 
-      # ── Generate .icns on macOS only (iconutil is a macOS-only tool) ──────
       - name: Generate macOS icon
         if: matrix.platform == 'macos-latest'
         run: |
@@ -66,7 +65,6 @@ jobs:
           cp src-tauri/icons/512x512.png src-tauri/icons/icon.iconset/icon_256x256@2x.png
           cp src-tauri/icons/512x512.png src-tauri/icons/icon.iconset/icon_512x512.png
           iconutil -c icns src-tauri/icons/icon.iconset -o src-tauri/icons/icon.icns
-          echo "✅ icon.icns generated: $(ls -lh src-tauri/icons/icon.icns)"
 
       - name: Linux system dependencies
         if: matrix.platform == 'ubuntu-22.04'
@@ -78,7 +76,6 @@ jobs:
             librsvg2-dev \
             patchelf
 
-      # macOS: build with .icns injected via --config
       - name: Build Tauri app (macOS)
         if: matrix.platform == 'macos-latest'
         run: |
@@ -95,21 +92,47 @@ jobs:
             }
           }'
 
-      # Windows / Linux: build normally (no .icns needed)
       - name: Build Tauri app (Windows + Linux)
         if: matrix.platform != 'macos-latest'
         run: cargo tauri build ${{ matrix.args }}
 
-      - name: Upload bundle artifacts
+      # ── Find and copy all installers to a flat staging folder ──────────────
+      - name: Stage installers (Windows)
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path staging
+          Get-ChildItem -Recurse src-tauri/target/x86_64-pc-windows-msvc/release/bundle `
+            -Include *.exe,*.msi | Copy-Item -Destination staging/
+          Get-ChildItem staging/
+
+      - name: Stage installers (macOS aarch64)
+        if: matrix.platform == 'macos-latest' && contains(matrix.args, 'aarch64')
+        run: |
+          mkdir -p staging
+          find src-tauri/target/aarch64-apple-darwin/release/bundle -name "*.dmg" -exec cp {} staging/ \;
+          ls staging/
+
+      - name: Stage installers (macOS x86_64)
+        if: matrix.platform == 'macos-latest' && contains(matrix.args, 'x86_64')
+        run: |
+          mkdir -p staging
+          find src-tauri/target/x86_64-apple-darwin/release/bundle -name "*.dmg" -exec cp {} staging/ \;
+          ls staging/
+
+      - name: Stage installers (Linux)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          mkdir -p staging
+          find src-tauri/target/release/bundle -name "*.deb" -exec cp {} staging/ \;
+          find src-tauri/target/release/bundle -name "*.AppImage" -exec cp {} staging/ \;
+          ls staging/
+
+      - name: Upload installers
         uses: actions/upload-artifact@v4
         with:
-          name: bundle-${{ matrix.platform }}-${{ strategy.job-index }}
-          path: |
-            src-tauri/target/release/bundle/**/*.exe
-            src-tauri/target/release/bundle/**/*.msi
-            src-tauri/target/release/bundle/**/*.dmg
-            src-tauri/target/release/bundle/**/*.deb
-            src-tauri/target/release/bundle/**/*.AppImage
+          name: installers-${{ matrix.platform }}-${{ strategy.job-index }}
+          path: staging/*
           if-no-files-found: warn
 
   publish:
@@ -122,18 +145,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Download all artifacts
+      - name: Download all installers
         uses: actions/download-artifact@v4
         with:
-          path: artifacts
+          path: installers
           merge-multiple: true
+
+      - name: List installers
+        run: find installers -type f | sort
 
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "artifacts/**/*"
+          artifacts: "installers/*"
           draft: true
           prerelease: false
+          allowUpdates: true
           name: "BixDot ${{ github.ref_name }}"
           tag: ${{ github.ref_name }}
           body: |
