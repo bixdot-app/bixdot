@@ -42,14 +42,11 @@ fn main() {
         .plugin(tauri_plugin_shell::init())
         .manage(PythonBackend(Mutex::new(None)))
         .setup(|app| {
-            // ── 1. Check dependencies ─────────────────────────────────────
             let python  = find_python();
             let app_dir = find_app_dir();
 
-            let start_url = if python.is_none() {
-                "setup.html".to_string()
-            } else {
-                let py = python.unwrap();
+            // ── Start backend ─────────────────────────────────────────────
+            if let Some(py) = python {
                 println!("[BixDot] Starting backend: {py} -m core.main in {app_dir:?}");
                 match Command::new(&py)
                     .args(["-m", "core.main"])
@@ -58,22 +55,24 @@ fn main() {
                 {
                     Ok(child) => {
                         *app.state::<PythonBackend>().0.lock().unwrap() = Some(child);
-                        "loading.html".to_string()
+                        println!("[BixDot] Backend started — waiting for it to be ready...");
+                        // Give the backend 2 seconds to start up before the window loads
+                        std::thread::sleep(std::time::Duration::from_millis(2000));
                     }
-                    Err(e) => {
-                        eprintln!("[BixDot] Failed to start backend: {e}");
-                        "setup.html".to_string()
-                    }
+                    Err(e) => eprintln!("[BixDot] Failed to start backend: {e}"),
                 }
-            };
-
-            // ── 2. Navigate to start page ─────────────────────────────────
-            if let Some(window) = app.get_webview_window("main") {
-                let url = format!("tauri://localhost/{}", start_url);
-                let _ = window.navigate(url.parse().unwrap());
+            } else {
+                eprintln!("[BixDot] Python 3.11+ not found. Please install Python and Ollama.");
             }
 
-            // ── 3. System tray ────────────────────────────────────────────
+            // ── Navigate window to backend ────────────────────────────────
+            // Always point to http://localhost:8747 — the backend serves
+            // the full frontend including setup/loading pages itself.
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.navigate("http://localhost:8747".parse().unwrap());
+            }
+
+            // ── System tray ───────────────────────────────────────────────
             let open_item = MenuItem::with_id(app, "open", "Open BixDot", true, None::<&str>)?;
             let quit_item = MenuItem::with_id(app, "quit", "Quit",        true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&open_item, &quit_item])?;
