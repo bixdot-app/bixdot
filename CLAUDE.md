@@ -286,5 +286,43 @@ ruff check core/
 
 ---
 
+## Automated Behaviour — Always Follow These
+
+### After Every Code Change
+1. Commit and push to `github.com/bixdot-app/bixdot` (main branch)
+
+### When Bumping the Version Number
+When any version bump occurs (e.g. `0.1.1` → `0.1.2`), update ALL of the following in the same commit before tagging:
+
+| File | What to change |
+|---|---|
+| `core/config.py` | `version: str = "X.Y.Z"` |
+| `src-tauri/tauri.conf.json` | `"version": "X.Y.Z"` |
+| `src-tauri/Cargo.toml` | `version = "X.Y.Z"` |
+| `pyproject.toml` | `version = "X.Y.Z"` |
+| `README.md` | Version badge, download link text, roadmap entry |
+| `CLAUDE.md` | Version line, status table, last-updated footer |
+| `CHANGELOG.md` | New `## [X.Y.Z] — YYYY-MM-DD` section |
+| `docs/THREAT_MODEL.md` | Version/date header |
+| `docs/LAUNCH_ASSETS.md` | Version references in Reddit/HN copy |
+| `.github/RELEASE_NOTES_vX.Y.Z.md` | Create new release notes file |
+
+Then update the **website repo** (`github.com/bixdot-app/bixdot-website`):
+
+| File | What to change |
+|---|---|
+| `index.html` | Hero badge version, all 6 download link filenames, stats bar if relevant |
+
+Finally push the version tag to trigger the release build:
+```bash
+git tag vX.Y.Z && git push origin vX.Y.Z
+```
+
+### Security & Lint (Automated via Hooks)
+- `ruff check --fix` runs automatically after every Python file edit
+- `pip-audit` runs automatically after every `requirements.txt` edit and surfaces CVEs as warnings
+
+---
+
 *Last updated: 2026-06-05 | v0.1.1*
 *© 2026 DigiTech Business Pte. Ltd.*

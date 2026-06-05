@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "powershell",
+            "statusMessage": "Linting Python...",
+            "command": "$j = ($input -join '') | ConvertFrom-Json; $f = $j.tool_input.file_path; if ($f -and $f -match '\\.py$' -and (Test-Path $f)) { ruff check $f --fix --quiet 2>&1 | Out-Null }"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "powershell",
+            "statusMessage": "Auditing dependencies for CVEs...",
+            "command": "$j = ($input -join '') | ConvertFrom-Json; $f = $j.tool_input.file_path; if ($f -and $f -match 'requirements') { $result = pip-audit 2>&1; if ($LASTEXITCODE -ne 0) { $out = @{hookSpecificOutput = @{hookEventName = 'PostToolUse'; additionalContext = \"pip-audit found vulnerabilities: $result\"}} | ConvertTo-Json -Compress; Write-Output $out } }"
+          }
+        ]
+      }
+    ]
+  }
+}
