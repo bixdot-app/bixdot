@@ -21,6 +21,7 @@ import uuid
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
+from core.security import limiter
 from core.auth.jwt import (
     create_token_pair,
     decode_token,
@@ -100,7 +101,8 @@ async def setup(request: SetupRequest, req: Request):
 # ─── Login ────────────────────────────────────────────────────────────────────
 
 @router.post("/login", response_model=TokenResponse)
-async def login(request: LoginRequest, req: Request):
+@limiter.limit("5/minute")
+async def login(request: Request, body: LoginRequest):
     """
     Authenticate with username + password.
     Returns a token pair on success.
@@ -108,18 +110,18 @@ async def login(request: LoginRequest, req: Request):
     Timing-safe: identical response time for wrong username vs wrong password.
     Never reveals which field was incorrect.
     """
-    user = _get_user_by_username(request.username)
+    user = _get_user_by_username(body.username)
 
     # Always run bcrypt — prevents timing attacks revealing valid usernames
     dummy_hash = "$2b$12$invalidhashfortimingnormalization000000000000000000000"
     stored_hash = user["password_hash"] if user else dummy_hash
 
-    password_valid = verify_password(request.password, stored_hash)
+    password_valid = verify_password(body.password, stored_hash)
 
     if not user or not password_valid or not user["is_active"]:
         audit.log(
             AuditEvent.AUTH_LOGIN_FAILURE,
-            {"username": request.username, "ip": req.client.host if req.client else "unknown"},
+            {"username": body.username, "ip": request.client.host if request.client else "unknown"},
         )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -136,7 +138,7 @@ async def login(request: LoginRequest, req: Request):
 
     audit.log(
         AuditEvent.AUTH_LOGIN_SUCCESS,
-        {"username": request.username, "ip": req.client.host if req.client else "unknown"},
+        {"username": body.username, "ip": request.client.host if request.client else "unknown"},
         user_id=user["id"],
     )
 
@@ -154,14 +156,15 @@ async def login(request: LoginRequest, req: Request):
 # ─── Refresh ──────────────────────────────────────────────────────────────────
 
 @router.post("/refresh", response_model=TokenResponse)
-async def refresh(request: RefreshRequest):
+@limiter.limit("10/minute")
+async def refresh(request: Request, body: RefreshRequest):
     """
     Exchange a valid refresh token for a new token pair.
     Old refresh token is immediately revoked (rotation).
     Replay of a revoked refresh token = all sessions for that user revoked.
     """
     try:
-        payload = decode_token(request.refresh_token, expected_type="refresh")
+        payload = decode_token(body.refresh_token, expected_type="refresh")
     except jwt.InvalidTokenError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
 
@@ -225,10 +228,16 @@ async def logout(
     user=Depends(require_auth),
 ):
     """
-    Revoke the current refresh token.
-    Access token remains valid until expiry (15 min) — by design.
-    For immediate access token revocation, add jti to blocklist.
+    Revoke the current refresh token and blocklist the access token for immediate
+    revocation — no waiting for the 15-minute expiry window.
     """
+    # Blocklist the access token so it's rejected immediately by require_auth
+    with get_connection() as conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO token_blocklist (jti, expires_at) VALUES (?, ?)",
+            (user.jti, user.exp.isoformat()),
+        )
+
     try:
         payload = decode_token(request.refresh_token, expected_type="refresh")
         with get_connection() as conn:

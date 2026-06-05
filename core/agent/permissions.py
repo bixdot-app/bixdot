@@ -52,6 +52,10 @@ class Capability(str, Enum):
     GITHUB_READ = "github:read"       # Read GitHub repos/issues
     GITHUB_WRITE = "github:write"     # Create PRs, issues (explicit)
 
+    # Calendar
+    CALENDAR_READ = "calendar:read"   # Read calendar events
+    CALENDAR_WRITE = "calendar:write" # Create/modify calendar events
+
     # LLM
     LLM_CLOUD = "llm:cloud"          # Use cloud LLM (data leaves machine)
     LLM_LOCAL = "llm:local"          # Use local Ollama (always allowed)

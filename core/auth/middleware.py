@@ -17,6 +17,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import jwt
 
 from core.auth.jwt import decode_token, TokenPayload
+from core.storage.db import get_connection
 
 
 security = HTTPBearer(auto_error=True)
@@ -35,7 +36,7 @@ async def require_auth(
     Usage: async def my_route(user: TokenPayload = Depends(require_auth))
     """
     try:
-        return decode_token(credentials.credentials, expected_type="access")
+        payload = decode_token(credentials.credentials, expected_type="access")
     except jwt.ExpiredSignatureError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -48,6 +49,21 @@ async def require_auth(
             detail=str(e),
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    # Check access token blocklist (populated on logout for immediate revocation)
+    with get_connection() as conn:
+        blocked = conn.execute(
+            "SELECT 1 FROM token_blocklist WHERE jti = ? AND expires_at > datetime('now')",
+            (payload.jti,),
+        ).fetchone()
+    if blocked:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    return payload
 
 
 async def require_owner(user: TokenPayload = Depends(require_auth)) -> TokenPayload:

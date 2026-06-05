@@ -21,9 +21,12 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from core.config import settings
 from core.audit.logger import get_audit_logger, AuditEvent
+from core.security import limiter
 
 
 @asynccontextmanager
@@ -42,7 +45,12 @@ async def lifespan(app: FastAPI):
             "Do not start the server until this is investigated."
         )
 
-    # 2. Log startup
+    # 2. Clean up expired access token blocklist entries
+    from core.storage.db import get_connection
+    with get_connection() as conn:
+        conn.execute("DELETE FROM token_blocklist WHERE expires_at < datetime('now')")
+
+    # 3. Log startup
     audit.log(AuditEvent.AGENT_QUERY, {"event": "server_startup", "version": settings.version})
 
     print(f"""
@@ -73,6 +81,9 @@ app = FastAPI(
     redoc_url="/redoc" if settings.debug else None,
     openapi_url="/openapi.json" if settings.debug else None,
 )
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
 # ─── CORS — Strict allowlist, no wildcards ────────────────────────────────────

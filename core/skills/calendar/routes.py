@@ -13,7 +13,9 @@ GET  /calendar/events?days=7            — upcoming events
 POST /calendar/events                   — create event
 """
 
+import html
 import secrets
+import time
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
@@ -34,8 +36,17 @@ router = APIRouter(prefix="/calendar", tags=["calendar"])
 init_calendar_db()
 
 # In-memory OAuth state store (short-lived, cleared after use)
-# state → {"code_verifier": str, "client_id": str, "client_secret": str, "user_id": str}
+# state → {"code_verifier": str, "client_id": str, "client_secret": str, "user_id": str, "expires_at": float}
 _oauth_states: dict[str, dict] = {}
+_OAUTH_STATE_TTL = 300  # 5 minutes
+
+
+def _cleanup_oauth_states() -> None:
+    """Remove expired OAuth states to prevent unbounded memory growth."""
+    now = time.monotonic()
+    expired = [k for k, v in _oauth_states.items() if v.get("expires_at", 0) < now]
+    for k in expired:
+        del _oauth_states[k]
 
 
 # ─── Request / Response Models ────────────────────────────────────────────────
@@ -129,11 +140,13 @@ async def connect_google(req: GoogleConnectRequest, user=Depends(require_auth)):
     state            = secrets.token_urlsafe(16)
     verifier, challenge = provider.make_pkce()
 
+    _cleanup_oauth_states()
     _oauth_states[state] = {
         "code_verifier": verifier,
         "client_id":     req.client_id,
         "client_secret": req.client_secret,
         "user_id":       user.sub,
+        "expires_at":    time.monotonic() + _OAUTH_STATE_TTL,
     }
 
     auth_url = provider.build_auth_url(state, challenge)
@@ -151,11 +164,13 @@ async def oauth_callback(
     Exchanges the code for tokens, saves them, shows a success page.
     This endpoint is unauthenticated (browser redirect from Google).
     """
+    _cleanup_oauth_states()
+
     if error:
         return HTMLResponse(_result_page(False, f"Google denied access: {error}"))
 
     pending = _oauth_states.pop(state, None)
-    if not pending:
+    if not pending or pending.get("expires_at", 0) < time.monotonic():
         return HTMLResponse(_result_page(False, "Invalid or expired auth state. Please try again."))
 
     try:
@@ -256,8 +271,10 @@ async def create_event(req: CreateEventRequest, user=Depends(require_auth)):
 
 def _result_page(success: bool, message: str) -> str:
     color  = "#00d4aa" if success else "#ff4757"
-    icon   = "✓" if success else "✗"
+    icon   = "&#10003;" if success else "&#10007;"
     title  = "Connected!" if success else "Connection failed"
+    safe_message = html.escape(message)
+    safe_title   = html.escape(title)
     return f"""<!DOCTYPE html>
 <html><head><title>BixDot Calendar</title>
 <style>
@@ -273,7 +290,7 @@ def _result_page(success: bool, message: str) -> str:
 </style></head>
 <body><div class="box">
   <div class="icon">{icon}</div>
-  <h2>{title}</h2>
-  <p>{message}</p>
+  <h2>{safe_title}</h2>
+  <p>{safe_message}</p>
   <button onclick="window.close()">Close this tab</button>
 </div></body></html>"""

@@ -152,6 +152,9 @@ TOOL_CAPABILITY_MAP = {
     "list_directory": Capability.FS_READ,
     "search_files":   Capability.FS_READ,
     "web_search":     Capability.NET_FETCH,
+    "run_command":    Capability.EXEC_SHELL,
+    "get_events":     Capability.CALENDAR_READ,
+    "create_event":   Capability.CALENDAR_WRITE,
 }
 
 def get_system_prompt() -> str:
@@ -401,10 +404,23 @@ class AgentRuntime:
     def _resolve(self, path: str) -> Path:
         return resolve_path(path)
 
+    def _is_safe_path(self, p: Path) -> bool:
+        """Block paths outside the user's home directory to prevent traversal attacks."""
+        try:
+            p.resolve().relative_to(Path.home())
+            return True
+        except ValueError:
+            return False
+
     async def _read_file(self, path: str, user_id: str) -> str:
         if not path: return "Error: no path"
         try:
             p = self._resolve(path)
+            if not self._is_safe_path(p):
+                self.audit.log(AuditEvent.PERMISSION_DENIED,
+                               {"tool": "read_file", "path": str(p), "reason": "outside home"},
+                               user_id=user_id)
+                return f"Access denied: path outside home directory"
             if not p.exists(): return f"Not found: {path}"
             if not p.is_file(): return f"Not a file: {path}"
             if p.stat().st_size > 1_048_576: return "File too large (max 1MB)"
@@ -417,6 +433,11 @@ class AgentRuntime:
         if not path: return "Error: no path"
         try:
             p = self._resolve(path)
+            if not self._is_safe_path(p):
+                self.audit.log(AuditEvent.PERMISSION_DENIED,
+                               {"tool": "write_file", "path": str(p), "reason": "outside home"},
+                               user_id=user_id)
+                return f"Access denied: path outside home directory"
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_text(content, encoding="utf-8")
             self.audit.log(AuditEvent.FILE_WRITE, {"path": str(p), "size": len(content)}, user_id=user_id)
@@ -427,6 +448,8 @@ class AgentRuntime:
     async def _list_directory(self, path: str, user_id: str) -> str:
         try:
             p = self._resolve(path or "~")
+            if not self._is_safe_path(p):
+                return f"Access denied: path outside home directory"
             if not p.exists(): return f"Not found: {path}"
             if not p.is_dir(): return f"Not a directory: {path}"
             entries = []
@@ -445,6 +468,8 @@ class AgentRuntime:
         import fnmatch
         try:
             p = self._resolve(directory)
+            if not self._is_safe_path(p):
+                return f"Access denied: path outside home directory"
             if not p.is_dir(): return f"Not a directory: {directory}"
             matches = []
             for root, dirs, files in os.walk(p):

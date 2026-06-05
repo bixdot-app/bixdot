@@ -26,7 +26,7 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self' http://localhost:8747 http://127.0.0.1:8747; script-src 'self' http://localhost:8747 http://127.0.0.1:8747; style-src 'self' http://localhost:8747 http://127.0.0.1:8747 'unsafe-inline'; img-src 'self' data: http://localhost:8747 http://127.0.0.1:8747; connect-src http://localhost:8747 http://127.0.0.1:8747 ws://localhost:8747 ws://127.0.0.1:8747; font-src 'self' http://localhost:8747 http://127.0.0.1:8747; object-src 'none'; base-uri 'none'"
     }
   },
   "bundle": {
