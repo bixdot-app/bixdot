@@ -12,7 +12,7 @@
 - **Website:** https://bixdot.app
 - **GitHub:** https://github.com/bixdot-app/bixdot
 - **License:** BUSL-1.1 (source-available, free to self-host, commercial use requires license)
-- **Version:** v0.1.0 (released 2026-05-25)
+- **Version:** v0.1.1 (released 2026-06-05)
 - **Owner:** Shanker / DigiTech Business Pte. Ltd
 
 ---
@@ -170,7 +170,7 @@ All Tauri commands are defined directly in `main.rs`.
 
 ---
 
-## Current Status — v0.1.0 ✅ SHIPPED
+## Current Status — v0.1.1 ✅ SHIPPED
 
 | Feature | Status |
 |---|---|
@@ -188,6 +188,7 @@ All Tauri commands are defined directly in `main.rs`.
 | Linux .deb/.AppImage | ✅ Done |
 | bixdot.app website (Vercel) | ✅ Done |
 | GitHub Actions CI + Release | ✅ Done |
+| Security patch (8 CVEs — v0.1.1) | ✅ Done |
 
 ---
 
@@ -285,5 +286,5 @@ ruff check core/
 
 ---
 
-*Last updated: 2026-05-25 | v0.1.0*
+*Last updated: 2026-06-05 | v0.1.1*
 *© 2026 DigiTech Business Pte. Ltd.*

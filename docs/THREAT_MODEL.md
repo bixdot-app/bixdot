@@ -1,7 +1,7 @@
 # BixDot — Threat Model
 
-> Version: 0.1.0  
-> Last updated: 2026-05-25  
+> Version: 0.1.1  
+> Last updated: 2026-06-05  
 > Status: Living document — updated with every release
 
 ---
@@ -96,6 +96,56 @@ Every known BixDot vulnerability class is addressed by a specific architectural 
 - jti (JWT ID) tracked for replay detection
 
 **Code:** `core/auth/jwt.py → create_refresh_token()`
+
+---
+
+---
+
+### v0.1.1 Security Patches (2026-06-05)
+
+**Permission gate bypass** — `run_command`, `get_events`, and `create_event` tools were missing from `TOOL_CAPABILITY_MAP`, allowing them to execute with no user-granted permission. All tools now require an explicit capability grant before execution.
+
+**Code:** `core/agent/runtime.py → TOOL_CAPABILITY_MAP`
+
+---
+
+**Path traversal via absolute paths** — Filesystem tools accepted any absolute path the OS user could access (e.g. `C:\Windows\System32\...`). All file operations are now sandboxed to the user's home directory.
+
+**Code:** `core/agent/runtime.py → _is_safe_path()`
+
+---
+
+**Access token revocation gap** — The `token_blocklist` table existed in the schema but was never written to or checked. Tokens remained valid for 15 minutes after logout. Logout now immediately blocklists the access token's `jti`; `require_auth` checks the blocklist on every request.
+
+**Code:** `core/auth/middleware.py → require_auth()`, `core/auth/routes.py → logout()`
+
+---
+
+**Brute-force on auth endpoints** — `slowapi` was listed as a dependency and `auth_rate_limit` was in config, but no rate limiting was applied anywhere. Auth endpoints are now rate-limited at 5/minute (login) and 10/minute (refresh).
+
+**Code:** `core/security.py`, `core/auth/routes.py`
+
+---
+
+**XSS in OAuth callback** — The `error` query parameter from Google's OAuth redirect was rendered unescaped in the HTML result page. An attacker could craft a malicious redirect URL to inject arbitrary HTML/JS. All user-controlled content is now HTML-escaped via `html.escape()`.
+
+**Code:** `core/skills/calendar/routes.py → _result_page()`
+
+---
+
+**OAuth state memory exhaustion** — The in-memory `_oauth_states` dict had no TTL or cleanup. State entries now expire after 5 minutes and are cleaned up on every OAuth interaction.
+
+**Code:** `core/skills/calendar/routes.py → _cleanup_oauth_states()`
+
+---
+
+**Tauri Content Security Policy disabled** — CSP was set to `null`, offering no browser-level protection against script injection in the WebView. Now set to a strict policy: `object-src 'none'`, `base-uri 'none'`, `connect-src` restricted to localhost only.
+
+**Code:** `src-tauri/tauri.conf.json`
+
+---
+
+**PyJWT CVEs (PYSEC-2026-175/177/178/179)** — PyJWT `<2.13.0` contained 4 vulnerabilities. Minimum version bumped to `>=2.13.0`.
 
 ---
 

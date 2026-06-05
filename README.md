@@ -6,7 +6,7 @@
   [![CI](https://github.com/bixdot-app/bixdot/actions/workflows/ci.yml/badge.svg)](https://github.com/bixdot-app/bixdot/actions/workflows/ci.yml)
   [![Release](https://github.com/bixdot-app/bixdot/actions/workflows/release.yml/badge.svg)](https://github.com/bixdot-app/bixdot/actions/workflows/release.yml)
   [![License: BUSL-1.1](https://img.shields.io/badge/License-BUSL--1.1-blue.svg)](LICENSE)
-  [![Version](https://img.shields.io/badge/version-0.1.0-green.svg)](https://github.com/bixdot-app/bixdot/releases/tag/v0.1.0)
+  [![Version](https://img.shields.io/badge/version-0.1.1-green.svg)](https://github.com/bixdot-app/bixdot/releases/tag/v0.1.1)
 
   [Download](https://github.com/bixdot-app/bixdot/releases/latest) · [Docs](docs/) · [Security](mailto:security@bixdot.app)
 </div>
@@ -25,7 +25,7 @@ It's also the most secure AI agent available. We built it after studying every k
 
 ## Download
 
-**[→ Download BixDot v0.1.0](https://github.com/bixdot-app/bixdot/releases/latest)**
+**[→ Download BixDot v0.1.1](https://github.com/bixdot-app/bixdot/releases/latest)**
 
 | Platform | Installer |
 |---|---|
@@ -87,6 +87,7 @@ Full threat model: [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md)
 | Web search skill | ✅ v0.1.0 |
 | Calendar skill | ✅ v0.1.0 |
 | Terminal skill | ✅ v0.1.0 |
+| Security patch release (8 CVEs) | ✅ v0.1.1 |
 | Bundled Python (no install needed) | 📅 v0.2.0 |
 | Mobile (iOS + Android) | 📅 Phase 2 |
 | Skill marketplace | 📅 Phase 2 |
@@ -127,6 +128,9 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) for full guidelines.
 ---
 
 ## Roadmap
+
+**v0.1.1 — Released 5 June 2026**
+Security patch: 8 CVEs fixed (permission gate bypass, path traversal, token blocklist, rate limiting, XSS, CSP, OAuth state TTL, PyJWT upgrade)
 
 **v0.1.0 — Released 25 May 2026**
 Core agent, local LLM, permissions, audit log, desktop app (Win/Mac/Linux)
