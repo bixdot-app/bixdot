@@ -82,8 +82,9 @@ bixdot/
 │   │   └── terminal/              # Sandboxed command execution
 │   ├── audit/
 │   │   └── logger.py              # SHA-256 hash-chained audit log
+│   ├── security.py                # Shared SlowAPI rate limiter instance
 │   └── storage/
-│       └── db.py                  # SQLite init, is_first_run()
+│       └── db.py                  # SQLite init, is_first_run(), token_blocklist
 ├── frontend/                      # React UI (static, served by FastAPI)
 │   ├── index.html                 # Main chat interface
 │   └── setup.html                 # First-run setup wizard
@@ -103,7 +104,10 @@ bixdot/
 │   │   └── release.yml            # Multi-platform Tauri builds + GitHub release
 │   ├── ISSUE_TEMPLATE/
 │   ├── SECURITY.md
-│   └── RELEASE_NOTES_v0.1.0.md
+│   ├── RELEASE_NOTES_v0.1.0.md
+│   └── RELEASE_NOTES_v0.1.1.md
+├── .claude/
+│   └── settings.json              # PostToolUse hooks: ruff auto-fix, pip-audit on requirements
 ├── requirements.txt               # Python 3.11+ dependencies
 ├── pyproject.toml                 # Build config, repository: github.com/bixdot-app/bixdot
 ├── CONTRIBUTING.md
@@ -145,14 +149,16 @@ if required_cap and not self.permissions.check("builtin", required_cap):
     return AgentResponse(permissions_requested=[required_cap.value], ...)
 ```
 
-Capabilities: `fs:read`, `fs:write`, `terminal:execute`, `network:search`, `calendar:read`, `calendar:write`
+Capabilities: `fs:read`, `fs:write`, `fs:delete`, `net:fetch`, `net:outbound`, `exec:shell`, `exec:python`, `calendar:read`, `calendar:write`, `cred:read`, `cred:write`, `llm:cloud`, `llm:local`
 
 ### 3. Auth Flow
 
 - First run: `GET /auth/setup-status` → `POST /auth/setup` (creates owner account, permanently disables endpoint)
-- Login: `POST /auth/login` → returns `{access_token, refresh_token}`
+- Login: `POST /auth/login` → returns `{access_token, refresh_token}` — rate limited 5/minute
 - All other routes: `Authorization: Bearer <access_token>` header required
-- Token refresh: `POST /auth/refresh` — old refresh token revoked immediately (rotation)
+- `require_auth` checks the `token_blocklist` table on every request (immediate revocation support)
+- Token refresh: `POST /auth/refresh` — old refresh token revoked immediately (rotation), rate limited 10/minute
+- Logout: `POST /auth/logout` — writes access token `jti` to `token_blocklist` for immediate revocation (no 15-min window)
 - Role is ALWAYS derived from JWT server-side — never from client input
 
 ### 4. Tauri Window Navigation
