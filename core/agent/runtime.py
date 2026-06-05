@@ -420,7 +420,7 @@ class AgentRuntime:
                 self.audit.log(AuditEvent.PERMISSION_DENIED,
                                {"tool": "read_file", "path": str(p), "reason": "outside home"},
                                user_id=user_id)
-                return f"Access denied: path outside home directory"
+                return "Access denied: path outside home directory"
             if not p.exists(): return f"Not found: {path}"
             if not p.is_file(): return f"Not a file: {path}"
             if p.stat().st_size > 1_048_576: return "File too large (max 1MB)"
@@ -437,7 +437,7 @@ class AgentRuntime:
                 self.audit.log(AuditEvent.PERMISSION_DENIED,
                                {"tool": "write_file", "path": str(p), "reason": "outside home"},
                                user_id=user_id)
-                return f"Access denied: path outside home directory"
+                return "Access denied: path outside home directory"
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_text(content, encoding="utf-8")
             self.audit.log(AuditEvent.FILE_WRITE, {"path": str(p), "size": len(content)}, user_id=user_id)
@@ -449,7 +449,7 @@ class AgentRuntime:
         try:
             p = self._resolve(path or "~")
             if not self._is_safe_path(p):
-                return f"Access denied: path outside home directory"
+                return "Access denied: path outside home directory"
             if not p.exists(): return f"Not found: {path}"
             if not p.is_dir(): return f"Not a directory: {path}"
             entries = []
@@ -469,7 +469,7 @@ class AgentRuntime:
         try:
             p = self._resolve(directory)
             if not self._is_safe_path(p):
-                return f"Access denied: path outside home directory"
+                return "Access denied: path outside home directory"
             if not p.is_dir(): return f"Not a directory: {directory}"
             matches = []
             for root, dirs, files in os.walk(p):
