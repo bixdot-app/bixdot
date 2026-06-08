@@ -19,7 +19,7 @@
             "type": "command",
             "shell": "powershell",
             "statusMessage": "Auditing dependencies for CVEs...",
-            "command": "$j = ($input -join '') | ConvertFrom-Json; $f = $j.tool_input.file_path; if ($f -and $f -match 'requirements') { $result = pip-audit 2>&1; if ($LASTEXITCODE -ne 0) { $out = @{hookSpecificOutput = @{hookEventName = 'PostToolUse'; additionalContext = \"pip-audit found vulnerabilities: $result\"}} | ConvertTo-Json -Compress; Write-Output $out } }"
+            "command": "$j = ($input -join '') | ConvertFrom-Json; $f = $j.tool_input.file_path; if ($f -and $f -match 'requirements') { $result = python -m pip_audit 2>&1; if ($LASTEXITCODE -ne 0) { $out = @{hookSpecificOutput = @{hookEventName = 'PostToolUse'; additionalContext = \"pip-audit found vulnerabilities: $result\"}} | ConvertTo-Json -Compress; Write-Output $out } }"
           }
         ]
       }
