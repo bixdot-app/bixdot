@@ -26,6 +26,10 @@ ignore = [
               #   "auth.token.refresh"  (audit event name string)
               #   OAuth endpoint URLs   (not passwords)
 
+    "S110",   # try-except-pass — used in two intentional silent-swallow sites:
+              #   /health/onboarding: Ollama connectivity check (failure = not running, not an error)
+              #   scan_plugins_dir(): invalid plugin directories are skipped silently on startup
+
     "S112",   # try-except-continue — used in calendar .ics parser to skip
               # malformed events; swallowing is intentional
 
