@@ -78,8 +78,13 @@ bixdot/
 │   ├── skills/
 │   │   ├── filesystem/            # read_file, write_file, list_directory, search_files
 │   │   ├── websearch/             # DuckDuckGo search (ddgs, no API key)
-│   │   ├── calendar/              # Google Calendar OAuth2 + .ics
+│   │   ├── calendar/              # Google Calendar OAuth2, Outlook/M365 Graph API, .ics
 │   │   └── terminal/              # Sandboxed command execution
+│   ├── plugins/
+│   │   ├── loader.py              # Scans ~/.bixdot/plugins/ on startup, manifest v1 validation
+│   │   └── routes.py              # /plugins/* — install, enable, disable, uninstall
+│   ├── sandbox/
+│   │   └── executor.py            # Sandboxed subprocess executor for plugin/terminal isolation
 │   ├── audit/
 │   │   └── logger.py              # SHA-256 hash-chained audit log
 │   ├── security.py                # Shared SlowAPI rate limiter instance
@@ -101,11 +106,13 @@ bixdot/
 ├── .github/
 │   ├── workflows/
 │   │   ├── ci.yml                 # Bandit, pip-audit, semgrep, license headers
-│   │   └── release.yml            # Multi-platform Tauri builds + GitHub release
+│   │   ├── release.yml            # Multi-platform Tauri builds + GitHub release
+│   │   └── daily-security-audit.yml  # CVE + Bandit + Ruff; runs 06:00 SGT, auto-commits fixes
 │   ├── ISSUE_TEMPLATE/
 │   ├── SECURITY.md
 │   ├── RELEASE_NOTES_v0.1.0.md
-│   └── RELEASE_NOTES_v0.1.1.md
+│   ├── RELEASE_NOTES_v0.1.1.md
+│   └── RELEASE_NOTES_v0.2.0.md
 ├── .claude/
 │   └── settings.json              # PostToolUse hooks: ruff auto-fix, pip-audit on requirements
 ├── requirements.txt               # Python 3.11+ dependencies
@@ -289,9 +296,9 @@ cargo tauri dev
 # Tests
 pytest
 
-# CI checks
-bandit -r core/
-pip-audit
+# CI checks (must match ci.yml exactly)
+bandit -r core/ -ll -ii --skip B101,B603,B607
+pip-audit -r requirements.txt          # scoped — avoids CI tooling false positives
 ruff check core/
 ```
 
@@ -311,23 +318,32 @@ When any version bump occurs (e.g. `0.1.1` → `0.1.2`), update ALL of the follo
 | `src-tauri/tauri.conf.json` | `"version": "X.Y.Z"` |
 | `src-tauri/Cargo.toml` | `version = "X.Y.Z"` |
 | `pyproject.toml` | `version = "X.Y.Z"` |
-| `README.md` | Version badge, download link text, roadmap entry |
-| `CLAUDE.md` | Version line, status table, last-updated footer |
-| `CHANGELOG.md` | New `## [X.Y.Z] — YYYY-MM-DD` section |
+| `README.md` | Version badge; roadmap: move vX.Y.Z to history, update "Coming next" to vX.Y+1.Z |
+| `CLAUDE.md` | Version line, status table, repo structure if new files, last-updated footer |
+| `CHANGELOG.md` | New `## [X.Y.Z] — YYYY-MM-DD` section **at the top** (newest first) |
 | `docs/THREAT_MODEL.md` | Version/date header |
-| `docs/LAUNCH_ASSETS.md` | Version references in Reddit/HN copy |
+| `docs/LAUNCH_ASSETS.md` | Update "What Shipped" and "Coming Next" sections |
 | `.github/RELEASE_NOTES_vX.Y.Z.md` | Create new release notes file |
+| `.github/RELEASE_NOTES_vPREV.md` | Update its "What's Next" to show new version as shipped |
 
 Then update the **website repo** (`github.com/bixdot-app/bixdot-website`):
 
 | File | What to change |
 |---|---|
-| `index.html` | Hero badge version, all 6 download link filenames, stats bar if relevant |
+| `index.html` | Hero badge version, all 6 download link filenames (`BixDot_X.Y.Z_*`), stats bar if relevant |
 
 Finally push the version tag to trigger the release build:
 ```bash
 git tag vX.Y.Z && git push origin vX.Y.Z
 ```
+
+> **Release workflow creates a draft release.** After the build completes (~20 min), go to
+> github.com/bixdot-app/bixdot/releases and click **"Publish release"** to make it public.
+
+### Doc Ordering Rules — Always Enforce
+- **CHANGELOG.md** — newest version at the top, oldest at the bottom
+- **README.md Roadmap** — "Coming next" at the top, released versions below newest-first
+- **LAUNCH_ASSETS.md** — "Coming Next" section refers to the *next unreleased* version only
 
 ### Security & Lint (Automated via Hooks)
 - `ruff check --fix` runs automatically after every Python file edit
@@ -335,5 +351,5 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 
 ---
 
-*Last updated: 2026-06-09 | v0.2.0*
+*Last updated: 2026-06-10 | v0.2.0*
 *© 2026 DigiTech Business Pte. Ltd.*
