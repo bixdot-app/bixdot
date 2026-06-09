@@ -2,7 +2,7 @@
 # Python 3.11+
 
 # Web framework
-fastapi>=0.115.0
+fastapi>=0.116.0
 uvicorn[standard]>=0.30.6
 
 # Authentication
@@ -39,3 +39,15 @@ aiofiles>=24.1.0        # Serve static frontend files
 ddgs>=9.0.0                  # Web search — no API key needed
 
 icalendar>=5.0.0       # .ics calendar file support
+
+# Bundling
+pyinstaller>=6.0.0     # Bundle Python backend into standalone executable
+
+# Security pins — transitive dep minimums enforced to avoid known CVEs
+starlette>=0.47.2      # CVE-2024-47874, CVE-2025-54121, PYSEC-2026-161
+urllib3>=2.6.3         # CVE-2025-66418, CVE-2025-66471, CVE-2026-21441
+requests>=2.33.0       # CVE-2026-25645
+jinja2>=3.1.6          # CVE-2024-56326, CVE-2024-56201, CVE-2025-27516
+idna>=3.15             # CVE-2026-45409
+filelock>=3.20.3       # CVE-2025-68146, CVE-2026-22701
+pillow>=12.2.0         # CVE-2026-25990, CVE-2026-40192, CVE-2026-42310, PYSEC-2026-165

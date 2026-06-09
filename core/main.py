@@ -153,9 +153,11 @@ app.include_router(terminal_router)
 # ─── Serve Frontend ───────────────────────────────────────────────────────────
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-import os
+import os, sys
 
-frontend_path = os.path.join(os.path.dirname(__file__), '..', 'frontend')
+# Support both normal execution and PyInstaller bundle (BIXDOT_BASE set by __main__.py)
+_base = os.environ.get("BIXDOT_BASE") or os.path.join(os.path.dirname(__file__), "..")
+frontend_path = os.path.join(_base, "frontend")
 if os.path.exists(frontend_path):
     app.mount("/static", StaticFiles(directory=frontend_path), name="static")
 

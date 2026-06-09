@@ -42,11 +42,24 @@ fn main() {
         .plugin(tauri_plugin_shell::init())
         .manage(PythonBackend(Mutex::new(None)))
         .setup(|app| {
-            let python  = find_python();
             let app_dir = find_app_dir();
 
             // ── Start backend ─────────────────────────────────────────────
-            if let Some(py) = python {
+            // Prefer bundled bixdot-backend executable (PyInstaller bundle) over
+            // system Python — this works without any Python installation.
+            let started = if let Some(backend_exe) = find_bundled_backend() {
+                println!("[BixDot] Starting bundled backend: {:?}", backend_exe);
+                match Command::new(&backend_exe).spawn() {
+                    Ok(child) => {
+                        *app.state::<PythonBackend>().0.lock().unwrap() = Some(child);
+                        true
+                    }
+                    Err(e) => {
+                        eprintln!("[BixDot] Bundled backend failed to start: {e}");
+                        false
+                    }
+                }
+            } else if let Some(py) = find_python() {
                 println!("[BixDot] Starting backend: {py} -m core.main in {app_dir:?}");
                 match Command::new(&py)
                     .args(["-m", "core.main"])
@@ -55,14 +68,22 @@ fn main() {
                 {
                     Ok(child) => {
                         *app.state::<PythonBackend>().0.lock().unwrap() = Some(child);
-                        println!("[BixDot] Backend started — waiting for it to be ready...");
-                        // Give the backend 2 seconds to start up before the window loads
-                        std::thread::sleep(std::time::Duration::from_millis(2000));
+                        true
                     }
-                    Err(e) => eprintln!("[BixDot] Failed to start backend: {e}"),
+                    Err(e) => {
+                        eprintln!("[BixDot] Failed to start backend: {e}");
+                        false
+                    }
                 }
             } else {
-                eprintln!("[BixDot] Python 3.11+ not found. Please install Python and Ollama.");
+                eprintln!("[BixDot] No bundled backend or Python 3.11+ found. Install Python from https://python.org");
+                false
+            };
+
+            if started {
+                println!("[BixDot] Backend started — waiting for it to be ready...");
+                // Give the backend 2 seconds to start up before the window loads
+                std::thread::sleep(std::time::Duration::from_millis(2000));
             }
 
             // ── Navigate window to backend ────────────────────────────────
@@ -140,6 +161,24 @@ fn find_app_dir() -> std::path::PathBuf {
         }
     }
     cwd
+}
+
+/// Look for a pre-built bixdot-backend executable bundled alongside this app.
+/// PyInstaller produces a single binary; we place it next to the Tauri exe.
+fn find_bundled_backend() -> Option<std::path::PathBuf> {
+    let name = if cfg!(windows) { "bixdot-backend.exe" } else { "bixdot-backend" };
+    if let Ok(exe) = std::env::current_exe() {
+        let dir = exe.parent().unwrap_or_else(|| std::path::Path::new("."));
+        // Next to the Tauri executable (most common case)
+        let candidate = dir.join(name);
+        if candidate.exists() { return Some(candidate); }
+        // One level up (macOS .app bundle: Contents/MacOS/bixdot vs Contents/Resources/)
+        if let Some(parent) = dir.parent() {
+            let candidate = parent.join(name);
+            if candidate.exists() { return Some(candidate); }
+        }
+    }
+    None
 }
 
 fn find_python() -> Option<String> {

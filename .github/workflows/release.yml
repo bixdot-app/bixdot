@@ -40,6 +40,25 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r requirements.txt
 
+      - name: Build PyInstaller backend bundle
+        run: |
+          pip install pyinstaller
+          pyinstaller bixdot.spec --distpath dist-backend --workpath build-backend
+
+      - name: Stage bundled backend next to Tauri resources (Windows)
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path src-tauri/resources
+          Copy-Item dist-backend/bixdot-backend.exe src-tauri/resources/bixdot-backend.exe
+
+      - name: Stage bundled backend next to Tauri resources (macOS/Linux)
+        if: matrix.platform != 'windows-latest'
+        run: |
+          mkdir -p src-tauri/resources
+          cp dist-backend/bixdot-backend src-tauri/resources/bixdot-backend
+          chmod +x src-tauri/resources/bixdot-backend
+
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
         with:
