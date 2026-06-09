@@ -12,7 +12,7 @@
 - **Website:** https://bixdot.app
 - **GitHub:** https://github.com/bixdot-app/bixdot
 - **License:** BUSL-1.1 (source-available, free to self-host, commercial use requires license)
-- **Version:** v0.1.1 (released 2026-06-05)
+- **Version:** v0.2.0 (released 2026-06-09)
 - **Owner:** Shanker / DigiTech Business Pte. Ltd
 
 ---
@@ -176,7 +176,7 @@ All Tauri commands are defined directly in `main.rs`.
 
 ---
 
-## Current Status — v0.1.1 ✅ SHIPPED
+## Current Status — v0.2.0 ✅ SHIPPED
 
 | Feature | Status |
 |---|---|
@@ -186,7 +186,7 @@ All Tauri commands are defined directly in `main.rs`.
 | SHA-256 audit log | ✅ Done |
 | Filesystem skill | ✅ Done |
 | Web search skill (ddgs) | ✅ Done |
-| Calendar skill | ✅ Done |
+| Calendar skill (Google + iCal) | ✅ Done |
 | Terminal skill (sandboxed) | ✅ Done |
 | Tauri desktop app | ✅ Done |
 | Windows .exe/.msi | ✅ Done |
@@ -195,22 +195,27 @@ All Tauri commands are defined directly in `main.rs`.
 | bixdot.app website (Vercel) | ✅ Done |
 | GitHub Actions CI + Release | ✅ Done |
 | Security patch (8 CVEs — v0.1.1) | ✅ Done |
+| Bundled Python (PyInstaller) | ✅ Done |
+| Model selector (persistent) | ✅ Done |
+| Onboarding wizard | ✅ Done |
+| Outlook / M365 calendar | ✅ Done |
+| Plugin system foundation | ✅ Done |
 
 ---
 
-## v0.2.0 Roadmap — Next Sprint
+## v0.3.0 Roadmap — Next Sprint
 
 Priority order:
 
-1. **Bundled Python via PyInstaller** — biggest UX unlock. Currently users must install Python + Ollama separately, causing blank screen on fresh install. PyInstaller bundles the backend into a single executable that Tauri spawns directly.
+1. **Plugin execution** — load and run plugin entry points in a sandboxed subprocess. Registry for community plugins.
 
-2. **Model selector in UI** — query `ollama list` and show installed models. Let user switch between llama3.2, llama3.2:1b, DeepSeek R1, Mistral, Gemma, Qwen, etc.
+2. **Bundled OAuth credentials** — ship default Google Calendar client ID so users don't need to register their own app.
 
-3. **Onboarding wizard** — detect missing Ollama, guide user through setup step by step.
+3. **Mobile app** — iOS + Android via Capacitor or Tauri Mobile.
 
-4. **Outlook/M365 calendar** — Microsoft Graph API integration.
+4. **Code signing** — Windows EV cert + macOS Developer ID to remove SmartScreen/Gatekeeper warnings.
 
-5. **Plugin system** — third-party skill development, skill marketplace foundation.
+5. **Session memory expansion** — summarisation pipeline to work around llama3.2 context window limit.
 
 ---
 
@@ -330,5 +335,5 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 
 ---
 
-*Last updated: 2026-06-05 | v0.1.1*
+*Last updated: 2026-06-09 | v0.2.0*
 *© 2026 DigiTech Business Pte. Ltd.*

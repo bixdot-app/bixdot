@@ -39,7 +39,7 @@ GitHub: https://github.com/bixdot-app/bixdot
 ## Reddit Posts
 
 ### r/selfhosted
-**Title:** BixDot v0.1.1 – self-hostable AI agent with native desktop app (Win/Mac/Linux)
+**Title:** BixDot v0.2.0 – self-hostable AI agent with native desktop app (Win/Mac/Linux)
 
 Runs entirely on your machine. Zero data leaves unless you explicitly choose cloud LLM mode (with automatic PII scrubbing). Auth mandatory even on localhost. Native installers for all platforms.
 
@@ -59,6 +59,14 @@ Public threat model maps each CVE class to specific architectural mitigations.
 → Threat model: https://github.com/bixdot-app/bixdot/blob/main/docs/THREAT_MODEL.md
 
 ---
+
+## v0.2.0 What Shipped (Feature Release — 2026-06-09)
+- Bundled Python backend (PyInstaller) — no separate Python installation required
+- Model selector — choose any installed Ollama model; persisted across restarts
+- Onboarding wizard — guided first-time setup with Ollama detection
+- Outlook / M365 calendar — Microsoft Graph API, same OAuth2 + PKCE pattern as Google
+- Plugin system foundation — install/enable/disable community plugins from ~/.bixdot/plugins/
+- Security: upgraded FastAPI, patched 20 transitive CVEs (starlette, urllib3, jinja2, etc.)
 
 ## v0.1.1 What Shipped (Security Release — 2026-06-05)
 - 8 CVEs patched: permission gate bypass, path traversal, token blocklist, rate limiting, XSS, CSP, OAuth state TTL, PyJWT upgrade

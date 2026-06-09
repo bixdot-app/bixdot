@@ -60,16 +60,23 @@ First public release. 🎉
 
 ---
 
-## [Unreleased] — v0.2.0
+## [0.2.0] — 2026-06-09
 
-### Planned
-- Bundled Python via PyInstaller — no separate Python install required
-- Model selector in UI (switch between llama3.2, llama3.2:1b, custom Ollama models)
-- Onboarding wizard for first-time users
-- Outlook / Microsoft 365 calendar support
-- Google Calendar bundled OAuth credentials
-- Plugin system for community skills
-- Mobile app (iOS + Android via Capacitor)
+### Added
+- **Bundled Python backend** — PyInstaller spec bundles the entire backend into a single `bixdot-backend` executable. Users no longer need Python installed separately. Tauri detects the bundled binary and prefers it over system Python.
+- **Model selector** — new dropdown in Settings → AI Model queries Ollama for all locally installed models and saves the selection to SQLite. The sidebar model pill and the agent runtime both reflect the persisted choice immediately.
+- **Onboarding wizard** — after first login, a guided overlay appears if Ollama is not running or no model is installed. Checks every 4 seconds and auto-dismisses when the setup is complete. Always skippable.
+- **Outlook / Microsoft 365 calendar** — new `OutlookCalendarProvider` using Microsoft Graph API (`/me/calendarView`, `/me/events`). OAuth2 + PKCE flow via Microsoft Identity Platform. Same UX pattern as Google Calendar — paste your Azure app Client ID and start the sign-in flow from Settings.
+- **Plugin system foundation** — `~/.bixdot/plugins/` directory scanned on startup. Manifest v1 schema with ID validation, capability whitelist, and full install/uninstall/enable/disable lifecycle. REST API at `/plugins/*`. Frontend panel in Settings shows installed plugins with capability badges and toggle controls.
+
+### Security
+- Bumped `fastapi>=0.116.0` to support `starlette>=0.47.2`
+- Pinned transitive dependency minimums fixing 20 CVEs: starlette, urllib3, requests, jinja2, idna, filelock, pillow (all pip-audit clean)
+
+### Changed
+- `GET /health/onboarding` added (unauthenticated) — returns Ollama status, installed models, and ready flag
+- `GET /agent/models`, `GET /agent/model`, `POST /agent/model` — new model management endpoints
+- `GET /plugins`, `POST /plugins/install`, `DELETE /plugins/{id}`, `POST /plugins/{id}/enable|disable` — new plugin management endpoints
 
 ---
 
