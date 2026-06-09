@@ -102,7 +102,8 @@ bixdot/
 ├── tests/                         # pytest tests
 ├── docs/
 │   ├── THREAT_MODEL.md            # Every CVE class mapped to architectural mitigations
-│   └── LAUNCH_ASSETS.md           # HN/Reddit/Product Hunt copy
+│   ├── LAUNCH_ASSETS.md           # HN/Reddit/Product Hunt copy
+│   └── SKILLS.md                  # Authoritative reference: all skills, capabilities, permissions, plugin system
 ├── .github/
 │   ├── workflows/
 │   │   ├── ci.yml                 # Bandit, pip-audit, semgrep, license headers
