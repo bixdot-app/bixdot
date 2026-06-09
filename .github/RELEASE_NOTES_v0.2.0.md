@@ -81,5 +81,13 @@ Plugin *execution* (loading entry point code) ships in v0.3.0.
 
 ---
 
+---
+
+## What Shipped Next
+
+**v0.2.1** (2026-06-10) — Security patch: refresh token replay protection fix, bcrypt ValueError on invalid username, permission expiry edge case. Upgrade recommended.
+
+---
+
 *Security disclosures: security@bixdot.app*  
 *© 2026 DigiTech Business Pte. Ltd (Singapore) · [bixdot.app](https://bixdot.app)*

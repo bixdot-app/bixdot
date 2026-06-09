@@ -4,6 +4,19 @@ All notable changes to BixDot are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).  
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] — 2026-06-10
+
+### Security
+- **Fixed refresh token replay protection** — `POST /auth/refresh` was silently rolling back the "revoke all sessions" UPDATE when a replayed token was detected (HTTPException raised inside the `get_connection()` context manager triggered rollback). Replaying a stolen refresh token no longer bypasses full session revocation.
+- **Fixed bcrypt ValueError on non-existent usernames** — timing-safe login dummy hash was syntactically invalid for bcrypt, causing an unhandled ValueError instead of returning 401.
+
+### Fixed
+- Permission grants with `duration_minutes=0` were incorrectly treated as session-scoped (never-expiring) due to a falsy check. Now correctly expires immediately.
+- Real test suite added: 112 tests covering auth, JWT, permissions, audit log, sandbox executor, and plugin loader.
+- `bixdot.spec` hidden imports corrected — removed non-existent `core.skills.filesystem.tools` and `core.skills.websearch.tools`.
+
+---
+
 ## [0.2.0] — 2026-06-09
 
 ### Added
