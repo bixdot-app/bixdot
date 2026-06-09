@@ -348,7 +348,28 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 
 ### Security & Lint (Automated via Hooks)
 - `ruff check --fix` runs automatically after every Python file edit
-- `pip-audit` runs automatically after every `requirements.txt` edit and surfaces CVEs as warnings
+- `pip-audit -r requirements.txt` runs automatically after every `requirements.txt` edit and surfaces CVEs as warnings
+- `pytest tests/ -x -q` runs automatically after every `core/` Python file edit and surfaces failures immediately
+
+### Scripts
+```bash
+# Atomic version bump (updates all 11 patterns across 7 files)
+python scripts/bump_version.py X.Y.Z --yes
+
+# Pre-release validation (run before every tag)
+python scripts/pre_release.py
+```
+
+### Release Automation Flow
+Every release follows this exact sequence — no manual checks needed:
+1. `python scripts/bump_version.py X.Y.Z --yes` — bumps all files atomically
+2. Update `CHANGELOG.md` and create `.github/RELEASE_NOTES_vX.Y.Z.md`
+3. `python scripts/pre_release.py` — validates everything is correct before tagging
+4. Commit and push main
+5. `git tag vX.Y.Z && git push origin vX.Y.Z` — triggers GitHub Actions build (~20 min)
+6. Update `bixdot-website/index.html` — hero badge + 6 download filenames
+7. Push website → Vercel auto-deploys
+8. Publish draft release on GitHub
 
 ---
 

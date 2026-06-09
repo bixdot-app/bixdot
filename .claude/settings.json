@@ -19,7 +19,18 @@
             "type": "command",
             "shell": "powershell",
             "statusMessage": "Auditing dependencies for CVEs...",
-            "command": "$j = ($input -join '') | ConvertFrom-Json; $f = $j.tool_input.file_path; if ($f -and $f -match 'requirements') { $result = python -m pip_audit 2>&1; if ($LASTEXITCODE -ne 0) { $out = @{hookSpecificOutput = @{hookEventName = 'PostToolUse'; additionalContext = \"pip-audit found vulnerabilities: $result\"}} | ConvertTo-Json -Compress; Write-Output $out } }"
+            "command": "$j = ($input -join '') | ConvertFrom-Json; $f = $j.tool_input.file_path; if ($f -and $f -match 'requirements') { $result = python -m pip_audit -r requirements.txt 2>&1; if ($LASTEXITCODE -ne 0) { $out = @{hookSpecificOutput = @{hookEventName = 'PostToolUse'; additionalContext = \"pip-audit found vulnerabilities: $result\"}} | ConvertTo-Json -Compress; Write-Output $out } }"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "powershell",
+            "statusMessage": "Running tests...",
+            "command": "$j = ($input -join '') | ConvertFrom-Json; $f = $j.tool_input.file_path; if ($f -and $f -match '\\\\core\\\\' -and $f -match '\\.py$' -and (Test-Path $f)) { $root = 'C:\\Users\\psych\\OneDrive\\Documents\\GitHub\\bixdot'; $result = python -m pytest \"$root\\tests\" -x -q --tb=line 2>&1 | Out-String; if ($LASTEXITCODE -ne 0) { $out = @{hookSpecificOutput = @{hookEventName = 'PostToolUse'; additionalContext = \"TEST FAILURE after editing $f`n$result\"}} | ConvertTo-Json -Compress; Write-Output $out } }"
           }
         ]
       }
