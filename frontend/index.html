@@ -247,6 +247,88 @@ function Login({onLogin}){
   );
 }
 
+// ── Onboarding Wizard ─────────────────────────────────────────────────────────
+function OnboardingWizard({onDismiss}){
+  const[status,setStatus]=useState(null);
+  const[checking,setChecking]=useState(false);
+
+  const check=async()=>{
+    setChecking(true);
+    try{ const r=await fetch('http://localhost:8747/health/onboarding'); setStatus(await r.json()); }
+    catch(e){ setStatus({ollama_running:false,models:[],has_models:false,ready:false}); }
+    setChecking(false);
+  };
+
+  useEffect(()=>{ check(); const iv=setInterval(check,4000); return()=>clearInterval(iv); },[]);
+
+  // Auto-dismiss once ready
+  useEffect(()=>{ if(status&&status.ready) setTimeout(onDismiss,1200); },[status]);
+
+  const steps=[
+    {
+      id:'ollama',
+      label:'Ollama is running',
+      done: status&&status.ollama_running,
+      desc: el('span',null,
+        'Download and install Ollama from ',
+        el('a',{href:'https://ollama.ai',target:'_blank',rel:'noreferrer',style:{color:'var(--accent)'}},'ollama.ai'),
+        ', then start it.'
+      ),
+    },
+    {
+      id:'model',
+      label:'A model is installed',
+      done: status&&status.has_models,
+      desc: el('span',null,
+        'In your terminal, run: ',
+        el('code',{style:{fontFamily:'var(--mono)',background:'var(--card)',padding:'1px 6px',borderRadius:4,color:'var(--accent)'}},
+          'ollama pull '+(status?.suggested_model||'llama3.2'))
+      ),
+    },
+  ];
+
+  const allDone=status&&status.ready;
+
+  return el('div',{className:'modal-bg'},
+    el('div',{className:'modal',style:{maxWidth:400}},
+      el('div',{className:'modal-h'},
+        el('div',{className:'modal-icon',style:{fontSize:22}},allDone?'🎉':'🔧'),
+        el('div',null,
+          el('p',{style:{fontSize:14,fontWeight:600,marginBottom:2}},
+            allDone?'BixDot is ready!':'Set up BixDot'
+          ),
+          el('p',{style:{fontSize:11,color:'var(--muted)'}},
+            allDone?'Starting chat…':'Complete the steps below to get started')
+        )
+      ),
+      el('div',{className:'modal-body'},
+        steps.map((s,i)=>el('div',{key:s.id,style:{display:'flex',gap:12,marginBottom:14,alignItems:'flex-start'}},
+          el('div',{style:{
+            width:22,height:22,borderRadius:'50%',flexShrink:0,marginTop:1,
+            background:s.done?'var(--accent)':'var(--card)',
+            border:'2px solid '+(s.done?'var(--accent)':'var(--border)'),
+            display:'flex',alignItems:'center',justifyContent:'center',
+            fontSize:11,fontWeight:700,color:s.done?'#080c10':'var(--muted)',
+          }},s.done?'✓':(i+1)),
+          el('div',null,
+            el('p',{style:{fontSize:13,fontWeight:500,marginBottom:3,color:s.done?'var(--accent)':'var(--text)'}},s.label),
+            !s.done&&el('div',{style:{fontSize:12,color:'var(--muted)',lineHeight:1.5}},s.desc)
+          )
+        )),
+        el('div',{style:{fontSize:11,color:'var(--muted)',marginTop:4}},
+          checking?'Checking…':
+          allDone?'All set — launching BixDot':
+          'This page checks every 4 seconds. Complete the steps above, then it will open automatically.'
+        )
+      ),
+      !allDone&&el('div',{className:'modal-btns'},
+        el('button',{className:'btn btn-deny',onClick:onDismiss,style:{flex:'0 0 auto',padding:'9px 18px'}},'Skip for now'),
+        el('button',{className:'btn btn-allow',onClick:check,disabled:checking},checking?'Checking…':'Check again')
+      )
+    )
+  );
+}
+
 // ── Permission Modal ──────────────────────────────────────────────────────────
 function PermModal({cap,onAllow,onDeny}){
   return el('div',{className:'modal-bg'},
@@ -806,13 +888,19 @@ function App(){
   const[username,setUsername]=useState(_usr);
   const[screen,setScreen]=useState('chat');
   const[activeModel,setActiveModel]=useState('llama3.2');
+  const[showOnboarding,setShowOnboarding]=useState(false);
 
   const login=(t,u)=>{
     setToken(t); setUsername(u);
     // Fetch persisted model on login
     api('/agent/model',{},t).then(r=>setActiveModel(r.model)).catch(()=>{});
+    // Check if Ollama is ready; show wizard if not
+    fetch('http://localhost:8747/health/onboarding')
+      .then(r=>r.json())
+      .then(s=>{ if(!s.ready) setShowOnboarding(true); })
+      .catch(()=>setShowOnboarding(true));
   };
-  const logout=()=>{ clearToken(); setToken(null); setUsername(''); };
+  const logout=()=>{ clearToken(); setToken(null); setUsername(''); setShowOnboarding(false); };
 
   if(!token) return el(Login,{onLogin:login});
 
@@ -849,7 +937,8 @@ function App(){
       screen==='calendar'&&el(Calendar,{token}),
       screen==='terminal'&&el(Terminal,{token}),
       screen==='audit'&&el(Audit,{token}),
-      screen==='settings'&&el(Settings,{token,onModelChange:m=>setActiveModel(m)})
+      screen==='settings'&&el(Settings,{token,onModelChange:m=>setActiveModel(m)}),
+    showOnboarding&&el(OnboardingWizard,{onDismiss:()=>setShowOnboarding(false)})
     )
   );
 }

@@ -117,6 +117,42 @@ async def health():
     return {"status": "ok", "version": settings.version}
 
 
+@app.get("/health/onboarding")
+async def onboarding_status():
+    """
+    Unauthenticated — returns Ollama connectivity and installed models.
+    Used by the frontend onboarding wizard to guide first-time setup.
+    """
+    import httpx
+
+    ollama_ok = False
+    models: list[str] = []
+
+    try:
+        async with httpx.AsyncClient(
+            base_url=settings.ollama_url, timeout=3
+        ) as client:
+            r = await client.get("/api/tags")
+            if r.status_code == 200:
+                ollama_ok = True
+                data = r.json()
+                models = [m["name"] for m in data.get("models", [])]
+    except Exception:
+        pass
+
+    # Suggest llama3.2 as the default starter model if nothing is installed
+    suggested = "llama3.2"
+
+    return {
+        "ollama_running": ollama_ok,
+        "models": models,
+        "has_models": len(models) > 0,
+        "suggested_model": suggested,
+        "ollama_url": settings.ollama_url,
+        "ready": ollama_ok and len(models) > 0,
+    }
+
+
 # ─── Routers (to be added as we build each module) ───────────────────────────
 # from core.routes import auth, agent, skills, audit, permissions
 # app.include_router(auth.router, prefix="/auth", tags=["auth"])
