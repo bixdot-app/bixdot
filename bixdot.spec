@@ -99,10 +99,9 @@ hiddenimports = [
     "core.skills.calendar.ical_cal",
     "core.skills.calendar.outlook_cal",
     "core.skills.calendar.store",
-    "core.skills.filesystem.tools",
-    "core.skills.websearch.tools",
     "core.skills.terminal.routes",
     "core.skills.terminal.sandbox",
+    "core.sandbox.executor",
     "core.plugins.routes",
     "core.plugins.loader",
 ]
