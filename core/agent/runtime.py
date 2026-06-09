@@ -108,11 +108,17 @@ BUILTIN_TOOLS = [
     },
     {
         "name": "run_command",
-        "description": "Run a safe terminal command from the allowlist. ONLY use when user explicitly asks to run a command, check a version, or use a specific CLI tool.",
+        "description": (
+            "Run a safe terminal command from the allowlist. "
+            "ONLY use when user explicitly asks to run a command, check a version, or use a specific CLI tool."
+        ),
         "input_schema": {
             "type": "object",
             "properties": {
-                "command": {"type": "string", "description": "The command to run (e.g. 'python --version', 'git status', 'pip list')"},
+                "command": {
+                    "type": "string",
+                    "description": "The command to run (e.g. 'python --version', 'git status', 'pip list')",
+                },
                 "cwd":     {"type": "string", "description": "Working directory (optional, defaults to home)"}
             },
             "required": ["command"]
@@ -120,17 +126,27 @@ BUILTIN_TOOLS = [
     },
     {
         "name": "get_events",
-        "description": "Get upcoming calendar events. Only use when user asks about their calendar, schedule, or upcoming events.",
+        "description": (
+            "Get upcoming calendar events. "
+            "Only use when user asks about their calendar, schedule, or upcoming events."
+        ),
         "input_schema": {
             "type": "object",
             "properties": {
-                "days_ahead": {"type": "integer", "description": "How many days ahead to look (default 7)", "default": 7}
+                "days_ahead": {
+                    "type": "integer",
+                    "description": "How many days ahead to look (default 7)",
+                    "default": 7,
+                }
             }
         }
     },
     {
         "name": "create_event",
-        "description": "Create a new calendar event. Only use when user explicitly asks to create/add/schedule an event.",
+        "description": (
+            "Create a new calendar event. "
+            "Only use when user explicitly asks to create/add/schedule an event."
+        ),
         "input_schema": {
             "type": "object",
             "properties": {
@@ -164,7 +180,8 @@ def get_system_prompt() -> str:
 No data leaves this machine.
 
 CRITICAL — TOOL USE RULES (read carefully):
-- Only call a tool when the user EXPLICITLY asks you to read a file, list a folder, search files, write a file, or search the web.
+- Only call a tool when the user EXPLICITLY asks you to read a file, list a folder, search files,
+  write a file, or search the web.
 - For normal conversation, questions, sharing personal facts, or opinions — respond directly. Do NOT call any tool.
 - Examples where you must NOT use tools:
   * "my favourite colour is blue" → just acknowledge it
@@ -398,7 +415,8 @@ class AgentRuntime:
                 return await self._create_event(tool_input, user_id)
             return f"Unknown tool: {tool_name}"
         except Exception as e:
-            import traceback; traceback.print_exc()
+            import traceback
+            traceback.print_exc()
             return f"Tool error: {e}"
 
     def _resolve(self, path: str) -> Path:
@@ -413,7 +431,8 @@ class AgentRuntime:
             return False
 
     async def _read_file(self, path: str, user_id: str) -> str:
-        if not path: return "Error: no path"
+        if not path:
+            return "Error: no path"
         try:
             p = self._resolve(path)
             if not self._is_safe_path(p):
@@ -421,16 +440,20 @@ class AgentRuntime:
                                {"tool": "read_file", "path": str(p), "reason": "outside home"},
                                user_id=user_id)
                 return "Access denied: path outside home directory"
-            if not p.exists(): return f"Not found: {path}"
-            if not p.is_file(): return f"Not a file: {path}"
-            if p.stat().st_size > 1_048_576: return "File too large (max 1MB)"
+            if not p.exists():
+                return f"Not found: {path}"
+            if not p.is_file():
+                return f"Not a file: {path}"
+            if p.stat().st_size > 1_048_576:
+                return "File too large (max 1MB)"
             self.audit.log(AuditEvent.FILE_READ, {"path": str(p)}, user_id=user_id)
             return p.read_text(encoding="utf-8", errors="replace")
         except Exception as e:
             return f"Read error: {e}"
 
     async def _write_file(self, path: str, content: str, user_id: str) -> str:
-        if not path: return "Error: no path"
+        if not path:
+            return "Error: no path"
         try:
             p = self._resolve(path)
             if not self._is_safe_path(p):
@@ -450,8 +473,10 @@ class AgentRuntime:
             p = self._resolve(path or "~")
             if not self._is_safe_path(p):
                 return "Access denied: path outside home directory"
-            if not p.exists(): return f"Not found: {path}"
-            if not p.is_dir(): return f"Not a directory: {path}"
+            if not p.exists():
+                return f"Not found: {path}"
+            if not p.is_dir():
+                return f"Not a directory: {path}"
             entries = []
             for e in sorted(p.iterdir()):
                 if e.is_dir():
@@ -470,16 +495,23 @@ class AgentRuntime:
             p = self._resolve(directory)
             if not self._is_safe_path(p):
                 return "Access denied: path outside home directory"
-            if not p.is_dir(): return f"Not a directory: {directory}"
+            if not p.is_dir():
+                return f"Not a directory: {directory}"
             matches = []
             for root, dirs, files in os.walk(p):
                 dirs[:] = [d for d in dirs if not d.startswith('.')]
                 for f in files:
                     if fnmatch.fnmatch(f.lower(), pattern.lower()):
                         matches.append(str(Path(root) / f))
-                if len(matches) >= 50: break
-            self.audit.log(AuditEvent.FILE_READ, {"dir": str(p), "pattern": pattern, "found": len(matches)}, user_id=user_id)
-            if not matches: return f"No files matching '{pattern}' in {p}"
+                if len(matches) >= 50:
+                    break
+            self.audit.log(
+                AuditEvent.FILE_READ,
+                {"dir": str(p), "pattern": pattern, "found": len(matches)},
+                user_id=user_id,
+            )
+            if not matches:
+                return f"No files matching '{pattern}' in {p}"
             return f"Found {len(matches)} file(s):\n" + "\n".join(matches[:50])
         except Exception as e:
             return f"Search error: {e}"
@@ -490,14 +522,16 @@ class AgentRuntime:
             from ddgs import DDGS
             with DDGS() as ddgs:
                 results = list(ddgs.text(query, max_results=min(int(max_results), 5)))
-            if not results: return f"No results for: {query}"
+            if not results:
+                return f"No results for: {query}"
             out = f"Search results for '{query}':\n\n"
             for i, r in enumerate(results, 1):
                 href = r.get('href', r.get('url', ''))
                 out += f"{i}. {r.get('title','')}\n   {href}\n   {r.get('body','')[:200]}\n\n"
             return out.strip()
         except Exception as e:
-            import traceback; traceback.print_exc()
+            import traceback
+            traceback.print_exc()
             return f"Search error: {type(e).__name__}: {e}"
 
     async def _run_command(self, command: str, cwd: str | None, user_id: str) -> str:
@@ -507,9 +541,12 @@ class AgentRuntime:
         if result["blocked"]:
             return f"⛔ Blocked: {result['blocked']}"
         out = ""
-        if result["stdout"]: out += result["stdout"]
-        if result["stderr"]: out += ("\n" if out else "") + f"[stderr] {result['stderr']}"
-        if not out: out = f"(exit {result['exit']})"
+        if result["stdout"]:
+            out += result["stdout"]
+        if result["stderr"]:
+            out += ("\n" if out else "") + f"[stderr] {result['stderr']}"
+        if not out:
+            out = f"(exit {result['exit']})"
         return out.strip()
 
     async def _get_events(self, days_ahead: int, user_id: str) -> str:
@@ -546,7 +583,8 @@ class AgentRuntime:
 
             return "\n".join(lines)
         except Exception as e:
-            import traceback; traceback.print_exc()
+            import traceback
+            traceback.print_exc()
             return f"Calendar error: {type(e).__name__}: {e}"
 
     async def _create_event(self, tool_input: dict, user_id: str) -> str:
@@ -575,5 +613,6 @@ class AgentRuntime:
             save_provider(user_id, name, provider.to_config())
             return f"✓ Created: {event.friendly()}"
         except Exception as e:
-            import traceback; traceback.print_exc()
+            import traceback
+            traceback.print_exc()
             return f"Create event error: {type(e).__name__}: {e}"
