@@ -607,6 +607,97 @@ function CalendarSettings({token}){
   );
 }
 
+// ── Plugins Panel ─────────────────────────────────────────────────────────────
+function PluginsPanel({token}){
+  const[plugins,setPlugins]=useState([]);
+  const[installPath,setInstallPath]=useState('');
+  const[installing,setInstalling]=useState(false);
+  const[msg,setMsg]=useState('');
+  const[showInstall,setShowInstall]=useState(false);
+
+  const load=()=>api('/plugins',{},token).then(setPlugins).catch(()=>{});
+  useEffect(()=>load(),[token]);
+
+  const toggle=async(p)=>{
+    const ep=p.is_enabled?'/disable':'/enable';
+    await api('/plugins/'+p.id+ep,{method:'POST'},token).catch(()=>{});
+    load();
+  };
+
+  const uninstall=async(id)=>{
+    if(!confirm('Uninstall plugin "'+id+'"? This cannot be undone.')) return;
+    await api('/plugins/'+id,{method:'DELETE'},token).catch(()=>{});
+    setMsg('Plugin uninstalled.');
+    load();
+  };
+
+  const install=async()=>{
+    if(!installPath.trim()) return;
+    setInstalling(true); setMsg('');
+    try{
+      await api('/plugins/install',{method:'POST',body:JSON.stringify({path:installPath})},token);
+      setMsg('Plugin installed!');
+      setInstallPath(''); setShowInstall(false);
+      load();
+    }catch(e){ setMsg('Error: '+e.message); }
+    setInstalling(false);
+  };
+
+  const capColor=c=>c.startsWith('fs:')?'var(--blue)':c.startsWith('net:')?'var(--warn)':c.startsWith('exec:')?'var(--red)':'var(--muted)';
+
+  return el('div',{className:'s-card'},
+    plugins.length===0&&!showInstall&&el('div',{className:'s-row'},
+      el('div',{className:'s-info'},
+        el('p',null,'No plugins installed'),
+        el('span',null,'Install plugins to extend BixDot with custom skills')
+      ),
+      el('button',{className:'connect-btn',onClick:()=>setShowInstall(true)},'+ Install')
+    ),
+    plugins.map(p=>el('div',{key:p.id,className:'s-row',style:{flexWrap:'wrap',gap:6}},
+      el('div',{className:'s-info',style:{flex:1,minWidth:0}},
+        el('p',null,p.name+' ',el('span',{style:{fontSize:10,color:'var(--muted)',fontFamily:'var(--mono)'}},'v'+p.version)),
+        el('span',null,p.author),
+        p.capabilities.length>0&&el('div',{style:{display:'flex',flexWrap:'wrap',gap:4,marginTop:4}},
+          p.capabilities.map(c=>el('span',{key:c,style:{
+            fontSize:10,fontFamily:'var(--mono)',
+            background:'rgba(0,0,0,.3)',border:'1px solid var(--border)',
+            borderRadius:4,padding:'1px 5px',color:capColor(c),
+          }},c))
+        )
+      ),
+      el('div',{style:{display:'flex',gap:6,alignItems:'center',flexShrink:0}},
+        el('button',{
+          className:'toggle'+(p.is_enabled?' on':''),
+          onClick:()=>toggle(p),
+          title:p.is_enabled?'Disable':'Enable',
+        }),
+        el('button',{className:'revoke-btn',onClick:()=>uninstall(p.id)},'Remove')
+      )
+    )),
+    plugins.length>0&&el('div',{className:'s-row',style:{borderTop:'1px solid var(--border)'}},
+      el('button',{className:'connect-btn',style:{fontSize:11},onClick:()=>setShowInstall(s=>!s)},'+ Install plugin')
+    ),
+    showInstall&&el('div',{className:'setup-form'},
+      el('div',{style:{fontSize:11,color:'var(--muted)',marginBottom:8,lineHeight:1.5}},
+        'Enter the full path to a plugin directory or .zip file. The directory must contain a ',
+        el('code',{style:{fontFamily:'var(--mono)',color:'var(--accent)'}},'manifest.json'),
+        '.'
+      ),
+      el('input',{
+        className:'setup-input',
+        placeholder:'C:\\Users\\you\\myplugin  or  ~/plugins/myplugin.zip',
+        value:installPath,
+        onChange:e=>setInstallPath(e.target.value),
+        onKeyDown:e=>e.key==='Enter'&&install(),
+      }),
+      el('button',{className:'connect-btn',onClick:install,disabled:installing||!installPath.trim()},
+        installing?'Installing…':'Install'
+      )
+    ),
+    msg&&el('div',{style:{padding:'8px 14px',fontSize:12,color:'var(--accent)',background:'var(--accent-dim)',borderTop:'1px solid var(--border)'}},msg)
+  );
+}
+
 // ── Model Selector ─────────────────────────────────────────────────────────────
 function ModelSelector({token, onModelChange}){
   const[models,setModels]=useState([]);
@@ -690,6 +781,10 @@ function Settings({token, onModelChange}){
     el('div',{className:'s-section'},
       el('div',{className:'s-label'},'Calendar'),
       el(CalendarSettings,{token}),
+    ),
+    el('div',{className:'s-section'},
+      el('div',{className:'s-label'},'Plugins'),
+      el(PluginsPanel,{token})
     ),
     el('div',{className:'s-section'},
       el('div',{className:'s-label'},'Active permissions ('+perms.length+')'),
