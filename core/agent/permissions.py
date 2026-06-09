@@ -100,7 +100,7 @@ class PermissionStore:
     ) -> PermissionGrant:
         """Grant a capability to a skill. Called only after user confirmation."""
         expires_at = None
-        if duration_minutes:
+        if duration_minutes is not None:
             expires_at = datetime.now(UTC) + timedelta(minutes=duration_minutes)
 
         grant = PermissionGrant(

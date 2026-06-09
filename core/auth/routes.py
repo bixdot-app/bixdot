@@ -116,7 +116,10 @@ async def login(request: Request, body: LoginRequest):
     dummy_hash = "$2b$12$invalidhashfortimingnormalization000000000000000000000"
     stored_hash = user["password_hash"] if user else dummy_hash
 
-    password_valid = verify_password(body.password, stored_hash)
+    try:
+        password_valid = verify_password(body.password, stored_hash)
+    except ValueError:
+        password_valid = False
 
     if not user or not password_valid or not user["is_active"]:
         audit.log(
@@ -168,32 +171,35 @@ async def refresh(request: Request, body: RefreshRequest):
     except jwt.InvalidTokenError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
 
+    # Fetch the token record (read-only, no writes in this block)
     with get_connection() as conn:
         token_row = conn.execute(
             "SELECT * FROM refresh_tokens WHERE jti = ?", (payload.jti,)
         ).fetchone()
 
-        if not token_row:
-            raise HTTPException(status_code=401, detail="Token not found")
+    if not token_row:
+        raise HTTPException(status_code=401, detail="Token not found")
 
-        if token_row["revoked"]:
-            # Possible replay attack — revoke ALL tokens for this user
+    if token_row["revoked"]:
+        # Possible replay attack — revoke ALL sessions; separate connection so it commits
+        with get_connection() as conn:
             conn.execute(
                 "UPDATE refresh_tokens SET revoked=1, revoked_at=datetime('now') "
                 "WHERE user_id = ? AND revoked = 0",
                 (payload.sub,),
             )
-            audit.log(
-                AuditEvent.AUTH_LOGIN_FAILURE,
-                {"event": "refresh_token_replay_detected", "jti": payload.jti},
-                user_id=payload.sub,
-            )
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token replay detected. All sessions revoked. Please log in again.",
-            )
+        audit.log(
+            AuditEvent.AUTH_LOGIN_FAILURE,
+            {"event": "refresh_token_replay_detected", "jti": payload.jti},
+            user_id=payload.sub,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token replay detected. All sessions revoked. Please log in again.",
+        )
 
-        # Revoke old refresh token
+    # Revoke old refresh token (normal rotation path)
+    with get_connection() as conn:
         conn.execute(
             "UPDATE refresh_tokens SET revoked=1, revoked_at=datetime('now') WHERE jti=?",
             (payload.jti,),
