@@ -78,12 +78,12 @@ Public threat model maps each CVE class to specific architectural mitigations.
 - Native desktop app — Windows (.exe/.msi), macOS (.dmg), Linux (.deb/.AppImage)
 - Zero-trust JWT auth
 
-## v0.2.0 Coming Next
-- Bundled Python (no separate install)
-- Model selector in UI
-- Onboarding wizard
-- Outlook/M365 calendar
-- Plugin system
+## v0.3.0 Coming Next
+- Plugin execution (run plugin entry points in sandboxed subprocess)
+- Bundled OAuth credentials (Google Calendar client ID ships with the app)
+- Mobile app (iOS + Android via Tauri Mobile)
+- Code signing (remove SmartScreen/Gatekeeper warnings)
+- Session memory expansion (summarisation pipeline for llama3.2 context limit)
 
 ---
 

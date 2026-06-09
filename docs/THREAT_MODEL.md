@@ -171,6 +171,6 @@ We commit to:
 - Never pursue legal action against good-faith researchers
 
 Bug bounty details: [coming with Phase 4 launch]
--e 
+
 ---
 © 2026 DigiTech Business Pte. Ltd (Singapore). BixDot is a trademark of DigiTech Business Pte. Ltd.

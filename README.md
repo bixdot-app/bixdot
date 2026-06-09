@@ -34,19 +34,22 @@ It's also the most secure AI agent available. We built it after studying every k
 | Mac (Intel) | `BixDot_x64.dmg` |
 | Linux | `BixDot_amd64.AppImage` / `.deb` |
 
-**Requirements:** [Python 3.11+](https://python.org/downloads) · [Ollama](https://ollama.ai) · `ollama pull llama3.2`
+**Requirements:** [Ollama](https://ollama.ai) · `ollama pull llama3.2` · Python 3.11+ only needed if running from source
 
 ---
 
 ## Features
 
-- **Chat** — talk to llama3.2 (or any Ollama model) running locally
+- **Chat** — talk to any Ollama model locally; model selector persists your choice
 - **Filesystem skill** — read, list, and search files with explicit permission grants
 - **Web search skill** — DuckDuckGo search, no API key required
-- **Calendar skill** — connect Google Calendar or a local `.ics` file
+- **Calendar skill** — Google Calendar, Outlook/M365, or a local `.ics` file
 - **Terminal skill** — sandboxed command execution with strict allowlist
+- **Plugin system** — install community skills from `~/.bixdot/plugins/`
 - **Permission prompts** — you approve every action before it runs
 - **Audit log** — tamper-evident SHA-256 hash chain of everything BixDot does
+- **Onboarding wizard** — guided first-run setup with Ollama detection
+- **Bundled Python** — desktop installer needs no separate Python install
 - **Desktop app** — native Tauri wrapper for Windows, macOS, and Linux
 - **Zero-trust auth** — mandatory JWT on every route, no bypass
 
@@ -133,17 +136,17 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) for full guidelines.
 
 ## Roadmap
 
+**v0.2.0 — Released 9 June 2026**
+Bundled Python backend (PyInstaller), model selector, onboarding wizard, Outlook/M365 calendar, plugin system foundation
+
 **v0.1.1 — Released 5 June 2026**
 Security patch: 8 CVEs fixed (permission gate bypass, path traversal, token blocklist, rate limiting, XSS, CSP, OAuth state TTL, PyJWT upgrade)
 
 **v0.1.0 — Released 25 May 2026**
 Core agent, local LLM, permissions, audit log, desktop app (Win/Mac/Linux)
 
-**v0.2.0 — Released 9 June 2026**
-Bundled Python backend (PyInstaller), model selector, onboarding wizard, Outlook/M365 calendar, plugin system foundation
-
-**v0.3.0**
-Skill marketplace, mobile app (iOS + Android), enterprise features
+**v0.3.0 — Coming next**
+Plugin execution, bundled OAuth credentials, mobile app (iOS + Android), code signing, session memory expansion
 
 ---
 
