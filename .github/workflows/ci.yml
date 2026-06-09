@@ -37,8 +37,8 @@ jobs:
       - name: pip-audit — Dependency vulnerability scan
         run: |
           pip install -r requirements.txt
-          pip-audit --require-hashes 2>/dev/null || pip-audit
-        # Checks all dependencies against known CVE databases
+          pip-audit -r requirements.txt
+        # Scoped to requirements.txt only — avoids false positives from CI tooling (semgrep etc.)
 
       - name: Check license headers
         run: |
