@@ -31,7 +31,7 @@ jobs:
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
           cache: "pip"
 
       - name: Install audit + lint tools
@@ -113,7 +113,7 @@ jobs:
         id: bandit
         run: |
           set +e
-          bandit -r core/ -f json -o bandit-report.json --severity-level high
+          bandit -r core/ -ll -ii --skip B101,B603,B607 -f json -o bandit-report.json
           EXIT=$?
           set -e
 
