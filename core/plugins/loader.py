@@ -33,11 +33,11 @@ import json
 import re
 import shutil
 import zipfile
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from core.storage.db import get_connection, get_db_path
+from core.storage.db import get_connection
 
 # ─── Constants ────────────────────────────────────────────────────────────────
 

@@ -164,7 +164,6 @@ class OutlookCalendarProvider(CalendarProvider):
 
             def _parse_dt(raw: dict) -> datetime:
                 dt_str = raw.get("dateTime", "")
-                tz_str = raw.get("timeZone", "UTC")
                 # Graph returns local time with timezone name — normalise to UTC
                 try:
                     dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))

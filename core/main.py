@@ -18,15 +18,23 @@ Security guarantees on startup:
 """
 from contextlib import asynccontextmanager
 
+import os
+
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from core.config import settings
 from core.audit.logger import get_audit_logger, AuditEvent
 from core.security import limiter
+from core.auth.routes import router as auth_router
+from core.agent.routes import router as agent_router
+from core.skills.calendar.routes import router as calendar_router
+from core.skills.terminal.routes import router as terminal_router
+from core.plugins.routes import router as plugins_router
 
 
 @asynccontextmanager
@@ -174,26 +182,13 @@ if __name__ == "__main__":
 
 
 # ─── Routers ──────────────────────────────────────────────────────────────────
-from core.auth.routes import router as auth_router
 app.include_router(auth_router)
-
-from core.agent.routes import router as agent_router
 app.include_router(agent_router)
-
-from core.skills.calendar.routes import router as calendar_router
 app.include_router(calendar_router)
-
-from core.skills.terminal.routes import router as terminal_router
 app.include_router(terminal_router)
-
-from core.plugins.routes import router as plugins_router
 app.include_router(plugins_router)
 
 # ─── Serve Frontend ───────────────────────────────────────────────────────────
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-import os, sys
-
 # Support both normal execution and PyInstaller bundle (BIXDOT_BASE set by __main__.py)
 _base = os.environ.get("BIXDOT_BASE") or os.path.join(os.path.dirname(__file__), "..")
 frontend_path = os.path.join(_base, "frontend")
