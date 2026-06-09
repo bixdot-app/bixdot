@@ -55,13 +55,13 @@ BixDot will detect missing dependencies on first launch and guide you through se
 
 ---
 
-## What's Next — v0.2.0
+## What Shipped Next
 
-- Bundled Python (no separate install needed)
-- Model selector in UI
-- Onboarding wizard
-- Outlook / M365 calendar
-- Plugin system for community skills
+**v0.2.0 — Released 9 June 2026** ([release notes](RELEASE_NOTES_v0.2.0.md))
+Bundled Python backend (no separate install needed), model selector, onboarding wizard, Outlook/M365 calendar, plugin system foundation
+
+**v0.3.0 — Coming next**
+Plugin execution, bundled OAuth credentials, mobile app (iOS + Android), code signing, session memory expansion
 
 ---
 

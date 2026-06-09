@@ -101,7 +101,7 @@ Never add cloud dependencies as a default. Cloud is opt-in, never opt-out.
 - Python 3.11+
 - Type hints on all function signatures
 - Docstrings on all public functions
-- No line over 100 characters
+- No line over 120 characters (enforced by `ruff.toml`)
 - Run `ruff check core/` before submitting
 
 **Rust style**
