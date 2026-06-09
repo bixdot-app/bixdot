@@ -136,6 +136,11 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) for full guidelines.
 
 ## Roadmap
 
+**v0.3.0 — Coming next**
+Plugin execution, bundled OAuth credentials, mobile app (iOS + Android), code signing, session memory expansion
+
+---
+
 **v0.2.0 — Released 9 June 2026**
 Bundled Python backend (PyInstaller), model selector, onboarding wizard, Outlook/M365 calendar, plugin system foundation
 
@@ -144,9 +149,6 @@ Security patch: 8 CVEs fixed (permission gate bypass, path traversal, token bloc
 
 **v0.1.0 — Released 25 May 2026**
 Core agent, local LLM, permissions, audit log, desktop app (Win/Mac/Linux)
-
-**v0.3.0 — Coming next**
-Plugin execution, bundled OAuth credentials, mobile app (iOS + Android), code signing, session memory expansion
 
 ---
 
