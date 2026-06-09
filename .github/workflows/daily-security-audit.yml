@@ -1,0 +1,202 @@
+# Copyright (c) 2026 DigiTech Business Pte. Ltd. All rights reserved.
+# BixDot is a trademark of DigiTech Business Pte. Ltd (Singapore).
+# Licensed under the Business Source License 1.1 (BUSL-1.1).
+# Commercial use requires a license: legal@bixdot.app
+# Security disclosures: security@bixdot.app
+# See LICENSE in the project root for full terms.
+
+name: Daily Security Audit
+
+on:
+  schedule:
+    # 01:00 UTC = 09:00 SGT (UTC+8), every day
+    - cron: "0 1 * * *"
+  workflow_dispatch: # allow manual trigger from GitHub Actions UI
+
+permissions:
+  contents: write  # needed to commit + push fixes back
+
+jobs:
+  audit:
+    name: CVE · Bandit · Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install audit + lint tools
+        run: |
+          pip install --upgrade pip
+          pip install pip-audit bandit ruff
+
+      - name: Install project dependencies
+        run: pip install -r requirements.txt
+
+      # ── 1. CVE Audit ────────────────────────────────────────────────────────
+      - name: pip-audit — check for CVEs
+        id: pip_audit
+        run: |
+          set +e
+          pip-audit -r requirements.txt -f json -o pip-audit-report.json
+          EXIT=$?
+          set -e
+
+          if [ $EXIT -ne 0 ]; then
+            echo "cve_found=true" >> "$GITHUB_OUTPUT"
+            echo "### ⚠️ CVEs Found" >> "$GITHUB_STEP_SUMMARY"
+            cat pip-audit-report.json | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          for dep in data.get('dependencies', []):
+              for v in dep.get('vulns', []):
+                  print(f\"| {dep['name']} {dep['version']} | {v['id']} | {v['fix_versions']} | {v['description'][:80]} |\")
+          " >> "$GITHUB_STEP_SUMMARY" || true
+          else
+            echo "cve_found=false" >> "$GITHUB_OUTPUT"
+            echo "### ✅ CVE Audit — Clean" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: pip-audit — auto-bump vulnerable packages
+        if: steps.pip_audit.outputs.cve_found == 'true'
+        run: |
+          # pip-audit can auto-fix by upgrading to safe versions
+          pip-audit -r requirements.txt --fix --dry-run 2>&1 || true
+          pip-audit -r requirements.txt --fix 2>&1 || true
+
+          # Sync requirements.txt with what was actually upgraded
+          pip freeze | grep -F -f <(grep -v '^#' requirements.txt | sed 's/[>=<].*//' | tr '[:upper:]' '[:lower:]') \
+            > requirements-new.txt || true
+
+          # Only replace if the freeze produced valid output
+          if [ -s requirements-new.txt ]; then
+            # Preserve comment lines from original requirements.txt
+            python3 - <<'EOF'
+          import re, pathlib
+
+          orig = pathlib.Path("requirements.txt").read_text()
+          new_versions = {}
+          for line in pathlib.Path("requirements-new.txt").read_text().splitlines():
+              if "==" in line:
+                  pkg, ver = line.split("==", 1)
+                  new_versions[pkg.lower()] = ver.strip()
+
+          out = []
+          for line in orig.splitlines():
+              stripped = line.strip()
+              if stripped.startswith("#") or not stripped:
+                  out.append(line)
+                  continue
+              pkg = re.split(r"[>=<!]", stripped)[0].lower()
+              if pkg in new_versions:
+                  # keep original specifier style but bump the version
+                  out.append(re.sub(r"(>=|==|~=)[\d.]+", lambda m: m.group(1) + new_versions[pkg], line))
+              else:
+                  out.append(line)
+          pathlib.Path("requirements.txt").write_text("\n".join(out) + "\n")
+          EOF
+            echo "requirements.txt updated with safe package versions"
+          fi
+          rm -f requirements-new.txt
+
+      # ── 2. Bandit Security Scan ─────────────────────────────────────────────
+      - name: bandit — HIGH severity scan
+        id: bandit
+        run: |
+          set +e
+          bandit -r core/ -f json -o bandit-report.json --severity-level high
+          EXIT=$?
+          set -e
+
+          if [ $EXIT -ne 0 ]; then
+            echo "bandit_issues=true" >> "$GITHUB_OUTPUT"
+            echo "### ⚠️ Bandit — HIGH Severity Issues Found" >> "$GITHUB_STEP_SUMMARY"
+            echo "Manual review required — see bandit-report.json artifact" >> "$GITHUB_STEP_SUMMARY"
+            cat bandit-report.json | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          for r in data.get('results', []):
+              print(f\"- [{r['issue_severity']}] {r['filename']}:{r['line_number']} — {r['issue_text']}\")
+          " >> "$GITHUB_STEP_SUMMARY" || true
+          else
+            echo "bandit_issues=false" >> "$GITHUB_OUTPUT"
+            echo "### ✅ Bandit — No HIGH Severity Issues" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload bandit report
+        if: steps.bandit.outputs.bandit_issues == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report
+          path: bandit-report.json
+          retention-days: 30
+
+      # ── 3. Ruff Lint Fix ────────────────────────────────────────────────────
+      - name: ruff — auto-fix lint issues
+        id: ruff
+        run: |
+          set +e
+          ruff check core/ --fix --quiet
+          EXIT=$?
+          set -e
+
+          if git diff --quiet; then
+            echo "ruff_fixed=false" >> "$GITHUB_OUTPUT"
+            echo "### ✅ Ruff — No lint issues" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "ruff_fixed=true" >> "$GITHUB_OUTPUT"
+            echo "### 🔧 Ruff — Auto-fixed lint issues" >> "$GITHUB_STEP_SUMMARY"
+            git diff --name-only >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          # Report any remaining errors that ruff couldn't auto-fix
+          REMAINING=$(ruff check core/ --quiet 2>&1 || true)
+          if [ -n "$REMAINING" ]; then
+            echo "### ⚠️ Ruff — Remaining issues (need manual fix)" >> "$GITHUB_STEP_SUMMARY"
+            echo "\`\`\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "$REMAINING" >> "$GITHUB_STEP_SUMMARY"
+            echo "\`\`\`" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # ── 4. Commit & Push (if anything changed) ─────────────────────────────
+      - name: Commit and push fixes
+        id: commit
+        run: |
+          git config user.name  "BixDot Security Bot"
+          git config user.email "security@bixdot.app"
+
+          git add requirements.txt pyproject.toml core/ || true
+
+          if git diff --cached --quiet; then
+            echo "committed=false" >> "$GITHUB_OUTPUT"
+            echo "### ℹ️ No changes — repo is clean" >> "$GITHUB_STEP_SUMMARY"
+          else
+            DATE=$(date +%Y-%m-%d)
+            PARTS=""
+            [ "${{ steps.pip_audit.outputs.cve_found }}" = "true" ] && PARTS="CVE bump"
+            [ "${{ steps.ruff.outputs.ruff_fixed }}"    = "true" ] && PARTS="${PARTS:+$PARTS, }lint fix"
+
+            git commit -m "security: daily audit $DATE — ${PARTS:-fixes}
+
+          Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
+            git push origin main
+            echo "committed=true" >> "$GITHUB_OUTPUT"
+            SHA=$(git rev-parse --short HEAD)
+            echo "### ✅ Committed & Pushed — \`$SHA\`" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # ── 5. Fail job if HIGH bandit issues remain (triggers email alert) ─────
+      - name: Fail if HIGH severity issues found (triggers GitHub notification)
+        if: steps.bandit.outputs.bandit_issues == 'true'
+        run: |
+          echo "::error::Bandit found HIGH severity security issues in core/. See the bandit-report artifact and the job summary for details. Manual fix required."
+          exit 1
