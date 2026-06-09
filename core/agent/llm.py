@@ -138,9 +138,13 @@ class LLMAdapter:
         Local Ollama inference — no data leaves the device.
         Passes tool definitions so llama3.2 can call them.
         """
+        # Read model from DB setting so the UI model selector takes effect
+        from core.storage.db import get_setting
+        active_model = get_setting("local_model") or settings.local_model
+
         audit.log(
             AuditEvent.AGENT_QUERY,
-            {"backend": "ollama", "model": settings.local_model,
+            {"backend": "ollama", "model": active_model,
              "local": True, "data_leaves_device": False,
              "has_tools": bool(tools)},
             user_id=self.user_id,
@@ -153,7 +157,7 @@ class LLMAdapter:
         all_messages.extend(messages)
 
         payload = {
-            "model": settings.local_model,
+            "model": active_model,
             "messages": all_messages,
             "stream": False,
             "options": {"num_predict": max_tokens},

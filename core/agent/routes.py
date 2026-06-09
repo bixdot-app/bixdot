@@ -58,6 +58,10 @@ class PermissionGrantRequest(BaseModel):
     skill_id: str = "builtin"
 
 
+class SetModelRequest(BaseModel):
+    model: str
+
+
 # ─── Routes ───────────────────────────────────────────────────────────────────
 
 @router.post("/sessions", response_model=SessionResponse)
@@ -207,6 +211,44 @@ async def revoke_permission(
         user_id=user.sub,
     )
     return {"revoked": True, "capability": capability}
+
+
+@router.get("/models")
+async def list_models(user=Depends(require_auth)):
+    """
+    Query Ollama for locally installed models.
+    Returns empty list gracefully if Ollama is not running.
+    """
+    import httpx
+    from core.config import settings as cfg
+    try:
+        async with httpx.AsyncClient(base_url=cfg.ollama_url, timeout=5) as client:
+            r = await client.get("/api/tags")
+            r.raise_for_status()
+            data = r.json()
+        return {"models": [m["name"] for m in data.get("models", [])]}
+    except Exception:
+        return {"models": []}
+
+
+@router.get("/model")
+async def get_model(user=Depends(require_auth)):
+    """Return the currently selected local model (persistent setting)."""
+    from core.storage.db import get_setting
+    from core.config import settings as cfg
+    model = get_setting("local_model") or cfg.local_model
+    return {"model": model}
+
+
+@router.post("/model")
+async def set_model(request: SetModelRequest, user=Depends(require_auth)):
+    """Persist the selected model so it survives restarts."""
+    from core.storage.db import set_setting
+    model = request.model.strip()
+    if not model:
+        raise HTTPException(status_code=400, detail="Model name cannot be empty")
+    set_setting("local_model", model)
+    return {"model": model}
 
 
 @router.get("/audit")

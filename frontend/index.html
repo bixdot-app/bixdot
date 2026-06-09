@@ -487,8 +487,61 @@ function CalendarSettings({token}){
   );
 }
 
+// ── Model Selector ─────────────────────────────────────────────────────────────
+function ModelSelector({token, onModelChange}){
+  const[models,setModels]=useState([]);
+  const[current,setCurrent]=useState('');
+  const[saving,setSaving]=useState(false);
+  const[saved,setSaved]=useState(false);
+
+  useEffect(()=>{
+    api('/agent/model',{},token).then(r=>setCurrent(r.model)).catch(()=>{});
+    api('/agent/models',{},token).then(r=>setModels(r.models||[])).catch(()=>{});
+  },[token]);
+
+  const save=async(model)=>{
+    setSaving(true); setSaved(false);
+    try{
+      await api('/agent/model',{method:'POST',body:JSON.stringify({model})},token);
+      setCurrent(model);
+      setSaved(true);
+      if(onModelChange) onModelChange(model);
+      setTimeout(()=>setSaved(false),2000);
+    }catch(e){}
+    setSaving(false);
+  };
+
+  return el('div',{className:'s-card'},
+    el('div',{className:'s-row'},
+      el('div',{className:'s-info'},
+        el('p',null,'Active model'),
+        el('span',null,'Runs locally via Ollama · no API key · data never leaves device')
+      ),
+      el('div',{style:{display:'flex',alignItems:'center',gap:8}},
+        models.length>0
+          ? el('select',{
+              style:{background:'var(--card)',border:'1px solid var(--border)',color:'var(--text)',
+                     borderRadius:7,padding:'5px 8px',fontSize:12,cursor:'pointer'},
+              value:current,
+              onChange:e=>save(e.target.value),
+              disabled:saving,
+            },
+            models.map(m=>el('option',{key:m,value:m},m))
+          )
+          : el('span',{style:{fontSize:12,fontFamily:'var(--mono)',color:'var(--muted)'}},
+              current||'llama3.2'),
+        saved&&el('span',{style:{fontSize:11,color:'var(--accent)',fontFamily:'var(--mono)'}},'✓ saved')
+      )
+    ),
+    models.length===0&&el('div',{style:{padding:'8px 14px 10px',fontSize:11,color:'var(--muted)'}},
+      'No models found — is Ollama running? Try: ',
+      el('code',{style:{fontFamily:'var(--mono)',color:'var(--accent)'}},'ollama pull llama3.2')
+    )
+  );
+}
+
 // ── Settings ──────────────────────────────────────────────────────────────────
-function Settings({token}){
+function Settings({token, onModelChange}){
   const[cloud,setCloud]=useState(false);
   const[perms,setPerms]=useState([]);
   useEffect(()=>{ api('/agent/permissions',{},token).then(setPerms).catch(()=>{}); },[token]);
@@ -499,11 +552,8 @@ function Settings({token}){
   return el('div',{className:'settings-body'},
     el('div',{className:'s-section'},
       el('div',{className:'s-label'},'AI Model'),
-      el('div',{className:'s-card'},
-        el('div',{className:'s-row'},
-          el('div',{className:'s-info'},el('p',null,'Local model (Ollama)'),el('span',null,'llama3.2 · on this device · no API key')),
-          el('span',{className:'s-active'},'Active')
-        ),
+      el(ModelSelector,{token, onModelChange}),
+      el('div',{className:'s-card',style:{marginTop:8}},
         el('div',{className:'s-row'},
           el('div',{className:'s-info'},el('p',null,'Cloud boost'),el('span',null,'Optional · your own API key required')),
           el('button',{className:'toggle'+(cloud?' on':''),onClick:()=>setCloud(c=>!c)})
@@ -755,8 +805,13 @@ function App(){
   const[token,setToken]=useState(_tok);
   const[username,setUsername]=useState(_usr);
   const[screen,setScreen]=useState('chat');
+  const[activeModel,setActiveModel]=useState('llama3.2');
 
-  const login=(t,u)=>{ setToken(t); setUsername(u); };
+  const login=(t,u)=>{
+    setToken(t); setUsername(u);
+    // Fetch persisted model on login
+    api('/agent/model',{},t).then(r=>setActiveModel(r.model)).catch(()=>{});
+  };
   const logout=()=>{ clearToken(); setToken(null); setUsername(''); };
 
   if(!token) return el(Login,{onLogin:login});
@@ -781,7 +836,7 @@ function App(){
         ))
       ),
       el('div',{className:'sb-foot'},
-        el('div',{className:'model-pill'},el('div',{className:'model-dot'}),el('span',{style:{fontSize:11,fontFamily:'var(--mono)',color:'var(--muted)'}},'llama3.2 · local')),
+        el('div',{className:'model-pill'},el('div',{className:'model-dot'}),el('span',{style:{fontSize:11,fontFamily:'var(--mono)',color:'var(--muted)'}},activeModel+' · local')),
         el('button',{className:'signout',onClick:logout},'Sign out ('+username+')')
       )
     ),
@@ -794,7 +849,7 @@ function App(){
       screen==='calendar'&&el(Calendar,{token}),
       screen==='terminal'&&el(Terminal,{token}),
       screen==='audit'&&el(Audit,{token}),
-      screen==='settings'&&el(Settings,{token})
+      screen==='settings'&&el(Settings,{token,onModelChange:m=>setActiveModel(m)})
     )
   );
 }
