@@ -488,9 +488,12 @@ function Audit({token}){
 function CalendarSettings({token}){
   const[status,setStatus]=useState(null);
   const[showGoogle,setShowGoogle]=useState(false);
+  const[showOutlook,setShowOutlook]=useState(false);
   const[showIcal,setShowIcal]=useState(false);
   const[cid,setCid]=useState('');
   const[csec,setCsec]=useState('');
+  const[msCid,setMsCid]=useState('');
+  const[msCsec,setMsCsec]=useState('');
   const[icalPath,setIcalPath]=useState('');
   const[connecting,setConnecting]=useState(false);
   const[msg,setMsg]=useState('');
@@ -506,6 +509,18 @@ function CalendarSettings({token}){
       window.open(r.auth_url,'_blank');
       setMsg('Browser tab opened — sign in with Google, then come back and refresh.');
       setShowGoogle(false);
+    }catch(e){ setMsg('Error: '+e.message); }
+    setConnecting(false);
+  };
+
+  const connectMicrosoft=async()=>{
+    if(!msCid) return;
+    setConnecting(true); setMsg('');
+    try{
+      const r=await api('/calendar/connect/microsoft',{method:'POST',body:JSON.stringify({client_id:msCid,client_secret:msCsec})},token);
+      window.open(r.auth_url,'_blank');
+      setMsg('Browser tab opened — sign in with your Microsoft account, then come back and refresh.');
+      setShowOutlook(false);
     }catch(e){ setMsg('Error: '+e.message); }
     setConnecting(false);
   };
@@ -547,6 +562,29 @@ function CalendarSettings({token}){
       el('input',{className:'setup-input',placeholder:'Client ID (ends with .apps.googleusercontent.com)',value:cid,onChange:e=>setCid(e.target.value)}),
       el('input',{className:'setup-input',placeholder:'Client Secret',type:'password',value:csec,onChange:e=>setCsec(e.target.value)}),
       el('button',{className:'connect-btn',onClick:connectGoogle,disabled:connecting||!cid},connecting?'Opening…':'Open Google sign-in')
+    ),
+
+    // Outlook / Microsoft 365 row
+    el('div',{className:'provider-card'},
+      el('div',{className:'provider-info'},
+        el('p',null,'Outlook / Microsoft 365'),
+        el('span',null,providers.includes('outlook')?'Connected':'Not connected')
+      ),
+      providers.includes('outlook')
+        ? el('button',{className:'revoke-btn',onClick:()=>disconnect('outlook')},'Disconnect')
+        : el('button',{className:'connect-btn',onClick:()=>{ setShowOutlook(s=>!s); setShowGoogle(false); setShowIcal(false); }},'Connect')
+    ),
+    showOutlook&&el('div',{className:'setup-form'},
+      el('div',{style:{fontSize:11,color:'var(--muted)',marginBottom:8,lineHeight:1.5}},
+        'Register an app at ',
+        el('a',{href:'https://portal.azure.com',target:'_blank',rel:'noreferrer',style:{color:'var(--accent)'}},'portal.azure.com'),
+        ' → App registrations → New registration → Redirect URI: ',
+        el('code',{style:{fontFamily:'var(--mono)',color:'var(--accent)'}},'http://127.0.0.1:8747/calendar/oauth/microsoft/callback'),
+        '. Permissions: Calendars.Read, Calendars.ReadWrite, offline_access, User.Read'
+      ),
+      el('input',{className:'setup-input',placeholder:'Application (client) ID',value:msCid,onChange:e=>setMsCid(e.target.value)}),
+      el('input',{className:'setup-input',placeholder:'Client Secret',type:'password',value:msCsec,onChange:e=>setMsCsec(e.target.value)}),
+      el('button',{className:'connect-btn',onClick:connectMicrosoft,disabled:connecting||!msCid},connecting?'Opening…':'Open Microsoft sign-in')
     ),
 
     // Local .ics row

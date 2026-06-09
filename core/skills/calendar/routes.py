@@ -29,6 +29,7 @@ from core.skills.calendar.store import (
 )
 from core.skills.calendar.google_cal import GoogleCalendarProvider
 from core.skills.calendar.ical_cal import ICalProvider
+from core.skills.calendar.outlook_cal import OutlookCalendarProvider
 
 router = APIRouter(prefix="/calendar", tags=["calendar"])
 
@@ -52,6 +53,11 @@ def _cleanup_oauth_states() -> None:
 # ─── Request / Response Models ────────────────────────────────────────────────
 
 class GoogleConnectRequest(BaseModel):
+    client_id: str
+    client_secret: str
+
+
+class MicrosoftConnectRequest(BaseModel):
     client_id: str
     client_secret: str
 
@@ -98,6 +104,8 @@ def _provider_for_user(user_id: str):
         return GoogleCalendarProvider(config)
     if name == "ical":
         return ICalProvider(config)
+    if name == "outlook":
+        return OutlookCalendarProvider(config)
     return None
 
 
@@ -193,6 +201,80 @@ async def oauth_callback(
         }
         save_provider(pending["user_id"], "google", config)
         return HTMLResponse(_result_page(True, "Google Calendar connected successfully!"))
+
+    except Exception as e:
+        return HTMLResponse(_result_page(False, f"Connection failed: {e}"))
+
+
+@router.post("/connect/microsoft")
+async def connect_microsoft(req: MicrosoftConnectRequest, user=Depends(require_auth)):
+    """
+    Step 1 of Microsoft OAuth flow.
+    Returns the URL the user should open in their browser.
+    """
+    provider = OutlookCalendarProvider({
+        "client_id":     req.client_id,
+        "client_secret": req.client_secret,
+    })
+    state            = secrets.token_urlsafe(16)
+    verifier, challenge = provider.make_pkce()
+
+    _cleanup_oauth_states()
+    _oauth_states[state] = {
+        "code_verifier": verifier,
+        "client_id":     req.client_id,
+        "client_secret": req.client_secret,
+        "user_id":       user.sub,
+        "provider":      "outlook",
+        "expires_at":    time.monotonic() + _OAUTH_STATE_TTL,
+    }
+
+    auth_url = provider.build_auth_url(state, challenge)
+    return {"auth_url": auth_url, "state": state}
+
+
+@router.get("/oauth/microsoft/callback", response_class=HTMLResponse)
+async def microsoft_oauth_callback(
+    code: str  = Query(...),
+    state: str = Query(...),
+    error: Optional[str] = Query(None),
+    error_description: Optional[str] = Query(None),
+):
+    """
+    Microsoft redirects here after the user grants permission.
+    Exchanges the code for tokens, saves them, shows a success page.
+    Unauthenticated (browser redirect from Microsoft).
+    """
+    _cleanup_oauth_states()
+
+    if error:
+        desc = html.escape(error_description or error)
+        return HTMLResponse(_result_page(False, f"Microsoft denied access: {desc}"))
+
+    pending = _oauth_states.pop(state, None)
+    if not pending or pending.get("expires_at", 0) < time.monotonic():
+        return HTMLResponse(_result_page(False, "Invalid or expired auth state. Please try again."))
+
+    try:
+        provider = OutlookCalendarProvider({
+            "client_id":     pending["client_id"],
+            "client_secret": pending["client_secret"],
+        })
+        tokens = await provider.exchange_code(code, pending["code_verifier"])
+
+        expiry = (
+            datetime.now(timezone.utc) + timedelta(seconds=tokens.get("expires_in", 3600))
+        ).isoformat()
+
+        config = {
+            "client_id":     pending["client_id"],
+            "client_secret": pending["client_secret"],
+            "access_token":  tokens["access_token"],
+            "refresh_token": tokens.get("refresh_token", ""),
+            "token_expiry":  expiry,
+        }
+        save_provider(pending["user_id"], "outlook", config)
+        return HTMLResponse(_result_page(True, "Outlook Calendar connected successfully!"))
 
     except Exception as e:
         return HTMLResponse(_result_page(False, f"Connection failed: {e}"))
