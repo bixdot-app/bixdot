@@ -5,7 +5,10 @@
 # Security disclosures: security@bixdot.app
 # See LICENSE in the project root for full terms.
 
-"""Document parsing and chunking for Document Chat."""
+"""
+Document parsing using markitdown (MIT, by Microsoft).
+Handles PDF, DOCX, PPTX, XLSX, TXT, MD, CSV — no AGPL anywhere in the chain.
+"""
 
 from pathlib import Path
 from typing import List
@@ -13,35 +16,22 @@ from typing import List
 MAX_CHUNK_SIZE  = 1500
 CHUNK_OVERLAP   = 200
 MAX_TOTAL_CHARS = 150_000
-ALLOWED_EXTENSIONS = {".pdf", ".docx", ".txt", ".md", ".csv"}
+ALLOWED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".xlsx", ".txt", ".md", ".csv"}
 
 
 def parse_document(file_path: str) -> str:
-    p = Path(file_path)
-    ext = p.suffix.lower()
-    if ext == ".pdf":
-        return _parse_pdf(p)
-    if ext == ".docx":
-        return _parse_docx(p)
-    # txt, md, csv — plain text
-    text = p.read_text(encoding="utf-8", errors="replace")
-    return text[:MAX_TOTAL_CHARS]
-
-
-def _parse_pdf(path: Path) -> str:
-    import fitz  # pymupdf
-    doc = fitz.open(str(path))
-    parts = []
-    for page in doc:
-        parts.append(page.get_text())
-    doc.close()
-    return "\n".join(parts)[:MAX_TOTAL_CHARS]
-
-
-def _parse_docx(path: Path) -> str:
-    from docx import Document
-    doc = Document(str(path))
-    return "\n".join(p.text for p in doc.paragraphs)[:MAX_TOTAL_CHARS]
+    """Extract plain text from any supported document format via markitdown (MIT)."""
+    path = Path(file_path)
+    if path.suffix.lower() not in ALLOWED_EXTENSIONS:
+        raise ValueError(
+            f"Unsupported file type: {path.suffix}. Allowed: {ALLOWED_EXTENSIONS}"
+        )
+    try:
+        from markitdown import MarkItDown
+        result = MarkItDown().convert(str(path))
+        return (result.text_content or "")[:MAX_TOTAL_CHARS]
+    except Exception as e:
+        raise RuntimeError(f"Could not parse document: {e}") from e
 
 
 def chunk_text(text: str) -> List[str]:
@@ -55,12 +45,13 @@ def chunk_text(text: str) -> List[str]:
 
 
 def search_chunks(chunks: List[str], query: str, top_k: int = 5) -> List[str]:
-    """Simple keyword scoring — no vector embeddings required."""
+    """Keyword scoring over chunks — no vector DB, fully offline."""
     query_words = set(query.lower().split())
     scored = []
     for chunk in chunks:
         lower = chunk.lower()
         score = sum(1 for w in query_words if w in lower)
-        scored.append((score, chunk))
+        if score:
+            scored.append((score, chunk))
     scored.sort(key=lambda x: x[0], reverse=True)
-    return [c for _, c in scored[:top_k] if _]
+    return [c for _, c in scored[:top_k]]

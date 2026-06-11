@@ -51,6 +51,8 @@ def test_allowed_extensions():
     from core.skills.documents.parser import ALLOWED_EXTENSIONS
     assert ".pdf" in ALLOWED_EXTENSIONS
     assert ".docx" in ALLOWED_EXTENSIONS
+    assert ".pptx" in ALLOWED_EXTENSIONS
+    assert ".xlsx" in ALLOWED_EXTENSIONS
     assert ".txt" in ALLOWED_EXTENSIONS
     assert ".exe" not in ALLOWED_EXTENSIONS
 

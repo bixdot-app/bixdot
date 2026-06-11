@@ -27,15 +27,6 @@ We don't want you to spend time on something we're already building.
 
 ---
 
-## Dependency Licensing Notes
-
-### PyMuPDF (AGPL-3.0)
-BixDot uses `pymupdf` (PyMuPDF) as a **runtime dependency** for PDF parsing in the Document Chat feature. PyMuPDF is licensed under AGPL-3.0. BixDot itself is licensed under BUSL-1.1. Using an AGPL library as a runtime dep is permissible; BixDot does not statically link or distribute PyMuPDF source.
-
-If you contribute to the Document Chat feature, be aware that changes touching PyMuPDF code must remain compatible with AGPL terms.
-
----
-
 ## What We're Looking For
 
 **High priority (we will merge fast):**
