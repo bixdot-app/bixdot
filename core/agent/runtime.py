@@ -160,17 +160,126 @@ BUILTIN_TOOLS = [
             "required": ["title", "date", "time"]
         }
     },
+    {
+        "name": "remember",
+        "description": (
+            "Save a fact, preference, or note to persistent memory. "
+            "Use when user says 'remember that', 'note that', 'I prefer', 'my name is', "
+            "'always use', 'never use', or shares personal information to keep."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "content":  {"type": "string", "description": "The fact or preference to remember"},
+                "category": {"type": "string", "description": "Category: general, preference, fact, task, person, project", "default": "general"}
+            },
+            "required": ["content"]
+        }
+    },
+    {
+        "name": "recall",
+        "description": (
+            "Search memory for relevant facts the user has shared. "
+            "Use when user asks what you know about them, or when context from past conversations would help."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "What to search for in memory"}
+            },
+            "required": ["query"]
+        }
+    },
+    {
+        "name": "list_documents",
+        "description": "List documents the user has uploaded for chat.",
+        "input_schema": {
+            "type": "object",
+            "properties": {}
+        }
+    },
+    {
+        "name": "search_document",
+        "description": (
+            "Search an uploaded document for relevant content. "
+            "Use when user asks about a file, PDF, report, or uploaded document."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query":  {"type": "string", "description": "What to find in the document"},
+                "doc_id": {"type": "string", "description": "Document ID (optional — searches all docs if omitted)"}
+            },
+            "required": ["query"]
+        }
+    },
+    {
+        "name": "list_github_repos",
+        "description": "List the user's GitHub repositories. Use when user asks about their repos.",
+        "input_schema": {
+            "type": "object",
+            "properties": {}
+        }
+    },
+    {
+        "name": "list_github_issues",
+        "description": "List open issues for a GitHub repository.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "repo":  {"type": "string", "description": "Repository in owner/repo format"},
+                "state": {"type": "string", "description": "Issue state: open, closed, all", "default": "open"}
+            },
+            "required": ["repo"]
+        }
+    },
+    {
+        "name": "read_github_issue",
+        "description": "Read the full details of a GitHub issue.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "repo":         {"type": "string",  "description": "Repository in owner/repo format"},
+                "issue_number": {"type": "integer", "description": "Issue number"}
+            },
+            "required": ["repo", "issue_number"]
+        }
+    },
+    {
+        "name": "deep_research",
+        "description": (
+            "Perform deep research on a topic: plans sub-queries, searches the web, "
+            "fetches pages, and synthesises a comprehensive report. "
+            "Use for 'research', 'investigate', 'deep dive', 'comprehensive report', "
+            "'find out everything about', 'in depth analysis'."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "question": {"type": "string", "description": "The research question or topic"}
+            },
+            "required": ["question"]
+        }
+    },
 ]
 
 TOOL_CAPABILITY_MAP = {
-    "read_file":      Capability.FS_READ,
-    "write_file":     Capability.FS_WRITE,
-    "list_directory": Capability.FS_READ,
-    "search_files":   Capability.FS_READ,
-    "web_search":     Capability.NET_FETCH,
-    "run_command":    Capability.EXEC_SHELL,
-    "get_events":     Capability.CALENDAR_READ,
-    "create_event":   Capability.CALENDAR_WRITE,
+    "read_file":          Capability.FS_READ,
+    "write_file":         Capability.FS_WRITE,
+    "list_directory":     Capability.FS_READ,
+    "search_files":       Capability.FS_READ,
+    "web_search":         Capability.NET_FETCH,
+    "run_command":        Capability.EXEC_SHELL,
+    "get_events":         Capability.CALENDAR_READ,
+    "create_event":       Capability.CALENDAR_WRITE,
+    "remember":           Capability.MEMORY_WRITE,
+    "recall":             Capability.MEMORY_READ,
+    "list_documents":     Capability.DOCS_READ,
+    "search_document":    Capability.DOCS_READ,
+    "list_github_repos":  Capability.GITHUB_READ,
+    "list_github_issues": Capability.GITHUB_READ,
+    "read_github_issue":  Capability.GITHUB_READ,
+    "deep_research":      Capability.NET_FETCH,
 }
 
 def get_system_prompt() -> str:
@@ -233,6 +342,19 @@ _TOOL_KEYWORDS = (
     "calendar", "schedule", "event", "appointment", "meeting",
     "what's on", "whats on", "my day", "upcoming", "remind",
     "book", "create event", "add event", "new event", "schedule a",
+    # memory
+    "remember", "recall", "note that", "keep in mind", "i prefer",
+    "my name is", "always use", "never use", "forget",
+    "what do you know about", "what have i told you",
+    # documents
+    "document", "pdf", "upload", "my file", "that report", "the report",
+    "summarise", "summarize", "extract from", "what does the", "according to",
+    # github
+    "github", "repo", "repository", "issue", "pull request", "pr",
+    "commit", "branch", "my repos", "open issues",
+    # research
+    "research", "investigate", "deep dive", "comprehensive", "report on",
+    "find out everything", "in depth", "analyse", "analyze",
 )
 
 def _needs_tools(message: str) -> bool:
@@ -264,6 +386,23 @@ class AgentRuntime:
         permissions_requested = []
         collected_results    = []   # gather tool results before synthesis
         rounds = 0
+
+        # ── Memory injection: prepend relevant memories before Phase 1 ───────
+        try:
+            from core.skills.memory.store import search_memories
+            memories = search_memories(session.user_id, user_message, limit=5)
+            if memories:
+                memory_ctx = "Relevant memories about this user:\n" + "\n".join(
+                    f"- [{m['category']}] {m['content']}" for m in memories
+                )
+                # Inject as a system-level user turn at the start of history
+                if not session.messages or session.messages[0].content != memory_ctx:
+                    session.messages.insert(len(session.messages) - 1,
+                                            Message(role="user", content=f"[MEMORY CONTEXT]\n{memory_ctx}"))
+                    session.messages.insert(len(session.messages) - 1,
+                                            Message(role="assistant", content="Noted, I have that context."))
+        except Exception:
+            pass  # Memory errors must never break the main agent loop
 
         # ── Phase 1: tool calling loop ───────────────────────────────────────
         while rounds < self.MAX_TOOL_ROUNDS:
@@ -413,6 +552,22 @@ class AgentRuntime:
                 return await self._get_events(days, user_id)
             elif tool_name == "create_event":
                 return await self._create_event(tool_input, user_id)
+            elif tool_name == "remember":
+                return await self._remember(tool_input.get("content", ""), tool_input.get("category", "general"), user_id)
+            elif tool_name == "recall":
+                return await self._recall(tool_input.get("query", ""), user_id)
+            elif tool_name == "list_documents":
+                return await self._list_documents(user_id)
+            elif tool_name == "search_document":
+                return await self._search_document(tool_input.get("query", ""), tool_input.get("doc_id"), user_id)
+            elif tool_name == "list_github_repos":
+                return await self._list_github_repos(user_id)
+            elif tool_name == "list_github_issues":
+                return await self._list_github_issues(tool_input.get("repo", ""), tool_input.get("state", "open"), user_id)
+            elif tool_name == "read_github_issue":
+                return await self._read_github_issue(tool_input.get("repo", ""), int(tool_input.get("issue_number", 0)), user_id)
+            elif tool_name == "deep_research":
+                return await self._deep_research(tool_input.get("question", ""), user_id)
             return f"Unknown tool: {tool_name}"
         except Exception as e:
             import traceback
@@ -586,6 +741,120 @@ class AgentRuntime:
             import traceback
             traceback.print_exc()
             return f"Calendar error: {type(e).__name__}: {e}"
+
+    async def _remember(self, content: str, category: str, user_id: str) -> str:
+        if not content.strip():
+            return "Error: nothing to remember"
+        try:
+            from core.skills.memory.store import save_memory
+            mem_id = save_memory(user_id, content.strip(), category)
+            self.audit.log(AuditEvent.AGENT_TOOL_CALL, {"tool": "remember", "category": category}, user_id=user_id)
+            return f"Remembered: {content[:100]}"
+        except Exception as e:
+            return f"Memory error: {e}"
+
+    async def _recall(self, query: str, user_id: str) -> str:
+        try:
+            from core.skills.memory.store import search_memories
+            memories = search_memories(user_id, query, limit=10)
+            if not memories:
+                return "No relevant memories found."
+            lines = [f"[{m['category']}] {m['content']}" for m in memories]
+            return "Memories:\n" + "\n".join(lines)
+        except Exception as e:
+            return f"Recall error: {e}"
+
+    async def _list_documents(self, user_id: str) -> str:
+        try:
+            from core.skills.documents.store import load_documents
+            docs = load_documents(user_id)
+            if not docs:
+                return "No documents uploaded yet."
+            lines = [f"- {d['filename']} (id: {d['id']}, {d['size_bytes']//1024} KB)" for d in docs]
+            return f"{len(docs)} document(s):\n" + "\n".join(lines)
+        except Exception as e:
+            return f"Documents error: {e}"
+
+    async def _search_document(self, query: str, doc_id: str | None, user_id: str) -> str:
+        try:
+            from core.skills.documents.store import load_documents, load_document
+            from core.skills.documents.parser import chunk_text, search_chunks
+            if doc_id:
+                doc = load_document(doc_id, user_id)
+                docs = [doc] if doc else []
+            else:
+                docs = [load_document(d["id"], user_id) for d in load_documents(user_id)]
+                docs = [d for d in docs if d]
+            if not docs:
+                return "No documents found."
+            all_relevant = []
+            for doc in docs:
+                chunks = chunk_text(doc["text_content"])
+                relevant = search_chunks(chunks, query, top_k=3)
+                for chunk in relevant:
+                    all_relevant.append(f"[{doc['filename']}]\n{chunk}")
+            if not all_relevant:
+                return f"No relevant content found for: {query}"
+            return "\n\n---\n\n".join(all_relevant[:5])
+        except Exception as e:
+            return f"Document search error: {e}"
+
+    async def _list_github_repos(self, user_id: str) -> str:
+        try:
+            from core.skills.github.store import load_github_token
+            from core.skills.github.client import GitHubClient
+            token = load_github_token(user_id)
+            if not token:
+                return "GitHub not connected. Please connect via Settings → GitHub."
+            repos = await GitHubClient(token).list_repos()
+            if not repos:
+                return "No repositories found."
+            lines = [f"- {r['full_name']} ({'private' if r['private'] else 'public'}) — {r.get('description','')}" for r in repos]
+            return f"{len(repos)} repo(s):\n" + "\n".join(lines)
+        except Exception as e:
+            return f"GitHub error: {e}"
+
+    async def _list_github_issues(self, repo: str, state: str, user_id: str) -> str:
+        try:
+            from core.skills.github.store import load_github_token
+            from core.skills.github.client import GitHubClient
+            token = load_github_token(user_id)
+            if not token:
+                return "GitHub not connected."
+            issues = await GitHubClient(token).list_issues(repo, state=state)
+            if not issues:
+                return f"No {state} issues in {repo}."
+            lines = [f"#{i['number']} {i['title']} ({', '.join(i['labels']) or 'no labels'})" for i in issues]
+            return f"{len(issues)} {state} issue(s) in {repo}:\n" + "\n".join(lines)
+        except Exception as e:
+            return f"GitHub error: {e}"
+
+    async def _read_github_issue(self, repo: str, issue_number: int, user_id: str) -> str:
+        try:
+            from core.skills.github.store import load_github_token
+            from core.skills.github.client import GitHubClient
+            token = load_github_token(user_id)
+            if not token:
+                return "GitHub not connected."
+            issue = await GitHubClient(token).get_issue(repo, issue_number)
+            return (f"#{issue['number']}: {issue['title']}\n"
+                    f"State: {issue['state']} | Author: {issue['user']} | Labels: {', '.join(issue['labels']) or 'none'}\n"
+                    f"Created: {issue['created_at']}\n\n{issue.get('body', '(no body)')}")
+        except Exception as e:
+            return f"GitHub error: {e}"
+
+    async def _deep_research(self, question: str, user_id: str) -> str:
+        if not question.strip():
+            return "Error: question is required for research"
+        try:
+            from core.skills.research.researcher import deep_research
+            llm = LLMAdapter(backend="ollama", user_id=user_id)
+            self.audit.log(AuditEvent.NET_REQUEST, {"tool": "deep_research", "question": question[:100]}, user_id=user_id)
+            return await deep_research(question, llm, user_id)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return f"Research error: {e}"
 
     async def _create_event(self, tool_input: dict, user_id: str) -> str:
         try:

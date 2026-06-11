@@ -40,6 +40,11 @@ ddgs>=9.0.0                  # Web search — no API key needed
 
 icalendar>=5.0.0       # .ics calendar file support
 
+# v0.3.0 — Document Chat + Deep Research
+pymupdf>=1.26.0        # PDF parsing (AGPL — runtime dep only, see CONTRIBUTING.md)
+python-docx>=1.1.0     # .docx parsing
+trafilatura>=2.0.0     # Web page text extraction for deep research
+
 # Bundling
 pyinstaller>=6.0.0     # Bundle Python backend into standalone executable
 

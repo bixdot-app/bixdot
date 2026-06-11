@@ -4,6 +4,20 @@ All notable changes to BixDot are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).  
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] — TBD
+
+### Added
+- **Persistent Memory** (`core/skills/memory/`) — agent remembers facts, preferences, and notes across sessions using SQLite FTS5. Auto-injects relevant memories before every response.
+- **Document Chat** (`core/skills/documents/`) — upload PDFs, DOCX, TXT, MD, CSV files (50 MB max); ask questions against uploaded documents using keyword-scored chunking.
+- **GitHub Integration** (`core/skills/github/`) — connect via PAT (stored in OS keyring); list repos, list issues, read issue details from the agent.
+- **Deep Research** (`core/skills/research/`) — 4-step pipeline: plan sub-queries → search → fetch pages → synthesise a comprehensive report.
+- New API routes: `/memory`, `/documents`, `/github`, `/research`
+- New capabilities: `memory:read`, `memory:write`, `docs:read`
+- New dependencies: `pymupdf`, `python-docx`, `trafilatura`
+- 24 new tests covering all 4 features
+
+---
+
 ## [0.2.1] — 2026-06-10
 
 ### Security

@@ -35,6 +35,10 @@ from core.agent.routes import router as agent_router
 from core.skills.calendar.routes import router as calendar_router
 from core.skills.terminal.routes import router as terminal_router
 from core.plugins.routes import router as plugins_router
+from core.skills.memory.routes import router as memory_router
+from core.skills.documents.routes import router as documents_router
+from core.skills.github.routes import router as github_router
+from core.skills.research.routes import router as research_router
 
 
 @asynccontextmanager
@@ -42,6 +46,10 @@ async def lifespan(app: FastAPI):
     """Startup checks. If any fail, the server does not start."""
     from core.storage.db import init_db
     init_db()
+    from core.skills.memory.store import init_memory_db
+    init_memory_db()
+    from core.skills.documents.store import init_documents_db
+    init_documents_db()
     audit = get_audit_logger()
 
     # 1. Verify audit log chain integrity on every startup
@@ -187,6 +195,10 @@ app.include_router(agent_router)
 app.include_router(calendar_router)
 app.include_router(terminal_router)
 app.include_router(plugins_router)
+app.include_router(memory_router)
+app.include_router(documents_router)
+app.include_router(github_router)
+app.include_router(research_router)
 
 # ─── Serve Frontend ───────────────────────────────────────────────────────────
 # Support both normal execution and PyInstaller bundle (BIXDOT_BASE set by __main__.py)

@@ -56,6 +56,13 @@ class Capability(str, Enum):
     CALENDAR_READ = "calendar:read"   # Read calendar events
     CALENDAR_WRITE = "calendar:write" # Create/modify calendar events
 
+    # Memory
+    MEMORY_READ  = "memory:read"     # Read stored memories
+    MEMORY_WRITE = "memory:write"    # Save memories
+
+    # Documents
+    DOCS_READ = "docs:read"          # Read uploaded documents
+
     # LLM
     LLM_CLOUD = "llm:cloud"          # Use cloud LLM (data leaves machine)
     LLM_LOCAL = "llm:local"          # Use local Ollama (always allowed)
