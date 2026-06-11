@@ -112,6 +112,10 @@
   .login-btn:disabled{opacity:.5;cursor:not-allowed;}
   .err-box{font-size:12px;color:var(--red);background:var(--red-dim);border-radius:6px;padding:8px 10px;margin-top:8px;text-align:center;}
   .note-box{font-size:12px;color:var(--accent);background:var(--accent-dim);border-radius:6px;padding:8px 10px;margin-bottom:12px;}
+  /* License banner */
+  #license-banner{background:var(--surface);border-bottom:1px solid var(--accent-mid);padding:9px 18px;display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--text);flex-shrink:0;}
+  #license-banner a{color:var(--accent);text-decoration:none;font-weight:500;}
+  #license-banner button{background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;padding:0 4px;}
 
   /* Calendar */
   .cal-body{flex:1;overflow-y:auto;padding:18px;}
@@ -209,6 +213,7 @@ const TERM_ICON='M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 0
 function Login({onLogin}){
   const[u,setU]=useState('');
   const[p,setP]=useState('');
+  const[email,setEmail]=useState('');
   const[err,setErr]=useState('');
   const[loading,setLoading]=useState(false);
   const[setup,setSetup]=useState(false);
@@ -221,9 +226,10 @@ function Login({onLogin}){
     if(!u||!p) return;
     setLoading(true); setErr('');
     try{
-      const d=await api(setup?'/auth/setup':'/auth/login',{method:'POST',body:JSON.stringify({username:u,password:p})});
+      const body=setup?{username:u,password:p,email:email||undefined}:{username:u,password:p};
+      const d=await api(setup?'/auth/setup':'/auth/login',{method:'POST',body:JSON.stringify(body)});
       setStoredToken(d.access_token,u);
-      onLogin(d.access_token,u);
+      onLogin(d.access_token,u,d.license_required,d.license_message);
     }catch(e){ setErr(e.message); }
     setLoading(false);
   };
@@ -239,6 +245,7 @@ function Login({onLogin}){
       ),
       setup&&el('div',{className:'note-box'},'First run — create your owner account'),
       el('div',{className:'field'},el('label',null,'Username'),el('input',{value:u,onChange:e=>setU(e.target.value),placeholder:'username',autoFocus:true,onKeyDown:e=>e.key==='Enter'&&submit()})),
+      setup&&el('div',{className:'field'},el('label',null,'Work email (optional)'),el('input',{type:'email',value:email,onChange:e=>setEmail(e.target.value),placeholder:'you@company.com',onKeyDown:e=>e.key==='Enter'&&submit()})),
       el('div',{className:'field'},el('label',null,'Password'),el('input',{type:'password',value:p,onChange:e=>setP(e.target.value),placeholder:'••••••••••••',onKeyDown:e=>e.key==='Enter'&&submit()})),
       setup&&el('div',{style:{fontSize:11,color:'var(--muted)',marginBottom:8,lineHeight:1.5}},'Password needs: 12+ chars, uppercase, lowercase, number, special char (e.g. BixDot123!hello)'),
       el('button',{className:'login-btn',onClick:submit,disabled:loading},loading?'Please wait…':setup?'Create account':'Sign in'),
@@ -1022,8 +1029,9 @@ function App(){
   const[screen,setScreen]=useState('chat');
   const[activeModel,setActiveModel]=useState('llama3.2');
   const[showOnboarding,setShowOnboarding]=useState(false);
+  const[licenseBanner,setLicenseBanner]=useState(null); // null = no banner
 
-  const login=(t,u)=>{
+  const login=(t,u,licenseRequired,licenseMessage)=>{
     setToken(t); setUsername(u);
     // Fetch persisted model on login
     api('/agent/model',{},t).then(r=>setActiveModel(r.model)).catch(()=>{});
@@ -1032,8 +1040,16 @@ function App(){
       .then(r=>r.json())
       .then(s=>{ if(!s.ready) setShowOnboarding(true); })
       .catch(()=>setShowOnboarding(true));
+    // Show license banner for commercial users — non-blocking
+    if(licenseRequired&&licenseMessage) setLicenseBanner(licenseMessage);
+    else{
+      // Re-check via API (handles returning users whose email was set earlier)
+      api('/auth/license-status',{},t)
+        .then(r=>{ if(r.license_required&&r.message) setLicenseBanner(r.message); })
+        .catch(()=>{});
+    }
   };
-  const logout=()=>{ clearToken(); setToken(null); setUsername(''); setShowOnboarding(false); };
+  const logout=()=>{ clearToken(); setToken(null); setUsername(''); setShowOnboarding(false); setLicenseBanner(null); };
 
   if(!token) return el(Login,{onLogin:login});
 
@@ -1062,6 +1078,13 @@ function App(){
       )
     ),
     el('div',{className:'main'},
+      licenseBanner&&el('div',{id:'license-banner'},
+        el('span',null,'⚠ ',el('strong',null,'Commercial use detected.'),' BixDot is free for personal use. Commercial use requires a license.'),
+        el('div',{style:{display:'flex',gap:12,alignItems:'center'}},
+          el('a',{href:'mailto:legal@bixdot.app'},'Get a license →'),
+          el('button',{onClick:()=>setLicenseBanner(null),title:'Dismiss for this session'},'✕')
+        )
+      ),
       el('div',{className:'topbar'},
         el('span',{className:'topbar-title'},nav.find(n=>n.id===screen)?.label),
         el('span',{className:'chain-ok'},'✓ Chain verified · Local')

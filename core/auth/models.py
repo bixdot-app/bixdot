@@ -17,6 +17,7 @@ class SetupRequest(BaseModel):
     """First-run owner account creation."""
     username: str = Field(min_length=3, max_length=32)
     password: str = Field(min_length=12, max_length=128)
+    email: Optional[str] = Field(default=None, max_length=254)
 
     @field_validator("password")
     @classmethod
@@ -57,6 +58,17 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     expires_in: int       # seconds until access token expires
     role: Literal["owner", "operator"]
+    license_required: bool = False
+    license_signals: Optional[list] = None
+    license_message: Optional[str] = None
+
+
+class LicenseStatusResponse(BaseModel):
+    license_required: bool
+    signals: list
+    message: Optional[str]
+    license_url: str = "mailto:legal@bixdot.app"
+    pricing_url: str = "https://bixdot.app/#license"
 
 
 class UserResponse(BaseModel):

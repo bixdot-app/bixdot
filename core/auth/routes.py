@@ -29,7 +29,9 @@ from core.auth.jwt import (
     verify_password,
 )
 from core.auth.middleware import require_auth
+from core.auth.license_check import detect_commercial_use
 from core.auth.models import (
+    LicenseStatusResponse,
     LoginRequest,
     RefreshRequest,
     SetupRequest,
@@ -72,12 +74,22 @@ async def setup(request: SetupRequest, req: Request):
 
     user_id = str(uuid.uuid4())
     password_hash = hash_password(request.password)
+    email = (request.email or "").strip() or None
 
     with get_connection() as conn:
         conn.execute(
-            """INSERT INTO users (id, username, password_hash, role)
-               VALUES (?, ?, ?, 'owner')""",
-            (user_id, request.username, password_hash),
+            """INSERT INTO users (id, username, email, password_hash, role)
+               VALUES (?, ?, ?, ?, 'owner')""",
+            (user_id, request.username, email, password_hash),
+        )
+
+    detection = detect_commercial_use(email)
+    if detection["is_commercial"]:
+        audit.log(
+            AuditEvent.AGENT_TOOL_CALL,
+            {"action": "commercial_use_detected", "signals": detection["signals"],
+             "email": email},
+            user_id=user_id,
         )
 
     audit.log(
@@ -95,6 +107,9 @@ async def setup(request: SetupRequest, req: Request):
         refresh_token=tokens.refresh_token,
         expires_in=settings.jwt_access_token_expire_minutes * 60,
         role="owner",
+        license_required=detection["is_commercial"],
+        license_signals=detection["signals"] or None,
+        license_message=detection["message"],
     )
 
 
@@ -148,11 +163,16 @@ async def login(request: Request, body: LoginRequest):
     tokens = create_token_pair(user["id"], user["role"])
     _store_refresh_token(tokens.refresh_token, user["id"])
 
+    detection = detect_commercial_use(user["email"] if user["email"] else None)
+
     return TokenResponse(
         access_token=tokens.access_token,
         refresh_token=tokens.refresh_token,
         expires_in=settings.jwt_access_token_expire_minutes * 60,
         role=user["role"],
+        license_required=detection["is_commercial"],
+        license_signals=detection["signals"] or None,
+        license_message=detection["message"],
     )
 
 
@@ -272,6 +292,21 @@ async def me(user=Depends(require_auth)):
         role=row["role"],
         created_at=row["created_at"],
         last_login_at=row["last_login_at"],
+    )
+
+
+# ─── License Status ───────────────────────────────────────────────────────────
+
+@router.get("/license-status", response_model=LicenseStatusResponse)
+async def license_status(user=Depends(require_auth)):
+    """Return commercial use detection result for the current user."""
+    row = _get_user_by_id(user.sub)
+    email = row["email"] if row and row["email"] else None
+    detection = detect_commercial_use(email)
+    return LicenseStatusResponse(
+        license_required=detection["is_commercial"],
+        signals=detection["signals"],
+        message=detection["message"],
     )
 
 

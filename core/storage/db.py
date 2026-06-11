@@ -105,6 +105,7 @@ CREATE TABLE IF NOT EXISTS schema_version (
 CREATE TABLE IF NOT EXISTS users (
     id              TEXT PRIMARY KEY,           -- UUID
     username        TEXT UNIQUE NOT NULL,
+    email           TEXT,                       -- optional; used for license detection
     password_hash   TEXT NOT NULL,
     role            TEXT NOT NULL DEFAULT 'operator'
                     CHECK(role IN ('owner', 'operator')),
@@ -202,6 +203,12 @@ def init_db() -> None:
                 "INSERT INTO schema_version (version) VALUES (?)",
                 (SCHEMA_VERSION,)
             )
+
+        # Migration: add email column to existing users tables (idempotent)
+        try:
+            conn.execute("ALTER TABLE users ADD COLUMN email TEXT")
+        except Exception:
+            pass  # Column already exists — safe to ignore
 
 
 # ─── First-Run Detection ──────────────────────────────────────────────────────

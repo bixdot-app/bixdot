@@ -7,14 +7,14 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [0.3.0] — TBD
 
 ### Added
+- **Commercial use detection** (`core/auth/license_check.py`) — detects corporate email domains and domain-joined Windows machines on signup and every login; shows a non-blocking license banner for commercial users; all detection is local, no data sent externally; audit-logged for sales tracking.
 - **Persistent Memory** (`core/skills/memory/`) — agent remembers facts, preferences, and notes across sessions using SQLite FTS5. Auto-injects relevant memories before every response.
-- **Document Chat** (`core/skills/documents/`) — upload PDFs, DOCX, TXT, MD, CSV files (50 MB max); ask questions against uploaded documents using keyword-scored chunking.
+- **Document Chat** (`core/skills/documents/`) — upload PDF, DOCX, PPTX, XLSX, TXT, MD, CSV files (50 MB max); ask questions against uploaded documents using keyword-scored chunking. Powered by markitdown (MIT, Microsoft) — no AGPL in the chain.
 - **GitHub Integration** (`core/skills/github/`) — connect via PAT (stored in OS keyring); list repos, list issues, read issue details from the agent.
 - **Deep Research** (`core/skills/research/`) — 4-step pipeline: plan sub-queries → search → fetch pages → synthesise a comprehensive report.
-- New API routes: `/memory`, `/documents`, `/github`, `/research`
+- New API routes: `/memory`, `/documents`, `/github`, `/research`, `/auth/license-status`
 - New capabilities: `memory:read`, `memory:write`, `docs:read`
-- New dependencies: `pymupdf`, `python-docx`, `trafilatura`
-- 24 new tests covering all 4 features
+- New dependencies: `markitdown[pdf,docx,pptx,xlsx]>=0.1.6` (MIT), `trafilatura>=2.0.0` (Apache 2.0)
 
 ---
 
