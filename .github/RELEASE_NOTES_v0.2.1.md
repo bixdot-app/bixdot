@@ -52,5 +52,11 @@ All users on v0.2.0 should upgrade. Drop-in replacement — no config or data mi
 
 ---
 
+## What Shipped Next
+
+**v0.3.0** (2026-06-11) — Commercial use detection, Persistent Memory, Document Chat, GitHub integration, Deep Research
+
+---
+
 *Security disclosures: security@bixdot.app*  
 *© 2026 DigiTech Business Pte. Ltd (Singapore) · [bixdot.app](https://bixdot.app)*

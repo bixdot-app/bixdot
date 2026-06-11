@@ -12,7 +12,7 @@
 - **Website:** https://bixdot.app
 - **GitHub:** https://github.com/bixdot-app/bixdot
 - **License:** BUSL-1.1 (source-available, free to self-host, commercial use requires license)
-- **Version:** v0.2.1 (released 2026-06-09)
+- **Version:** v0.3.0 (released 2026-06-11)
 - **Owner:** Shanker / DigiTech Business Pte. Ltd
 
 ---
@@ -64,9 +64,10 @@ bixdot/
 │   ├── main.py                    # FastAPI app, lifespan, routers
 │   ├── config.py                  # Settings (pydantic-settings)
 │   ├── auth/
-│   │   ├── routes.py              # /auth/setup, /login, /refresh, /logout, /me
+│   │   ├── routes.py              # /auth/setup, /login, /refresh, /logout, /me, /license-status
 │   │   ├── middleware.py          # require_auth, require_owner, ws_require_auth
 │   │   ├── jwt.py                 # Token creation/validation
+│   │   ├── license_check.py       # Commercial use detection (corporate email + domain-joined Windows)
 │   │   └── models.py              # Pydantic models
 │   ├── agent/
 │   │   ├── routes.py              # /agent/chat, /sessions, /permissions
@@ -79,7 +80,11 @@ bixdot/
 │   │   ├── filesystem/            # read_file, write_file, list_directory, search_files
 │   │   ├── websearch/             # DuckDuckGo search (ddgs, no API key)
 │   │   ├── calendar/              # Google Calendar OAuth2, Outlook/M365 Graph API, .ics
-│   │   └── terminal/              # Sandboxed command execution
+│   │   ├── terminal/              # Sandboxed command execution
+│   │   ├── memory/                # remember, recall — SQLite FTS5, auto-injected into context
+│   │   ├── documents/             # list_documents, search_document — markitdown (MIT), PDF/DOCX/PPTX/XLSX
+│   │   ├── github/                # list_github_repos, list_github_issues, read_github_issue — PAT in keyring
+│   │   └── research/              # deep_research — 4-step pipeline: plan → search → fetch → synthesise
 │   ├── plugins/
 │   │   ├── loader.py              # Scans ~/.bixdot/plugins/ on startup, manifest v1 validation
 │   │   └── routes.py              # /plugins/* — install, enable, disable, uninstall
@@ -113,7 +118,8 @@ bixdot/
 │   ├── SECURITY.md
 │   ├── RELEASE_NOTES_v0.1.0.md
 │   ├── RELEASE_NOTES_v0.1.1.md
-│   └── RELEASE_NOTES_v0.2.1.md
+│   ├── RELEASE_NOTES_v0.2.1.md
+│   └── RELEASE_NOTES_v0.3.0.md
 ├── .claude/
 │   └── settings.json              # PostToolUse hooks: ruff auto-fix, pip-audit on requirements
 ├── requirements.txt               # Python 3.11+ dependencies
@@ -157,7 +163,7 @@ if required_cap and not self.permissions.check("builtin", required_cap):
     return AgentResponse(permissions_requested=[required_cap.value], ...)
 ```
 
-Capabilities: `fs:read`, `fs:write`, `fs:delete`, `net:fetch`, `net:outbound`, `exec:shell`, `exec:python`, `calendar:read`, `calendar:write`, `cred:read`, `cred:write`, `llm:cloud`, `llm:local`
+Capabilities: `fs:read`, `fs:write`, `fs:delete`, `net:fetch`, `net:outbound`, `exec:shell`, `exec:python`, `calendar:read`, `calendar:write`, `cred:read`, `cred:write`, `llm:cloud`, `llm:local`, `memory:read`, `memory:write`, `docs:read`, `github:read`, `github:write`
 
 ### 3. Auth Flow
 
@@ -184,7 +190,7 @@ All Tauri commands are defined directly in `main.rs`.
 
 ---
 
-## Current Status — v0.2.1 ✅ SHIPPED
+## Current Status — v0.3.0 ✅ SHIPPED
 
 | Feature | Status |
 |---|---|
@@ -208,10 +214,15 @@ All Tauri commands are defined directly in `main.rs`.
 | Onboarding wizard | ✅ Done |
 | Outlook / M365 calendar | ✅ Done |
 | Plugin system foundation | ✅ Done |
+| Commercial use detection | ✅ Done |
+| Persistent Memory skill (SQLite FTS5) | ✅ Done |
+| Document Chat skill (PDF/DOCX/PPTX/XLSX) | ✅ Done |
+| GitHub integration skill | ✅ Done |
+| Deep Research skill | ✅ Done |
 
 ---
 
-## v0.3.0 Roadmap — Next Sprint
+## v0.4.0 Roadmap — Next Sprint
 
 Priority order:
 
@@ -219,11 +230,11 @@ Priority order:
 
 2. **Bundled OAuth credentials** — ship default Google Calendar client ID so users don't need to register their own app.
 
-3. **Mobile app** — iOS + Android via Capacitor or Tauri Mobile.
+3. **Code signing** — Windows EV cert + macOS Developer ID to remove SmartScreen/Gatekeeper warnings.
 
-4. **Code signing** — Windows EV cert + macOS Developer ID to remove SmartScreen/Gatekeeper warnings.
+4. **Session memory summarisation** — summarisation pipeline to work around llama3.2 context window limit.
 
-5. **Session memory expansion** — summarisation pipeline to work around llama3.2 context window limit.
+5. **Mobile app** — iOS + Android via Tauri Mobile.
 
 ---
 
@@ -373,5 +384,5 @@ Every release follows this exact sequence — no manual checks needed:
 
 ---
 
-*Last updated: 2026-06-10 | v0.2.1*
+*Last updated: 2026-06-11 | v0.3.0*
 *© 2026 DigiTech Business Pte. Ltd.*

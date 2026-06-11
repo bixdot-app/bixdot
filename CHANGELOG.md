@@ -4,7 +4,7 @@ All notable changes to BixDot are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).  
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.3.0] — TBD
+## [0.3.0] — 2026-06-11
 
 ### Added
 - **Commercial use detection** (`core/auth/license_check.py`) — detects corporate email domains and domain-joined Windows machines on signup and every login; shows a non-blocking license banner for commercial users; all detection is local, no data sent externally; audit-logged for sales tracking.

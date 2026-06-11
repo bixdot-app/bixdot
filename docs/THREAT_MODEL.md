@@ -1,7 +1,7 @@
 # BixDot — Threat Model
 
-> Version: 0.2.1  
-> Last updated: 2026-06-10  
+> Version: 0.3.0  
+> Last updated: 2026-06-11  
 > Status: Living document — updated with every release
 
 ---
@@ -146,6 +146,62 @@ Every known BixDot vulnerability class is addressed by a specific architectural 
 ---
 
 **PyJWT CVEs (PYSEC-2026-175/177/178/179)** — PyJWT `<2.13.0` contained 4 vulnerabilities. Minimum version bumped to `>=2.13.0`.
+
+---
+
+---
+
+### v0.3.0 Threat Surface — New Skills (2026-06-11)
+
+#### Memory Skill
+**Surface:** User-controlled content written to SQLite FTS5.
+
+**Mitigations:**
+- FTS5 queries are parameterised (`MATCH ?`) — no injection path
+- Memories are user-scoped — cross-user access requires authenticated session with the right `user_id`
+- Content length capped at 2000 characters per memory
+- Memory retrieval is read-only in the synthesis phase
+
+---
+
+#### Document Chat Skill
+**Surface:** File upload handling; arbitrary document parsing via markitdown.
+
+**Mitigations:**
+- Extension allowlist enforced before saving: `.pdf .docx .pptx .xlsx .txt .md .csv` only
+- Hard 50 MB size limit enforced during streaming read (file deleted if limit exceeded)
+- Files saved with a UUID prefix to prevent path traversal
+- markitdown (MIT) extracts text only — macros and embedded scripts in DOCX/PPTX are not executed
+- Parse errors trigger immediate file deletion and HTTP 422 response
+- Document storage in `~/.bixdot/documents/` — no cross-user path access possible
+
+**Known limitation:** Content from malicious documents could attempt LLM prompt injection (see "What We Don't Protect Against"). Capability gate (`docs:read`) means the user explicitly grants access.
+
+---
+
+#### GitHub Integration
+**Surface:** Personal Access Token stored in OS keyring; HTTP calls to api.github.com.
+
+**Mitigations:**
+- PAT stored in OS keyring (`bixdot-github` service) — never in SQLite, config files, or audit logs
+- All API calls use httpx with a 15-second timeout — not socket-level raw access
+- Read operations only exposed via agent tools (`list_github_repos`, `list_github_issues`, `read_github_issue`)
+- `GITHUB_WRITE` capability exists but no write tools are in BUILTIN_TOOLS — write requires explicit future addition
+- Token validated against GitHub API at connect time; invalid tokens rejected with HTTP 401
+
+---
+
+#### Deep Research Skill
+**Surface:** Agent-initiated HTTP fetches to arbitrary URLs returned by DuckDuckGo.
+
+**Mitigations:**
+- Fetch uses `follow_redirects=True` with a 10-second timeout — no infinite redirect chains
+- Only public internet URLs are fetched — localhost/private-range URLs are not explicitly blocked but DuckDuckGo results don't return them
+- trafilatura (Apache 2.0) extracts article text only — scripts and iframes are stripped
+- Regex fallback strips all HTML tags if trafilatura is unavailable
+- No cookies stored, no authentication forwarded to fetched pages
+- Result capped at 3000 characters per source page
+- Research jobs are fire-and-forget BackgroundTasks — failure is contained per job
 
 ---
 

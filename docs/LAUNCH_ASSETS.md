@@ -78,12 +78,19 @@ Public threat model maps each CVE class to specific architectural mitigations.
 - Native desktop app — Windows (.exe/.msi), macOS (.dmg), Linux (.deb/.AppImage)
 - Zero-trust JWT auth
 
-## v0.3.0 Coming Next
+## v0.3.0 What Shipped (Feature Release — 2026-06-11)
+- **Commercial use detection** — detects corporate email and domain-joined Windows; non-blocking license banner; all local, no data sent externally
+- **Persistent Memory skill** — agent remembers facts, preferences, and notes across sessions via SQLite FTS5; auto-injected into every conversation context
+- **Document Chat** — upload PDF, DOCX, PPTX, XLSX, TXT, MD, CSV (50 MB max); ask questions, get summaries, extract data; powered by markitdown (MIT, Microsoft)
+- **GitHub integration** — connect via PAT; agent can list repos, read issues and PRs; token stored in OS keyring
+- **Deep Research** — 4-step pipeline: plan sub-queries → DuckDuckGo search → fetch page content via trafilatura → synthesise structured report
+
+## v0.4.0 Coming Next
 - Plugin execution (run plugin entry points in sandboxed subprocess)
 - Bundled OAuth credentials (Google Calendar client ID ships with the app)
+- Code signing (Windows EV cert + macOS Developer ID, removes SmartScreen/Gatekeeper warnings)
+- Session memory summarisation (pipeline to work around llama3.2 context limit)
 - Mobile app (iOS + Android via Tauri Mobile)
-- Code signing (remove SmartScreen/Gatekeeper warnings)
-- Session memory expansion (summarisation pipeline for llama3.2 context limit)
 
 ---
 

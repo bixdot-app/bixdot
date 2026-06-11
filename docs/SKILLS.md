@@ -1,7 +1,7 @@
 # BixDot — Skills Reference
 
-> Version: 0.2.0
-> Last updated: 2026-06-10
+> Version: 0.3.0
+> Last updated: 2026-06-11
 > This document is the authoritative reference for all built-in skills, their tool definitions,
 > required permissions, security constraints, and the plugin system. Keep it in sync with
 > `core/agent/runtime.py` (BUILTIN_TOOLS), `core/agent/permissions.py` (Capability),
@@ -45,6 +45,9 @@ Defined in `core/agent/permissions.py` — `Capability` enum.
 | `discord:send` | Send Discord messages |
 | `github:read` | Read GitHub repos and issues |
 | `github:write` | Create PRs and issues |
+| `memory:read` | Search and retrieve memories from the local store |
+| `memory:write` | Save facts and preferences to the local memory store |
+| `docs:read` | Read and search content from uploaded documents |
 
 **Permission grant model:**
 - Grants are session-scoped by default (cleared on logout)
@@ -54,7 +57,7 @@ Defined in `core/agent/permissions.py` — `Capability` enum.
 
 ---
 
-## Built-in Skills (v0.2.0)
+## Built-in Skills (v0.3.0)
 
 All defined in `BUILTIN_TOOLS` in `core/agent/runtime.py`.
 
@@ -226,6 +229,178 @@ Create a new calendar event.
 
 ---
 
+---
+
+### Memory
+
+Agent memory persists across sessions using SQLite FTS5. Relevant memories are automatically injected into the conversation context before every response — the agent always has context without the user needing to repeat themselves.
+
+**Auto-injection:** Before Phase 1 in `AgentRuntime.run()`, the agent searches memories relevant to the current message and prepends them to the context. Memory errors never break the main agent loop.
+
+#### `remember`
+Save a fact, preference, or note to long-term memory.
+
+| Field | Value |
+|---|---|
+| Capability | `memory:write` |
+| Storage | SQLite FTS5 in `~/.bixdot/bixdot.db` |
+| Code | `core/skills/memory/store.py → save_memory()` |
+
+**Parameters:**
+| Name | Type | Required | Description |
+|---|---|---|---|
+| `content` | string | ✅ | The fact or preference to remember |
+| `category` | string | — | One of: `general`, `preference`, `fact`, `task`, `person`, `project` (default: `general`) |
+
+**Trigger phrases:** "remember that", "note that", "keep in mind", "I prefer", "my name is", "always use", "never use"
+
+---
+
+#### `recall`
+Search memory for facts relevant to a query.
+
+| Field | Value |
+|---|---|
+| Capability | `memory:read` |
+| Search | SQLite FTS5 MATCH — porter unicode61 tokenizer |
+| Code | `core/skills/memory/store.py → search_memories()` |
+
+**Parameters:**
+| Name | Type | Required | Description |
+|---|---|---|---|
+| `query` | string | ✅ | What to look up in memory |
+
+**Trigger phrases:** "what do you know about me", "what have I told you", "recall"
+
+**Memory REST API:** `GET /memory/`, `POST /memory/`, `DELETE /memory/{id}`, `POST /memory/search`
+
+---
+
+### Document Chat
+
+Upload documents and ask questions against their content. Text is extracted at upload time using markitdown (MIT, Microsoft) and stored in SQLite. Search uses keyword scoring over overlapping text chunks — no vector DB, fully offline.
+
+**Supported formats:** `.pdf`, `.docx`, `.pptx`, `.xlsx`, `.txt`, `.md`, `.csv`
+**Size limit:** 50 MB per file
+**Dependency:** `markitdown[pdf,docx,pptx,xlsx]>=0.1.6` — MIT license, no AGPL in chain
+
+#### `list_documents`
+List all documents the user has uploaded.
+
+| Field | Value |
+|---|---|
+| Capability | `docs:read` |
+| Code | `core/skills/documents/store.py → load_documents()` |
+
+**Parameters:** None
+
+---
+
+#### `search_document`
+Search within uploaded documents for content relevant to a query.
+
+| Field | Value |
+|---|---|
+| Capability | `docs:read` |
+| Search | Keyword scoring over overlapping 1500-char chunks (200-char overlap) |
+| Code | `core/skills/documents/parser.py → search_chunks()` |
+
+**Parameters:**
+| Name | Type | Required | Description |
+|---|---|---|---|
+| `query` | string | ✅ | What to search for in the documents |
+| `doc_id` | string | — | Specific document ID — searches all documents if omitted |
+
+**Trigger phrases:** "my PDF", "that report", "the document", "summarise", "what does the document say", "according to", "in the file"
+
+**Document REST API:** `POST /documents/upload`, `GET /documents/`, `DELETE /documents/{id}`, `POST /documents/{id}/ask`
+
+---
+
+### GitHub Integration
+
+Connect GitHub via a Personal Access Token (PAT). The token is stored in the OS keyring — never in the database or config files.
+
+**Setup:** Settings → GitHub → paste your PAT (needs `repo` scope for private repos, `public_repo` for public)
+
+#### `list_github_repos`
+List the user's GitHub repositories.
+
+| Field | Value |
+|---|---|
+| Capability | `github:read` |
+| Code | `core/skills/github/client.py → GitHubClient.list_repos()` |
+
+**Parameters:** None
+
+---
+
+#### `list_github_issues`
+List issues in a GitHub repository.
+
+| Field | Value |
+|---|---|
+| Capability | `github:read` |
+| Code | `core/skills/github/client.py → GitHubClient.list_issues()` |
+
+**Parameters:**
+| Name | Type | Required | Description |
+|---|---|---|---|
+| `repo` | string | ✅ | Full repo name e.g. `owner/repo` |
+| `state` | string | — | `open` or `closed` (default: `open`) |
+
+---
+
+#### `read_github_issue`
+Read a specific GitHub issue in full detail.
+
+| Field | Value |
+|---|---|
+| Capability | `github:read` |
+| Code | `core/skills/github/client.py → GitHubClient.get_issue()` |
+
+**Parameters:**
+| Name | Type | Required | Description |
+|---|---|---|---|
+| `repo` | string | ✅ | Full repo name e.g. `owner/repo` |
+| `number` | integer | ✅ | Issue number |
+
+**Trigger phrases:** "github", "my repos", "open issues", "github issue", "pull request"
+
+**GitHub REST API:** `POST /github/connect`, `DELETE /github/disconnect`, `GET /github/status`, `GET /github/repos`, `GET /github/{owner}/{repo}/issues`
+
+---
+
+### Deep Research
+
+Multi-step research pipeline. Given a question, the agent plans focused sub-queries, searches the web, fetches and extracts article text from top results, then synthesises a structured report with citations.
+
+**Pipeline:** Plan 3 sub-queries (LLM) → DuckDuckGo search × 3 → fetch pages via httpx + trafilatura (Apache 2.0) → synthesise report (LLM)
+**Dependency:** `trafilatura>=2.0.0` — Apache 2.0 license
+**Jobs:** Long-running — result polled via `GET /research/{job_id}`
+
+#### `deep_research`
+Conduct comprehensive multi-source research on a topic.
+
+| Field | Value |
+|---|---|
+| Capability | `net:fetch` |
+| Execution | Background task — job ID returned immediately |
+| Code | `core/skills/research/researcher.py → deep_research()` |
+
+**Parameters:**
+| Name | Type | Required | Description |
+|---|---|---|---|
+| `question` | string | ✅ | The research question or topic to investigate |
+
+**Trigger phrases:** "research", "investigate", "deep dive", "comprehensive report", "find out everything about", "what are the latest", "give me a report on"
+
+**Research REST API:** `POST /research/` (start job), `GET /research/{job_id}` (poll result)
+
+> **Note:** The `_jobs` dict is in-memory — research results are lost on server restart. SQLite persistence is planned for v0.4.0.
+
+---
+
 ## Calendar Providers
 
 Defined in `core/skills/calendar/`. All extend `CalendarProvider` base class.
@@ -260,7 +435,7 @@ Defined in `core/skills/calendar/`. All extend `CalendarProvider` base class.
 
 Community-built skills installed from `~/.bixdot/plugins/`.
 
-> **Note:** Plugin *execution* (running entry point code) ships in v0.3.0.
+> **Note:** Plugin *execution* (running entry point code) is planned for v0.4.0.
 > The v0.2.0 foundation covers discovery, validation, and lifecycle management.
 
 ### Directory structure
@@ -269,7 +444,7 @@ Community-built skills installed from `~/.bixdot/plugins/`.
 ~/.bixdot/plugins/
 └── com.example.myplugin/
     ├── manifest.json       ← required
-    └── main.py             ← entry point (executed in v0.3.0)
+    └── main.py             ← entry point (sandboxed execution planned for v0.4.0)
 ```
 
 ### Manifest schema (v1)

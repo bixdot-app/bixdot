@@ -6,7 +6,7 @@
   [![CI](https://github.com/bixdot-app/bixdot/actions/workflows/ci.yml/badge.svg)](https://github.com/bixdot-app/bixdot/actions/workflows/ci.yml)
   [![Release](https://github.com/bixdot-app/bixdot/actions/workflows/release.yml/badge.svg)](https://github.com/bixdot-app/bixdot/actions/workflows/release.yml)
   [![License: BUSL-1.1](https://img.shields.io/badge/License-BUSL--1.1-blue.svg)](LICENSE)
-  [![Version](https://img.shields.io/badge/version-0.2.1-green.svg)](https://github.com/bixdot-app/bixdot/releases/tag/v0.2.1)
+  [![Version](https://img.shields.io/badge/version-0.3.0-green.svg)](https://github.com/bixdot-app/bixdot/releases/tag/v0.3.0)
 
   [Download](https://github.com/bixdot-app/bixdot/releases/latest) · [Docs](docs/) · [Security](mailto:security@bixdot.app)
 </div>
@@ -25,7 +25,7 @@ It's also the most secure AI agent available. We built it after studying every k
 
 ## Download
 
-**[→ Download BixDot v0.2.1](https://github.com/bixdot-app/bixdot/releases/latest)**
+**[→ Download BixDot v0.3.0](https://github.com/bixdot-app/bixdot/releases/latest)**
 
 | Platform | Installer |
 |---|---|
@@ -41,6 +41,10 @@ It's also the most secure AI agent available. We built it after studying every k
 ## Features
 
 - **Chat** — talk to any Ollama model locally; model selector persists your choice
+- **Persistent Memory** — agent remembers facts and preferences across sessions (SQLite FTS5, fully local)
+- **Document Chat** — upload PDF, DOCX, PPTX, XLSX, TXT, MD, CSV; ask questions against your documents
+- **GitHub integration** — connect via PAT; list repos, read issues and PRs from the agent
+- **Deep Research** — plan sub-queries → search → fetch pages → synthesise a structured report
 - **Filesystem skill** — read, list, and search files with explicit permission grants
 - **Web search skill** — DuckDuckGo search, no API key required
 - **Calendar skill** — Google Calendar, Outlook/M365, or a local `.ics` file
@@ -96,6 +100,11 @@ Full threat model: [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md)
 | Onboarding wizard | ✅ v0.2.0 |
 | Outlook / M365 calendar | ✅ v0.2.0 |
 | Plugin system foundation | ✅ v0.2.0 |
+| Commercial use detection | ✅ v0.3.0 |
+| Persistent Memory skill | ✅ v0.3.0 |
+| Document Chat skill (PDF/DOCX/PPTX/XLSX) | ✅ v0.3.0 |
+| GitHub integration skill | ✅ v0.3.0 |
+| Deep Research skill | ✅ v0.3.0 |
 | Mobile (iOS + Android) | 📅 Phase 2 |
 | Skill marketplace | 📅 Phase 2 |
 
@@ -136,10 +145,13 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) for full guidelines.
 
 ## Roadmap
 
-**v0.3.0 — Coming next**
-Plugin execution, bundled OAuth credentials, mobile app (iOS + Android), code signing, session memory expansion
+**v0.4.0 — Coming next**
+Plugin execution (run entry points in sandboxed subprocess), bundled OAuth credentials (Google Calendar client ID ships with app), code signing (Windows EV cert + macOS Developer ID), session memory summarisation pipeline
 
 ---
+
+**v0.3.0 — Released 11 June 2026**
+Commercial use detection, Persistent Memory skill (SQLite FTS5), Document Chat (PDF/DOCX/PPTX/XLSX via markitdown), GitHub integration (PAT, repos/issues), Deep Research (plan → search → fetch → synthesise)
 
 **v0.2.0 — Released 9 June 2026**
 Bundled Python backend (PyInstaller), model selector, onboarding wizard, Outlook/M365 calendar, plugin system foundation
