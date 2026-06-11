@@ -747,7 +747,7 @@ class AgentRuntime:
             return "Error: nothing to remember"
         try:
             from core.skills.memory.store import save_memory
-            mem_id = save_memory(user_id, content.strip(), category)
+            save_memory(user_id, content.strip(), category)
             self.audit.log(AuditEvent.AGENT_TOOL_CALL, {"tool": "remember", "category": category}, user_id=user_id)
             return f"Remembered: {content[:100]}"
         except Exception as e:

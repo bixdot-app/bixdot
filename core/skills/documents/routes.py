@@ -5,7 +5,6 @@
 # Security disclosures: security@bixdot.app
 # See LICENSE in the project root for full terms.
 
-import shutil
 import uuid
 from pathlib import Path
 from typing import Optional
