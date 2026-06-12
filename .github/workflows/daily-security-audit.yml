@@ -9,8 +9,8 @@ name: Daily Security Audit
 
 on:
   schedule:
-    # 22:00 UTC = 06:00 SGT (UTC+8), every day
-    - cron: "0 22 * * *"
+    # 10:00 UTC = 18:00 SGT (UTC+8), every day
+    - cron: "0 10 * * *"
   workflow_dispatch: # allow manual trigger from GitHub Actions UI
 
 permissions:
