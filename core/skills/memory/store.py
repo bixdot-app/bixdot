@@ -52,23 +52,35 @@ def save_memory(user_id: str, content: str, category: str = "general", source: s
 
 
 def search_memories(user_id: str, query: str, limit: int = 10) -> list[dict]:
-    # Escape FTS5 special chars to prevent query parse errors
-    safe_query = query.replace('"', '').replace("'", "")
-    if not safe_query.strip():
+    safe_query = query.replace('"', '').replace("'", "").strip()
+    if not safe_query:
         return load_all_memories(user_id, limit=limit)
-    with get_connection() as conn:
-        rows = conn.execute(
-            """
-            SELECT m.id, m.content, m.category, m.source, m.created_at
-            FROM memories_fts f
-            JOIN memories m ON m.id = f.id
-            WHERE f.memories_fts MATCH ? AND f.user_id = ?
-            ORDER BY rank
-            LIMIT ?
-            """,
-            (safe_query, user_id, limit),
-        ).fetchall()
-    return [{"id": r[0], "content": r[1], "category": r[2], "source": r[3], "created_at": r[4]} for r in rows]
+    try:
+        with get_connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT m.id, m.content, m.category, m.source, m.created_at
+                FROM memories_fts f
+                JOIN memories m ON m.id = f.id
+                WHERE f.memories_fts MATCH ? AND f.user_id = ?
+                ORDER BY rank
+                LIMIT ?
+                """,
+                (safe_query, user_id, limit),
+            ).fetchall()
+        return [{"id": r[0], "content": r[1], "category": r[2], "source": r[3], "created_at": r[4]} for r in rows]
+    except Exception:
+        # FTS5 query syntax error — fall back to LIKE search
+        try:
+            with get_connection() as conn:
+                rows = conn.execute(
+                    "SELECT id, content, category, source, created_at FROM memories "
+                    "WHERE user_id=? AND LOWER(content) LIKE ? ORDER BY created_at DESC LIMIT ?",
+                    (user_id, f"%{query.lower()}%", limit),
+                ).fetchall()
+            return [{"id": r[0], "content": r[1], "category": r[2], "source": r[3], "created_at": r[4]} for r in rows]
+        except Exception:
+            return []
 
 
 def load_all_memories(user_id: str, limit: int = 50) -> list[dict]:
