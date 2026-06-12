@@ -112,7 +112,7 @@ bixdot/
 │   ├── workflows/
 │   │   ├── ci.yml                 # Bandit, pip-audit, semgrep, license headers
 │   │   ├── release.yml            # Multi-platform Tauri builds + GitHub release
-│   │   └── daily-security-audit.yml  # CVE + Bandit + Ruff; runs 18:00 SGT, auto-commits fixes
+│   │   └── daily-security-audit.yml  # CVE + Bandit + Ruff; runs 06:00 SGT, auto-commits fixes
 │   ├── ISSUE_TEMPLATE/
 │   ├── SECURITY.md
 │   ├── RELEASE_NOTES_v0.1.0.md
