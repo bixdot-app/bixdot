@@ -96,8 +96,7 @@ bixdot/
 │   └── storage/
 │       └── db.py                  # SQLite init, is_first_run(), token_blocklist
 ├── frontend/                      # React UI (static, served by FastAPI)
-│   ├── index.html                 # Main chat interface
-│   └── setup.html                 # First-run setup wizard
+│   └── index.html                 # Main chat interface
 ├── src-tauri/                     # Tauri desktop wrapper
 │   ├── src/
 │   │   └── main.rs                # Tauri app entry, backend spawn, system tray
