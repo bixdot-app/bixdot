@@ -50,7 +50,7 @@ jobs:
       - name: Rename backend to target-triple name (Windows)
         if: matrix.platform == 'windows-latest'
         shell: pwsh
-        run: Rename-Item dist-backend/bixdot-backend.exe dist-backend/bixdot-backend-x86_64-pc-windows-msvc.exe
+        run: Move-Item dist-backend/bixdot-backend.exe dist-backend/bixdot-backend-x86_64-pc-windows-msvc.exe
 
       - name: Rename backend to target-triple name (macOS aarch64)
         if: matrix.platform == 'macos-latest' && contains(matrix.args, 'aarch64')
