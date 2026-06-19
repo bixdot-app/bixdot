@@ -45,19 +45,9 @@ jobs:
           pip install pyinstaller
           pyinstaller bixdot.spec --distpath dist-backend --workpath build-backend
 
-      - name: Stage bundled backend next to Tauri resources (Windows)
-        if: matrix.platform == 'windows-latest'
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path src-tauri/resources
-          Copy-Item dist-backend/bixdot-backend.exe src-tauri/resources/bixdot-backend.exe
-
-      - name: Stage bundled backend next to Tauri resources (macOS/Linux)
+      - name: Make backend executable (macOS/Linux)
         if: matrix.platform != 'windows-latest'
-        run: |
-          mkdir -p src-tauri/resources
-          cp dist-backend/bixdot-backend src-tauri/resources/bixdot-backend
-          chmod +x src-tauri/resources/bixdot-backend
+        run: chmod +x dist-backend/bixdot-backend
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
@@ -202,12 +192,11 @@ jobs:
 
             ---
 
-            ### Requirements (installed separately)
-            1. **Python 3.11+** — https://python.org/downloads
-            2. **Ollama** — https://ollama.ai
-            3. **llama3.2 model** — run `ollama pull llama3.2` after installing Ollama
+            ### Requirements
+            1. **Ollama** — https://ollama.ai
+            2. **llama3.2 model** — run `ollama pull llama3.2` after installing Ollama
 
-            BixDot will guide you through setup on first launch.
+            Python is bundled — no separate installation needed. BixDot will guide you through setup on first launch.
 
             ---
 

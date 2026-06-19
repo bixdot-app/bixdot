@@ -45,9 +45,22 @@ fn main() {
             let app_dir = find_app_dir();
 
             // ── Start backend ─────────────────────────────────────────────
-            // Prefer bundled bixdot-backend executable (PyInstaller bundle) over
-            // system Python — this works without any Python installation.
-            let started = if let Some(backend_exe) = find_bundled_backend() {
+            // Prefer sidecar bixdot-backend (Tauri externalBin, resolved via
+            // resource path) over system Python.
+            let sidecar_path = app.path().resource_dir().ok().and_then(|dir| {
+                let name = if cfg!(windows) { "bixdot-backend.exe" } else { "bixdot-backend" };
+                // Tauri places externalBin in <resource_dir>/../
+                let candidate = dir.join("..").join(name);
+                if candidate.exists() { return Some(candidate); }
+                // Fallback: same dir as the Tauri exe (dev / flat layout)
+                if let Ok(exe) = std::env::current_exe() {
+                    let d = exe.parent().unwrap_or_else(|| std::path::Path::new("."));
+                    let c = d.join(name);
+                    if c.exists() { return Some(c); }
+                }
+                None
+            });
+            let started = if let Some(backend_exe) = sidecar_path {
                 println!("[BixDot] Starting bundled backend: {:?}", backend_exe);
                 match Command::new(&backend_exe).spawn() {
                     Ok(child) => {
@@ -161,24 +174,6 @@ fn find_app_dir() -> std::path::PathBuf {
         }
     }
     cwd
-}
-
-/// Look for a pre-built bixdot-backend executable bundled alongside this app.
-/// PyInstaller produces a single binary; we place it next to the Tauri exe.
-fn find_bundled_backend() -> Option<std::path::PathBuf> {
-    let name = if cfg!(windows) { "bixdot-backend.exe" } else { "bixdot-backend" };
-    if let Ok(exe) = std::env::current_exe() {
-        let dir = exe.parent().unwrap_or_else(|| std::path::Path::new("."));
-        // Next to the Tauri executable (most common case)
-        let candidate = dir.join(name);
-        if candidate.exists() { return Some(candidate); }
-        // One level up (macOS .app bundle: Contents/MacOS/bixdot vs Contents/Resources/)
-        if let Some(parent) = dir.parent() {
-            let candidate = parent.join(name);
-            if candidate.exists() { return Some(candidate); }
-        }
-    }
-    None
 }
 
 fn find_python() -> Option<String> {

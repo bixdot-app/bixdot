@@ -101,9 +101,35 @@ hiddenimports = [
     "core.skills.calendar.store",
     "core.skills.terminal.routes",
     "core.skills.terminal.sandbox",
+    "core.skills.filesystem.routes",
+    "core.skills.websearch.routes",
+    "core.skills.memory.routes",
+    "core.skills.memory.store",
+    "core.skills.documents.routes",
+    "core.skills.github.routes",
+    "core.skills.github.store",
+    "core.skills.research.routes",
+    "core.skills.research.researcher",
     "core.sandbox.executor",
     "core.plugins.routes",
     "core.plugins.loader",
+    "core.auth.license_check",
+    # markitdown + trafilatura (document chat + research)
+    "markitdown",
+    "trafilatura",
+    "trafilatura.settings",
+    "trafilatura.downloads",
+    "trafilatura.core",
+    # Google OAuth
+    "google.auth",
+    "google.auth.transport.requests",
+    "google_auth_oauthlib.flow",
+    "googleapiclient.discovery",
+    # keyring backends (platform-specific, discovered at runtime)
+    "keyring.backends.Windows",
+    "keyring.backends.macOS",
+    "keyring.backends.SecretService",
+    "keyring.backends.fail",
 ]
 
 # ─── Analysis ─────────────────────────────────────────────────────────────────

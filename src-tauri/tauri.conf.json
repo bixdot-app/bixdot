@@ -42,6 +42,9 @@
     "resources": [
       "../frontend/**/*"
     ],
+    "externalBin": [
+      "../dist-backend/bixdot-backend"
+    ],
     "category": "Productivity",
     "shortDescription": "Local-first AI agent. No cloud required.",
     "longDescription": "BixDot is a secure, local-first AI agent that runs entirely on your device. Zero-trust architecture, mandatory auth, tamper-evident audit log.",
