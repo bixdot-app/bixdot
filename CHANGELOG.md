@@ -4,6 +4,16 @@ All notable changes to BixDot are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).  
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] — 2026-06-12
+
+### Fixed
+- **Bundled backend not included in installer** — `tauri.conf.json` was missing the `externalBin` declaration; `bixdot-backend.exe` was never packaged, causing ERR_CONNECTION_REFUSED on launch.
+- **PyInstaller missing v0.3.0 hidden imports** — `bixdot.spec` lacked entries for `memory`, `documents`, `github`, `research`, `license_check`, `markitdown`, `trafilatura`, and keyring backends; backend would crash at import time even if it launched.
+- **Blank system tray icon** — `TrayIconBuilder` had no `.icon()` call; now uses the app's default window icon.
+- **Release workflow** — backend binary renamed to target-triple-suffixed filename as required by Tauri v2 `externalBin`; stale Python 3.11+ requirement removed from release body.
+
+---
+
 ## [0.3.0] — 2026-06-11
 
 ### Added

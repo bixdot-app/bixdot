@@ -111,9 +111,14 @@ fn main() {
             let quit_item = MenuItem::with_id(app, "quit", "Quit",        true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&open_item, &quit_item])?;
 
-            let _tray = TrayIconBuilder::new()
+            let tray_icon = app.default_window_icon().cloned();
+            let mut tray_builder = TrayIconBuilder::new()
                 .menu(&menu)
-                .tooltip("BixDot — Local AI Agent")
+                .tooltip("BixDot — Local AI Agent");
+            if let Some(icon) = tray_icon {
+                tray_builder = tray_builder.icon(icon);
+            }
+            let _tray = tray_builder
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "open" => show_window(app),
                     "quit" => {

@@ -6,7 +6,7 @@
   [![CI](https://github.com/bixdot-app/bixdot/actions/workflows/ci.yml/badge.svg)](https://github.com/bixdot-app/bixdot/actions/workflows/ci.yml)
   [![Release](https://github.com/bixdot-app/bixdot/actions/workflows/release.yml/badge.svg)](https://github.com/bixdot-app/bixdot/actions/workflows/release.yml)
   [![License: BUSL-1.1](https://img.shields.io/badge/License-BUSL--1.1-blue.svg)](LICENSE)
-  [![Version](https://img.shields.io/badge/version-0.3.0-green.svg)](https://github.com/bixdot-app/bixdot/releases/tag/v0.3.0)
+  [![Version](https://img.shields.io/badge/version-0.3.1-green.svg)](https://github.com/bixdot-app/bixdot/releases/tag/v0.3.1)
 
   [Download](https://github.com/bixdot-app/bixdot/releases/latest) · [Docs](docs/) · [Security](mailto:security@bixdot.app)
 </div>
@@ -25,7 +25,7 @@ It's also the most secure AI agent available. We built it after studying every k
 
 ## Download
 
-**[→ Download BixDot v0.3.0](https://github.com/bixdot-app/bixdot/releases/latest)**
+**[→ Download BixDot v0.3.1](https://github.com/bixdot-app/bixdot/releases/latest)**
 
 | Platform | Installer |
 |---|---|
@@ -149,6 +149,9 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) for full guidelines.
 Plugin execution (run entry points in sandboxed subprocess), bundled OAuth credentials (Google Calendar client ID ships with app), code signing (Windows EV cert + macOS Developer ID), session memory summarisation pipeline
 
 ---
+
+**v0.3.1 — Released 12 June 2026**
+Installer fix: bundled backend missing from v0.3.0 package (ERR_CONNECTION_REFUSED on launch), blank tray icon, incomplete PyInstaller hidden imports.
 
 **v0.3.0 — Released 11 June 2026**
 Commercial use detection, Persistent Memory skill (SQLite FTS5), Document Chat (PDF/DOCX/PPTX/XLSX via markitdown), GitHub integration (PAT, repos/issues), Deep Research (plan → search → fetch → synthesise)

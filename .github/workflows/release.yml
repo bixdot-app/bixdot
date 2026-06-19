@@ -45,9 +45,32 @@ jobs:
           pip install pyinstaller
           pyinstaller bixdot.spec --distpath dist-backend --workpath build-backend
 
-      - name: Make backend executable (macOS/Linux)
-        if: matrix.platform != 'windows-latest'
-        run: chmod +x dist-backend/bixdot-backend
+      # Tauri externalBin requires the binary to exist with the target triple
+      # suffix at build time. Rename the PyInstaller output accordingly.
+      - name: Rename backend to target-triple name (Windows)
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        run: |
+          Rename-Item dist-backend/bixdot-backend.exe `
+            dist-backend/bixdot-backend-x86_64-pc-windows-msvc.exe
+
+      - name: Rename backend to target-triple name (macOS aarch64)
+        if: matrix.platform == 'macos-latest' && contains(matrix.args, 'aarch64')
+        run: |
+          mv dist-backend/bixdot-backend dist-backend/bixdot-backend-aarch64-apple-darwin
+          chmod +x dist-backend/bixdot-backend-aarch64-apple-darwin
+
+      - name: Rename backend to target-triple name (macOS x86_64)
+        if: matrix.platform == 'macos-latest' && contains(matrix.args, 'x86_64')
+        run: |
+          mv dist-backend/bixdot-backend dist-backend/bixdot-backend-x86_64-apple-darwin
+          chmod +x dist-backend/bixdot-backend-x86_64-apple-darwin
+
+      - name: Rename backend to target-triple name (Linux)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          mv dist-backend/bixdot-backend dist-backend/bixdot-backend-x86_64-unknown-linux-gnu
+          chmod +x dist-backend/bixdot-backend-x86_64-unknown-linux-gnu
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable

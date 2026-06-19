@@ -12,7 +12,7 @@
 - **Website:** https://bixdot.app
 - **GitHub:** https://github.com/bixdot-app/bixdot
 - **License:** BUSL-1.1 (source-available, free to self-host, commercial use requires license)
-- **Version:** v0.3.0 (released 2026-06-11)
+- **Version:** v0.3.1 (released 2026-06-11)
 - **Owner:** Shanker / DigiTech Business Pte. Ltd
 
 ---
@@ -118,7 +118,7 @@ bixdot/
 │   ├── RELEASE_NOTES_v0.1.0.md
 │   ├── RELEASE_NOTES_v0.1.1.md
 │   ├── RELEASE_NOTES_v0.2.1.md
-│   └── RELEASE_NOTES_v0.3.0.md
+│   └── RELEASE_NOTES_v0.3.1.md
 ├── .claude/
 │   └── settings.json              # PostToolUse hooks: ruff auto-fix, pip-audit on requirements
 ├── requirements.txt               # Python 3.11+ dependencies
@@ -189,7 +189,7 @@ All Tauri commands are defined directly in `main.rs`.
 
 ---
 
-## Current Status — v0.3.0 ✅ SHIPPED
+## Current Status — v0.3.1 ✅ SHIPPED
 
 | Feature | Status |
 |---|---|
@@ -383,5 +383,5 @@ Every release follows this exact sequence — no manual checks needed:
 
 ---
 
-*Last updated: 2026-06-11 | v0.3.0*
+*Last updated: 2026-06-19 | v0.3.1*
 *© 2026 DigiTech Business Pte. Ltd.*
