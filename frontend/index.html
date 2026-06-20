@@ -364,7 +364,7 @@ function PermModal({cap,onAllow,onDeny}){
 }
 
 // ── Chat ──────────────────────────────────────────────────────────────────────
-function Chat({token}){
+function Chat({token,hidden}){
   const[msgs,setMsgs]=useState([]);
   const[input,setInput]=useState('');
   const[loading,setLoading]=useState(false);
@@ -439,14 +439,15 @@ function Chat({token}){
     setPendingPerm(null); setPendingMsg(null);
   };
 
-  return el('div',{style:{display:'flex',flexDirection:'column',flex:1,overflow:'hidden'}},
+  return el('div',{style:{display:hidden?'none':'flex',flexDirection:'column',flex:1,overflow:'hidden'}},
     el('div',{style:{padding:'4px 18px',fontSize:11,color:'var(--muted)',borderBottom:'1px solid var(--border)',fontFamily:'var(--mono)'}},status),
-    msgs.length===0&&el('div',{className:'empty'},
-      el('div',{className:'logo-dot',style:{width:10,height:10}}),
-      el('p',null,'BixDot is running on your device using Ollama. Your data never leaves this machine.'),
-      el('p',{style:{fontSize:12}},'Try: "What can you do?" or "Hello!"')
-    ),
-    el('div',{className:'chat-body'},
+    msgs.length===0
+      ? el('div',{className:'empty'},
+          el('div',{className:'logo-dot',style:{width:10,height:10}}),
+          el('p',null,'BixDot is running on your device using Ollama. Your data never leaves this machine.'),
+          el('p',{style:{fontSize:12}},'Try: "What can you do?" or "Hello!"')
+        )
+      : el('div',{className:'chat-body'},
       msgs.map((m,i)=>el('div',{key:i,className:'msg-row '+(m.role==='user'?'user':'')},
         el('div',{className:'msg '+(m.role==='err'?'err':m.role==='sys'?'sys':m.role)},m.text)
       )),
@@ -1089,7 +1090,7 @@ function App(){
         el('span',{className:'topbar-title'},nav.find(n=>n.id===screen)?.label),
         el('span',{className:'chain-ok'},'✓ Chain verified · Local')
       ),
-      screen==='chat'&&el(Chat,{token}),
+      el(Chat,{token,hidden:screen!=='chat'}),
       screen==='calendar'&&el(Calendar,{token}),
       screen==='terminal'&&el(Terminal,{token}),
       screen==='audit'&&el(Audit,{token}),
