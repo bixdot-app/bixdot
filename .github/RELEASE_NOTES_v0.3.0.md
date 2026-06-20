@@ -70,13 +70,11 @@ No AGPL. No GPL. All new dependencies are MIT or Apache 2.0 — safe for commerc
 
 ---
 
-## What's Next (v0.4.0)
+## What's Next
 
-- Plugin execution (run entry points in sandboxed subprocess)
-- Bundled OAuth credentials (Google Calendar client ID ships with app)
-- Code signing (Windows EV cert + macOS Developer ID)
-- Session memory summarisation pipeline
-- Mobile app (iOS + Android via Tauri Mobile)
+**v0.3.1** (patch) — Installer fix: bundled backend was missing from v0.3.0 package, blank tray icon, incomplete PyInstaller hidden imports.
+
+**v0.4.0** — Plugin execution, bundled OAuth credentials (Google Calendar), code signing (Windows EV + macOS Developer ID), session memory summarisation pipeline.
 
 ---
 
