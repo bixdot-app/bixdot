@@ -4,7 +4,7 @@ build-backend = "setuptools.backends.legacy:build"
 
 [project]
 name = "bixdot"
-version = "0.3.1"
+version = "0.3.2"
 description = "The secure, local-first AI agent. No cloud required."
 readme = "README.md"
 license = { file = "LICENSE" }
