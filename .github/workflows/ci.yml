@@ -24,7 +24,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install bandit semgrep pip-audit --break-system-packages 2>/dev/null || pip install bandit semgrep pip-audit
+          pip install -r requirements.txt -r requirements-dev.txt
 
       - name: Bandit — Python security linter
         run: |
@@ -70,7 +70,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install -r requirements.txt pytest pytest-asyncio httpx
+        run: pip install -r requirements.txt -r requirements-dev.txt
 
       - name: Run tests
         run: pytest tests/ -v --tb=short

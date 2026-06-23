@@ -226,7 +226,7 @@ class LLMAdapter:
         client = AsyncAnthropic(api_key=settings.cloud_api_key)
 
         kwargs = dict(
-            model="claude-sonnet-4-20250514",
+            model=settings.cloud_model,
             max_tokens=max_tokens,
             messages=scrubbed,
         )

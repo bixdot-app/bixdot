@@ -40,6 +40,21 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r requirements.txt
 
+      - name: Vendor React for offline use
+        run: |
+          mkdir -p frontend/static
+          python -c "
+import urllib.request, os
+base = 'https://unpkg.com/react@18/umd/'
+for fname in ['react.production.min.js', 'react-dom.production.min.js']:
+    dest = os.path.join('frontend', 'static', fname)
+    if not os.path.exists(dest):
+        urllib.request.urlretrieve(base + fname, dest)
+        print(f'Downloaded {fname}')
+    else:
+        print(f'Already exists: {fname}')
+"
+
       - name: Build PyInstaller backend bundle
         run: |
           pip install pyinstaller

@@ -53,6 +53,7 @@ class Settings(BaseSettings):
     # Empty by default. Product works fully without this.
     cloud_llm_enabled: bool = False        # Off by default
     cloud_api_key: str = ""               # Never pre-filled
+    cloud_model: str = "claude-sonnet-4-6"  # Configurable; update when Anthropic releases new models
 
     # ─── Security ──────────────────────────────────────────────────────────
     auth_rate_limit: str = "5/minute"

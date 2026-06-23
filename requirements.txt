@@ -1,5 +1,7 @@
-# BixDot — Core Dependencies
+# BixDot — Production Dependencies
 # Python 3.11+
+# Install: pip install -r requirements.txt
+# For development/CI tools: pip install -r requirements-dev.txt
 
 # Web framework
 fastapi>=0.116.0
@@ -12,9 +14,10 @@ cryptography>=46.0.7
 
 # Storage
 keyring>=25.4.1         # OS keyring for secrets
+aiofiles>=24.1.0        # Serve static frontend files
 
 # LLM
-anthropic>=0.34.2       # Claude API
+anthropic>=0.34.2       # Claude API (optional cloud mode)
 httpx>=0.28.1           # Async HTTP
 
 # Security
@@ -29,20 +32,11 @@ pydantic-settings>=2.5.2
 python-dotenv>=1.2.2
 structlog>=24.4.0       # Structured logging
 
-# Dev / testing
-pytest>=9.0.3
-pytest-asyncio>=0.24.0
-httpx>=0.28.1           # Test client
-bandit>=1.7.10          # Security linting
-semgrep>=1.89.0         # SAST scanning
-aiofiles>=24.1.0        # Serve static frontend files
-ddgs>=9.0.0                  # Web search — no API key needed
-
-icalendar>=5.0.0       # .ics calendar file support
-
-# v0.3.0 — Document Chat + Deep Research
+# Skills
+ddgs>=9.0.0             # Web search — no API key needed
+icalendar>=5.0.0        # .ics calendar file support
 markitdown[pdf,docx,pptx,xlsx]>=0.1.6  # MIT (Microsoft) — PDF, DOCX, PPTX, XLSX parsing
-trafilatura>=2.0.0     # Apache 2.0 — web page text extraction for deep research
+trafilatura>=2.0.0      # Apache 2.0 — web page text extraction for deep research
 
 # Bundling
 pyinstaller>=6.0.0     # Bundle Python backend into standalone executable

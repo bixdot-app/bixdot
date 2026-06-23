@@ -92,6 +92,9 @@ coverage.xml
 *.cover
 .hypothesis/
 
+# ── Vendored frontend assets (downloaded at build time, not committed) ────────
+frontend/static/
+
 # ── Linting / tooling ─────────────────────────────────────────────────────────
 .ruff_cache/
 .mypy_cache/

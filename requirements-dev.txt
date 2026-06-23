@@ -1,0 +1,13 @@
+# BixDot — Development & CI Dependencies
+# Python 3.11+
+# Install: pip install -r requirements.txt -r requirements-dev.txt
+
+# Testing
+pytest>=9.0.3
+pytest-asyncio>=0.24.0
+httpx>=0.28.1           # Async test client
+
+# Security scanning (CI only — not shipped in the bundled binary)
+bandit>=1.7.10
+semgrep>=1.89.0
+pip-audit>=2.7.3

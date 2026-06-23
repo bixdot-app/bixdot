@@ -53,6 +53,9 @@ VALID_CAPABILITIES = {
     "cred:read", "cred:write",
     "calendar:read", "calendar:write",
     "llm:cloud", "llm:local",
+    "memory:read", "memory:write",
+    "docs:read",
+    "github:read", "github:write",
 }
 
 # Plugin ID must be reverse-domain style, letters/digits/dots/hyphens
