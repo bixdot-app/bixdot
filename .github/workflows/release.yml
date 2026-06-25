@@ -41,9 +41,11 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Vendor React for offline use
+        shell: bash
         run: |
           mkdir -p frontend/static
-          python -c "import urllib.request, os; [urllib.request.urlretrieve('https://unpkg.com/react@18/umd/'+f, 'frontend/static/'+f) or print('Downloaded '+f) for f in ['react.production.min.js', 'react-dom.production.min.js'] if not os.path.exists('frontend/static/'+f)]"
+          curl -fsSL https://unpkg.com/react@18/umd/react.production.min.js -o frontend/static/react.production.min.js
+          curl -fsSL https://unpkg.com/react@18/umd/react-dom.production.min.js -o frontend/static/react-dom.production.min.js
 
       - name: Build PyInstaller backend bundle
         run: |
