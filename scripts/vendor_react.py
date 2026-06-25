@@ -4,16 +4,18 @@
 import os
 import urllib.request
 
-BASE = "https://unpkg.com/react@18/umd/"
 DEST = os.path.join(os.path.dirname(__file__), "..", "frontend", "static")
-FILES = ["react.production.min.js", "react-dom.production.min.js"]
+FILES = {
+    "react.production.min.js": "https://unpkg.com/react@18/umd/react.production.min.js",
+    "react-dom.production.min.js": "https://unpkg.com/react-dom@18/umd/react-dom.production.min.js",
+}
 
 os.makedirs(DEST, exist_ok=True)
-for fname in FILES:
+for fname, url in FILES.items():
     dest = os.path.join(DEST, fname)
     if os.path.exists(dest):
         print(f"Already exists: {fname}")
     else:
         print(f"Downloading {fname}...")
-        urllib.request.urlretrieve(BASE + fname, dest)
+        urllib.request.urlretrieve(url, dest)
         print(f"  -> {dest}")

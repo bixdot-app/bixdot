@@ -40,9 +40,6 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r requirements.txt
 
-      - name: Vendor React for offline use
-        run: python scripts/vendor_react.py
-
       - name: Build PyInstaller backend bundle
         run: |
           pip install pyinstaller
