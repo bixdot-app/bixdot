@@ -4,6 +4,13 @@ All notable changes to BixDot are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).  
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.5] — 2026-06-25
+
+### Fixed
+- **Black screen after Settings → Chat** — Chat outer div now keeps `display:flex` permanently; toggling `flex:0 0 0px` / `flex:1` to hide/show instead of toggling `display`. The `display:none → display:flex` transition inside a flex column failed to recompute `flex:1`, leaving the content area collapsed and unresponsive.
+
+---
+
 ## [0.3.4] — 2026-06-25
 
 ### Added

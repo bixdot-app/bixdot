@@ -40,7 +40,11 @@ Feature release adding automatic model capability detection and commercial use d
 
 ---
 
-## What's Next — v0.4.0
+## What's Next — v0.3.5 ✅ Shipped
+
+- **Black screen after Settings → Chat** — navigation fix via flex-size toggle instead of display toggle
+
+## What's Next After That — v0.4.0
 
 - **Plugin execution** — wire the `entry` field and run plugins in the sandbox; community plugin registry
 - **Bundled OAuth credentials** — ship default Google Calendar client ID so users don't need to register their own app

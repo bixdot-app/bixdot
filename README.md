@@ -6,7 +6,7 @@
   [![CI](https://github.com/bixdot-app/bixdot/actions/workflows/ci.yml/badge.svg)](https://github.com/bixdot-app/bixdot/actions/workflows/ci.yml)
   [![Release](https://github.com/bixdot-app/bixdot/actions/workflows/release.yml/badge.svg)](https://github.com/bixdot-app/bixdot/actions/workflows/release.yml)
   [![License: BUSL-1.1](https://img.shields.io/badge/License-BUSL--1.1-blue.svg)](LICENSE)
-  [![Version](https://img.shields.io/badge/version-0.3.4-green.svg)](https://github.com/bixdot-app/bixdot/releases/tag/v0.3.4)
+  [![Version](https://img.shields.io/badge/version-0.3.5-green.svg)](https://github.com/bixdot-app/bixdot/releases/tag/v0.3.5)
 
   [Download](https://github.com/bixdot-app/bixdot/releases/latest) · [Docs](docs/) · [Security](mailto:security@bixdot.app)
 </div>
@@ -25,7 +25,7 @@ It's also the most secure AI agent available. We built it after studying every k
 
 ## Download
 
-**[→ Download BixDot v0.3.4](https://github.com/bixdot-app/bixdot/releases/latest)**
+**[→ Download BixDot v0.3.5](https://github.com/bixdot-app/bixdot/releases/latest)**
 
 | Platform | Installer |
 |---|---|
