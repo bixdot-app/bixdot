@@ -4,6 +4,18 @@ All notable changes to BixDot are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).  
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.4] — 2026-06-25
+
+### Added
+- **Model capability detection** (`core/agent/model_caps.py`) — `classify_model()` reads Ollama's `/api/tags` capabilities list (no hardcoded model family names) and maps each model to `FULL_AGENT` (tool calling), `THINKING` (CoT reasoning), `TEXT_ONLY` (plain completion), or `EMBEDDING` (filtered out of chat picker).
+- **Runtime branching on model mode** — `AgentRuntime.run()` routes to the two-phase tool loop for `FULL_AGENT`, single-pass no-tool call for `THINKING`/`TEXT_ONLY`; CLOUD models blocked at session creation with HTTP 400.
+- **Thinking token stripping** — `strip_thinking_tokens()` removes DeepSeek `<think>`, Gemma 4 `<|channel>thought`, and generic `<|thinking|>` blocks from reasoning model output.
+- **Grouped model picker** — Settings → AI Model groups installed models by Agent / Reasoning / Chat with capability tooltips, size (GB), and vision indicator per model.
+- **Commercial use detection** (`core/services/commercial_detect.py`) — detects corporate email domains and Windows domain-join; non-blocking license banner with permanent per-user dismissal via `POST /auth/dismiss-license-banner`.
+- **Windows installer process kill** — NSIS `customInit` macro terminates running BixDot processes before writing files; eliminates "error opening file for writing" during updates.
+
+---
+
 ## [0.3.3] — 2026-06-25
 
 ### Fixed

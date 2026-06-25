@@ -34,12 +34,11 @@ Patch release fixing Ollama startup reliability, security tooling gaps, and offl
 
 ---
 
-## What's Next — v0.4.0
+## What's Next — v0.3.4 ✅ Shipped
 
-- **Streaming responses** — SSE so you see text as it's generated
-- **Plugin execution** — wire the `entry` field and run plugins in the sandbox
-- **Session memory summarisation** — work around llama3.2's 8k context limit
-- **File upload UI** — paperclip button to attach documents to chat
+- **Model capability detection** — automatic FULL_AGENT / THINKING / TEXT_ONLY classification from Ollama's `/api/tags`
+- **Commercial use detection** — corporate email + Windows domain-join detection with dismissable banner
+- **Windows installer fix** — kills running processes before writing files
 
 ---
 
