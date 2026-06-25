@@ -41,11 +41,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Vendor React for offline use
-        shell: bash
-        run: |
-          mkdir -p frontend/static
-          curl -fsSL https://unpkg.com/react@18/umd/react.production.min.js -o frontend/static/react.production.min.js
-          curl -fsSL https://unpkg.com/react@18/umd/react-dom.production.min.js -o frontend/static/react-dom.production.min.js
+        run: python scripts/vendor_react.py
 
       - name: Build PyInstaller backend bundle
         run: |
