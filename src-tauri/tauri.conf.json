@@ -52,7 +52,10 @@
     "publisher": "DigiTech Business Pte. Ltd.",
     "windows": {
       "wix": { "language": "en-US" },
-      "nsis": { "installMode": "currentUser" }
+      "nsis": {
+        "installMode": "currentUser",
+        "installerHooks": "nsis/installer-hooks.nsi"
+      }
     },
     "macOS": {
       "minimumSystemVersion": "10.15",
