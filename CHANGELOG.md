@@ -4,6 +4,19 @@ All notable changes to BixDot are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).  
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.3] — 2026-06-25
+
+### Fixed
+- **Ollama auto-start** — BixDot now probes port 11434 on startup (both Python backend and Tauri wrapper) and spawns `ollama serve` automatically if not running. Eliminates `httpx.ConnectError` on first launch. Ollama is stopped on exit only if BixDot started it.
+- **Dev tools removed from prod bundle** — `bandit`, `semgrep`, `pytest`, `pytest-asyncio` moved to `requirements-dev.txt`; no longer bundled by PyInstaller (~80 MB saved from installer size).
+- **Plugin capability whitelist** — `loader.py` was missing `memory:read`, `memory:write`, `docs:read`, `github:read`, `github:write`; plugins requesting those capabilities were silently rejected. All 17 capabilities now validated.
+- **Cloud model configurable** — hardcoded `claude-sonnet-4-20250514` replaced by `settings.cloud_model = "claude-sonnet-4-6"` in `config.py`; update the model ID without a code change.
+- **React vendored offline** — React 18 UMD bundles downloaded at release build time and served from `/static/`; BixDot no longer requires CDN access on every launch. CDN fallback retained for dev environments.
+- **pip-audit hook scoped** — `.claude/settings.json` hook now runs `pip-audit -r requirements.txt` instead of bare `pip-audit`, eliminating false positives from CI tooling in the Python environment.
+- **CI dev dependency split** — `ci.yml` security scan and test jobs now install `requirements.txt -r requirements-dev.txt` to pick up bandit, semgrep, and pytest from the correct file.
+
+---
+
 ## [0.3.2] — 2026-06-12
 
 ### Fixed
