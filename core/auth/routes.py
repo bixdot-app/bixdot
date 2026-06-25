@@ -41,7 +41,7 @@ from core.auth.models import (
 )
 from core.audit.logger import AuditEvent, get_audit_logger
 from core.config import settings
-from core.storage.db import get_connection, is_first_run
+from core.storage.db import get_connection, get_setting, is_first_run, set_setting
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 audit = get_audit_logger()
@@ -303,10 +303,22 @@ async def license_status(user=Depends(require_auth)):
     row = _get_user_by_id(user.sub)
     email = row["email"] if row and row["email"] else None
     detection = detect_commercial_use(email)
+    dismissed = get_setting(f"license_banner_dismissed_{user.sub}") == "1"
     return LicenseStatusResponse(
-        license_required=detection["is_commercial"],
+        license_required=detection["is_commercial"] and not dismissed,
         signals=detection["signals"],
-        message=detection["message"],
+        message=detection["message"] if not dismissed else None,
+    )
+
+
+@router.post("/dismiss-license-banner", status_code=status.HTTP_204_NO_CONTENT)
+async def dismiss_license_banner(user=Depends(require_auth)):
+    """Permanently dismiss the commercial use banner for this user."""
+    set_setting(f"license_banner_dismissed_{user.sub}", "1")
+    audit.log(
+        AuditEvent.AGENT_QUERY,
+        {"event": "license_banner_dismissed"},
+        user_id=user.sub,
     )
 
 

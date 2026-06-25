@@ -9,6 +9,7 @@
 BixDot — Auth Models
 Request/response schemas for all auth endpoints.
 """
+import re
 from typing import Literal, Optional
 from pydantic import BaseModel, Field, field_validator
 
@@ -18,6 +19,16 @@ class SetupRequest(BaseModel):
     username: str = Field(min_length=3, max_length=32)
     password: str = Field(min_length=12, max_length=128)
     email: Optional[str] = Field(default=None, max_length=254)
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: Optional[str]) -> Optional[str]:
+        if v is None or v == "":
+            return None
+        pattern = r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$"
+        if not re.match(pattern, v):
+            raise ValueError("Invalid email format")
+        return v.lower().strip()
 
     @field_validator("password")
     @classmethod

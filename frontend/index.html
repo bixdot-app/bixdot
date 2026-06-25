@@ -1086,7 +1086,10 @@ function App(){
         el('span',null,'⚠ ',el('strong',null,'Commercial use detected.'),' BixDot is free for personal use. Commercial use requires a license.'),
         el('div',{style:{display:'flex',gap:12,alignItems:'center'}},
           el('a',{href:'mailto:legal@bixdot.app'},'Get a license →'),
-          el('button',{onClick:()=>setLicenseBanner(null),title:'Dismiss for this session'},'✕')
+          el('button',{onClick:()=>{
+            setLicenseBanner(null);
+            api('/auth/dismiss-license-banner',{method:'POST'},token).catch(()=>{});
+          },title:'Dismiss permanently'},'✕')
         )
       ),
       el('div',{className:'topbar'},
