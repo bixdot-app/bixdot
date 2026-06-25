@@ -33,7 +33,11 @@ Definitive fix for the blank screen on navigation, plus a branded loading screen
 
 ---
 
-## What's Next — v0.4.0
+## What's Next — v0.3.8 ✅ Shipped
+
+- **Blank screen after visiting Settings** — fixed a React cleanup-function crash exposed by v0.3.7's conditional rendering
+
+## What's Next After That — v0.4.0
 
 - **Plugin execution** — wire the `entry` field and run plugins in the sandbox; community plugin registry
 - **Bundled OAuth credentials** — ship default Google Calendar client ID

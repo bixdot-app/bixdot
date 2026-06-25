@@ -4,6 +4,13 @@ All notable changes to BixDot are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).  
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.8] — 2026-06-25
+
+### Fixed
+- **Blank screen after visiting Settings (React crash)** — `CalendarSettings` and `PluginsPanel` used `useEffect(()=>load(),[token])`, where the brace-less arrow returned `load()`'s Promise. React stores an effect's return value as its cleanup function; while these components stayed mounted the bug was dormant, but v0.3.7's conditional rendering genuinely unmounts screens on navigation. Leaving Settings made React invoke the Promise as a cleanup function (`TypeError: destroy is not a function`), and with no error boundary the entire app blanked. Both effects now use a braced body (`useEffect(()=>{load();},[token])`) that returns `undefined`.
+
+---
+
 ## [0.3.7] — 2026-06-25
 
 ### Fixed

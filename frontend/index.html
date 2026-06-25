@@ -522,7 +522,7 @@ function CalendarSettings({token}){
   const[msg,setMsg]=useState('');
 
   const load=()=>api('/calendar/status',{},token).then(setStatus).catch(()=>{});
-  useEffect(()=>load(),[token]);
+  useEffect(()=>{load();},[token]);
 
   const connectGoogle=async()=>{
     if(!cid) return;
@@ -639,7 +639,7 @@ function PluginsPanel({token}){
   const[showInstall,setShowInstall]=useState(false);
 
   const load=()=>api('/plugins',{},token).then(setPlugins).catch(()=>{});
-  useEffect(()=>load(),[token]);
+  useEffect(()=>{load();},[token]);
 
   const toggle=async(p)=>{
     const ep=p.is_enabled?'/disable':'/enable';
