@@ -43,17 +43,7 @@ jobs:
       - name: Vendor React for offline use
         run: |
           mkdir -p frontend/static
-          python -c "
-import urllib.request, os
-base = 'https://unpkg.com/react@18/umd/'
-for fname in ['react.production.min.js', 'react-dom.production.min.js']:
-    dest = os.path.join('frontend', 'static', fname)
-    if not os.path.exists(dest):
-        urllib.request.urlretrieve(base + fname, dest)
-        print(f'Downloaded {fname}')
-    else:
-        print(f'Already exists: {fname}')
-"
+          python -c "import urllib.request, os; [urllib.request.urlretrieve('https://unpkg.com/react@18/umd/'+f, 'frontend/static/'+f) or print('Downloaded '+f) for f in ['react.production.min.js', 'react-dom.production.min.js'] if not os.path.exists('frontend/static/'+f)]"
 
       - name: Build PyInstaller backend bundle
         run: |
