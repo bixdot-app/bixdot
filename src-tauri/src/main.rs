@@ -36,15 +36,43 @@ fn backend_status(backend: tauri::State<PythonBackend>) -> String {
     }
 }
 
-// ── Main ─────────────────────────────────────────────────────────────────────
+// ── Port probes ───────────────────────────────────────────────────────────────
 
-fn ollama_running() -> bool {
-    // Try a TCP connect to Ollama's default port — no HTTP library needed.
+fn port_open(port: u16) -> bool {
     std::net::TcpStream::connect_timeout(
-        &"127.0.0.1:11434".parse().unwrap(),
-        std::time::Duration::from_millis(500),
+        &format!("127.0.0.1:{port}").parse().unwrap(),
+        std::time::Duration::from_millis(300),
     ).is_ok()
 }
+
+/// Block until port 8747 accepts connections or timeout_ms elapses.
+/// Returns true if the backend became ready.
+fn wait_for_backend(timeout_ms: u64) -> bool {
+    let start = std::time::Instant::now();
+    while start.elapsed().as_millis() < timeout_ms as u128 {
+        if port_open(8747) {
+            return true;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(200));
+    }
+    false
+}
+
+// ── Process spawning helpers ──────────────────────────────────────────────────
+
+/// Spawn a command with no visible console window on Windows.
+/// On non-Windows platforms this is a plain spawn.
+fn spawn_hidden(mut cmd: Command) -> std::io::Result<Child> {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+    cmd.spawn()
+}
+
+// ── Main ─────────────────────────────────────────────────────────────────────
 
 fn main() {
     tauri::Builder::default()
@@ -55,14 +83,16 @@ fn main() {
             let app_dir = find_app_dir();
 
             // ── Start Ollama if not already running ───────────────────────
-            if ollama_running() {
+            if port_open(11434) {
                 println!("[BixDot] Ollama already running.");
             } else {
                 println!("[BixDot] Ollama not detected — starting it...");
-                match Command::new("ollama").arg("serve").spawn() {
+                let mut ollama_cmd = Command::new("ollama");
+                ollama_cmd.arg("serve");
+                match spawn_hidden(ollama_cmd) {
                     Ok(child) => {
                         *app.state::<OllamaProcess>().0.lock().unwrap() = Some(child);
-                        // Give Ollama 2s to bind before the backend tries to connect
+                        // Give Ollama 2 s to bind before the backend tries to connect
                         std::thread::sleep(std::time::Duration::from_millis(2000));
                         println!("[BixDot] Ollama started.");
                     }
@@ -72,66 +102,71 @@ fn main() {
                 }
             }
 
-            // ── Start backend ─────────────────────────────────────────────
-            // Prefer sidecar bixdot-backend (Tauri externalBin, resolved via
-            // resource path) over system Python.
-            let sidecar_path = app.path().resource_dir().ok().and_then(|dir| {
-                let name = if cfg!(windows) { "bixdot-backend.exe" } else { "bixdot-backend" };
-                // Tauri places externalBin in <resource_dir>/../
-                let candidate = dir.join("..").join(name);
-                if candidate.exists() { return Some(candidate); }
-                // Fallback: same dir as the Tauri exe (dev / flat layout)
-                if let Ok(exe) = std::env::current_exe() {
-                    let d = exe.parent().unwrap_or_else(|| std::path::Path::new("."));
-                    let c = d.join(name);
-                    if c.exists() { return Some(c); }
-                }
-                None
-            });
-            let started = if let Some(backend_exe) = sidecar_path {
-                println!("[BixDot] Starting bundled backend: {:?}", backend_exe);
-                match Command::new(&backend_exe).spawn() {
-                    Ok(child) => {
-                        *app.state::<PythonBackend>().0.lock().unwrap() = Some(child);
-                        true
-                    }
-                    Err(e) => {
-                        eprintln!("[BixDot] Bundled backend failed to start: {e}");
-                        false
-                    }
-                }
-            } else if let Some(py) = find_python() {
-                println!("[BixDot] Starting backend: {py} -m core.main in {app_dir:?}");
-                match Command::new(&py)
-                    .args(["-m", "core.main"])
-                    .current_dir(&app_dir)
-                    .spawn()
-                {
-                    Ok(child) => {
-                        *app.state::<PythonBackend>().0.lock().unwrap() = Some(child);
-                        true
-                    }
-                    Err(e) => {
-                        eprintln!("[BixDot] Failed to start backend: {e}");
-                        false
-                    }
-                }
+            // ── Start backend (skip if already listening on 8747) ─────────
+            if port_open(8747) {
+                println!("[BixDot] Backend already running — skipping spawn.");
             } else {
-                eprintln!("[BixDot] No bundled backend or Python 3.11+ found. Install Python from https://python.org");
-                false
-            };
+                // Prefer sidecar bixdot-backend (Tauri externalBin) over system Python.
+                let sidecar_path = app.path().resource_dir().ok().and_then(|dir| {
+                    let name = if cfg!(windows) { "bixdot-backend.exe" } else { "bixdot-backend" };
+                    let candidate = dir.join("..").join(name);
+                    if candidate.exists() { return Some(candidate); }
+                    if let Ok(exe) = std::env::current_exe() {
+                        let d = exe.parent().unwrap_or_else(|| std::path::Path::new("."));
+                        let c = d.join(name);
+                        if c.exists() { return Some(c); }
+                    }
+                    None
+                });
 
-            if started {
-                println!("[BixDot] Backend started — waiting for it to be ready...");
-                // Give the backend 2 seconds to start up before the window loads
-                std::thread::sleep(std::time::Duration::from_millis(2000));
+                let started = if let Some(backend_exe) = sidecar_path {
+                    println!("[BixDot] Starting bundled backend: {:?}", backend_exe);
+                    match spawn_hidden(Command::new(&backend_exe)) {
+                        Ok(child) => {
+                            *app.state::<PythonBackend>().0.lock().unwrap() = Some(child);
+                            true
+                        }
+                        Err(e) => {
+                            eprintln!("[BixDot] Bundled backend failed to start: {e}");
+                            false
+                        }
+                    }
+                } else if let Some(py) = find_python() {
+                    println!("[BixDot] Starting backend: {py} -m core.main in {app_dir:?}");
+                    let mut cmd = Command::new(&py);
+                    cmd.args(["-m", "core.main"]).current_dir(&app_dir);
+                    match spawn_hidden(cmd) {
+                        Ok(child) => {
+                            *app.state::<PythonBackend>().0.lock().unwrap() = Some(child);
+                            true
+                        }
+                        Err(e) => {
+                            eprintln!("[BixDot] Failed to start backend: {e}");
+                            false
+                        }
+                    }
+                } else {
+                    eprintln!("[BixDot] No bundled backend or Python 3.11+ found.");
+                    false
+                };
+
+                if started {
+                    println!("[BixDot] Waiting for backend on port 8747...");
+                    if wait_for_backend(30_000) {
+                        println!("[BixDot] Backend ready.");
+                    } else {
+                        eprintln!("[BixDot] Backend did not become ready within 30 s.");
+                    }
+                }
             }
 
-            // ── Navigate window to backend ────────────────────────────────
-            // Always point to http://localhost:8747 — the backend serves
-            // the full frontend including setup/loading pages itself.
+            // ── Show window now that backend is ready ─────────────────────
+            // Window starts hidden (visible:false in tauri.conf.json) to avoid
+            // the "site not found" flash before the backend is listening.
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.navigate("http://localhost:8747".parse().unwrap());
+                let _ = window.show();
+                let _ = window.set_focus();
             }
 
             // ── System tray ───────────────────────────────────────────────
@@ -184,7 +219,7 @@ fn main() {
             }
             RunEvent::Exit => {
                 kill_backend(&app.state::<PythonBackend>().0);
-                // Only kill Ollama if BixDot started it (don't kill a pre-existing instance)
+                // Only kill Ollama if BixDot started it
                 kill_backend(&app.state::<OllamaProcess>().0);
             }
             _ => {}

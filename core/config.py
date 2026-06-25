@@ -24,7 +24,7 @@ from pydantic import Field, validator
 class Settings(BaseSettings):
     # ─── App ───────────────────────────────────────────────────────────────
     app_name: str = "BixDot"
-    version: str = "0.3.5"
+    version: str = "0.3.6"
     debug: bool = False
 
     # ─── Server ────────────────────────────────────────────────────────────

@@ -53,7 +53,7 @@
   .typing span{width:5px;height:5px;border-radius:50%;background:var(--muted);animation:bounce 1.2s infinite;}
   .typing span:nth-child(2){animation-delay:.2s;}
   .typing span:nth-child(3){animation-delay:.4s;}
-  .empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--muted);text-align:center;padding:40px;gap:10px;}
+  .empty{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;color:var(--muted);text-align:center;padding:40px;gap:10px;}
   .empty p{font-size:13px;line-height:1.6;max-width:280px;}
   .chat-input{padding:14px 18px;border-top:1px solid var(--border);display:flex;gap:8px;}
   .chat-input input{flex:1;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 13px;font-size:13px;color:var(--text);outline:none;transition:border-color .15s;}
@@ -442,7 +442,7 @@ function Chat({token,hidden}){
     setPendingPerm(null); setPendingMsg(null);
   };
 
-  return el('div',{style:{display:'flex',flexDirection:'column',flex:hidden?'0 0 0px':1,overflow:'hidden'}},
+  return el('div',{style:{position:'absolute',inset:0,display:hidden?'none':'flex',flexDirection:'column',overflow:'hidden'}},
     el('div',{style:{padding:'4px 18px',fontSize:11,color:'var(--muted)',borderBottom:'1px solid var(--border)',fontFamily:'var(--mono)'}},status),
     msgs.length===0
       ? el('div',{className:'empty'},
@@ -1121,12 +1121,14 @@ function App(){
         el('span',{className:'topbar-title'},nav.find(n=>n.id===screen)?.label),
         el('span',{className:'chain-ok'},'✓ Chain verified · Local')
       ),
-      el(Chat,{token,hidden:screen!=='chat'}),
-      screen==='calendar'&&el(Calendar,{token}),
-      screen==='terminal'&&el(Terminal,{token}),
-      screen==='audit'&&el(Audit,{token}),
-      screen==='settings'&&el(Settings,{token,onModelChange:m=>setActiveModel(m)}),
-    showOnboarding&&el(OnboardingWizard,{onDismiss:()=>setShowOnboarding(false)})
+      el('div',{style:{flex:1,position:'relative',overflow:'hidden'}},
+        el(Chat,{token,hidden:screen!=='chat'}),
+        screen==='calendar'&&el('div',{style:{position:'absolute',inset:0,display:'flex',flexDirection:'column',overflow:'hidden'}},el(Calendar,{token})),
+        screen==='terminal'&&el('div',{style:{position:'absolute',inset:0,display:'flex',flexDirection:'column',overflow:'hidden'}},el(Terminal,{token})),
+        screen==='audit'&&el('div',{style:{position:'absolute',inset:0,display:'flex',flexDirection:'column',overflow:'hidden'}},el(Audit,{token})),
+        screen==='settings'&&el('div',{style:{position:'absolute',inset:0,display:'flex',flexDirection:'column',overflow:'hidden'}},el(Settings,{token,onModelChange:m=>setActiveModel(m)})),
+        showOnboarding&&el(OnboardingWizard,{onDismiss:()=>setShowOnboarding(false)})
+      )
     )
   );
 }

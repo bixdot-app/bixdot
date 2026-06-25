@@ -26,7 +26,12 @@ Patch release fixing a persistent black screen when navigating from Settings bac
 
 ---
 
-## What's Next — v0.4.0
+## What's Next — v0.3.6 ✅ Shipped
+
+- **Black screen after Settings → Chat** — definitive fix via absolute positioning
+- **Silent startup** — no CMD window, no "site not found" flash, no duplicate processes
+
+## What's Next After That — v0.4.0
 
 - **Plugin execution** — wire the `entry` field and run plugins in the sandbox; community plugin registry
 - **Bundled OAuth credentials** — ship default Google Calendar client ID

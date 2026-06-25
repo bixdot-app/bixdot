@@ -4,6 +4,16 @@ All notable changes to BixDot are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).  
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.6] — 2026-06-25
+
+### Fixed
+- **Black screen after Settings → Chat (definitive fix)** — all screens moved to `position:absolute; inset:0` inside a `position:relative` wrapper; Chat hidden with `display:none` on an absolutely-positioned element so no flex recalculation ever occurs on navigation. Also fixed `.empty` from `height:100%` to `flex:1`.
+- **Visible CMD prompt on launch** — backend and Ollama spawned with `CREATE_NO_WINDOW` on Windows; no console window ever appears.
+- **"Site not found" flash on launch** — Tauri window now starts hidden; Rust startup polls port 8747 (200 ms interval, 30 s timeout) and shows the window only after the backend is accepting connections.
+- **Duplicate CMD window on relaunch** — checks if port 8747 is already listening before spawning; skips spawn if backend is already running.
+
+---
+
 ## [0.3.5] — 2026-06-25
 
 ### Fixed
