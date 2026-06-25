@@ -4,6 +4,14 @@ All notable changes to BixDot are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).  
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.7] — 2026-06-25
+
+### Fixed
+- **Blank screen on all navigation (definitive fix)** — removed the broken `position:relative` wrapper that collapsed to zero height when all its children were `position:absolute`. All screens now use simple conditional rendering as direct flex children of `.main`; no CSS tricks, no hidden divs. Chat remounts cleanly on re-navigation and reuses the existing backend session (via `GET /agent/sessions`) instead of creating a new one, so conversation context is preserved.
+- **BixDot splash screen** — window now starts visible immediately showing a branded loading page (`loading.html`); backend and Ollama start on a background thread without blocking the UI. Once port 8747 is ready the webview navigates automatically to the app. No more blank window or "site not found" flash during startup.
+
+---
+
 ## [0.3.6] — 2026-06-25
 
 ### Fixed
