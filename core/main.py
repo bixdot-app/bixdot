@@ -61,12 +61,37 @@ async def lifespan(app: FastAPI):
             "Do not start the server until this is investigated."
         )
 
-    # 2. Clean up expired access token blocklist entries
+    # 2. Ensure Ollama is running — start it automatically if not
+    import subprocess
+    import asyncio
+    import httpx as _httpx
+    _ollama_started = False
+    try:
+        async with _httpx.AsyncClient(timeout=2) as _c:
+            _r = await _c.get(f"{settings.ollama_url}/api/tags")
+            if _r.status_code == 200:
+                print("[BixDot] Ollama is already running.")
+    except Exception:
+        print("[BixDot] Ollama not detected — attempting to start it...")
+        try:
+            subprocess.Popen(
+                ["ollama", "serve"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            _ollama_started = True
+            # Give Ollama a moment to bind its port
+            await asyncio.sleep(2)
+            print("[BixDot] Ollama started automatically.")
+        except FileNotFoundError:
+            print("[BixDot] WARNING: 'ollama' not found in PATH. Install from https://ollama.ai")
+
+    # 3. Clean up expired access token blocklist entries
     from core.storage.db import get_connection
     with get_connection() as conn:
         conn.execute("DELETE FROM token_blocklist WHERE expires_at < datetime('now')")
 
-    # 3. Log startup
+    # 4. Log startup
     audit.log(AuditEvent.AGENT_QUERY, {"event": "server_startup", "version": settings.version})
 
     print(f"""

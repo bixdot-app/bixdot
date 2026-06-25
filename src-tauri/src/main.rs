@@ -14,6 +14,7 @@ use tauri::{
 // ── State ─────────────────────────────────────────────────────────────────────
 
 struct PythonBackend(Mutex<Option<Child>>);
+struct OllamaProcess(Mutex<Option<Child>>);
 
 fn kill_backend(guard: &Mutex<Option<Child>>) {
     if let Ok(mut lock) = guard.lock() {
@@ -37,12 +38,39 @@ fn backend_status(backend: tauri::State<PythonBackend>) -> String {
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 
+fn ollama_running() -> bool {
+    // Try a TCP connect to Ollama's default port — no HTTP library needed.
+    std::net::TcpStream::connect_timeout(
+        &"127.0.0.1:11434".parse().unwrap(),
+        std::time::Duration::from_millis(500),
+    ).is_ok()
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .manage(PythonBackend(Mutex::new(None)))
+        .manage(OllamaProcess(Mutex::new(None)))
         .setup(|app| {
             let app_dir = find_app_dir();
+
+            // ── Start Ollama if not already running ───────────────────────
+            if ollama_running() {
+                println!("[BixDot] Ollama already running.");
+            } else {
+                println!("[BixDot] Ollama not detected — starting it...");
+                match Command::new("ollama").arg("serve").spawn() {
+                    Ok(child) => {
+                        *app.state::<OllamaProcess>().0.lock().unwrap() = Some(child);
+                        // Give Ollama 2s to bind before the backend tries to connect
+                        std::thread::sleep(std::time::Duration::from_millis(2000));
+                        println!("[BixDot] Ollama started.");
+                    }
+                    Err(e) => {
+                        eprintln!("[BixDot] Could not start Ollama: {e}. Install from https://ollama.ai");
+                    }
+                }
+            }
 
             // ── Start backend ─────────────────────────────────────────────
             // Prefer sidecar bixdot-backend (Tauri externalBin, resolved via
@@ -156,6 +184,8 @@ fn main() {
             }
             RunEvent::Exit => {
                 kill_backend(&app.state::<PythonBackend>().0);
+                // Only kill Ollama if BixDot started it (don't kill a pre-existing instance)
+                kill_backend(&app.state::<OllamaProcess>().0);
             }
             _ => {}
         });
