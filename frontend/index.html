@@ -442,7 +442,7 @@ function Chat({token,hidden}){
     setPendingPerm(null); setPendingMsg(null);
   };
 
-  return el('div',{style:{display:hidden?'none':'flex',flexDirection:'column',flex:1,overflow:'hidden'}},
+  return el('div',{style:{display:'flex',flexDirection:'column',flex:hidden?'0 0 0px':1,overflow:'hidden'}},
     el('div',{style:{padding:'4px 18px',fontSize:11,color:'var(--muted)',borderBottom:'1px solid var(--border)',fontFamily:'var(--mono)'}},status),
     msgs.length===0
       ? el('div',{className:'empty'},
