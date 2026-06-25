@@ -710,6 +710,12 @@ function PluginsPanel({token}){
 }
 
 // ── Model Selector ─────────────────────────────────────────────────────────────
+const MODE_META={
+  FULL_AGENT:{label:'Agent',tip:'Supports tool calling — files, web search, calendar, and more.',color:'var(--accent)'},
+  THINKING:  {label:'Reasoning',tip:'Chain-of-thought reasoning model. Slower but more thorough. No tool use.',color:'var(--blue)'},
+  TEXT_ONLY: {label:'Chat',tip:'Plain text completion. No tool calls. Fast and lightweight.',color:'var(--muted)'},
+};
+
 function ModelSelector({token, onModelChange}){
   const[models,setModels]=useState([]);
   const[current,setCurrent]=useState('');
@@ -733,25 +739,44 @@ function ModelSelector({token, onModelChange}){
     setSaving(false);
   };
 
+  // Group models by mode
+  const groups={FULL_AGENT:[],THINKING:[],TEXT_ONLY:[]};
+  models.forEach(m=>{if(groups[m.mode])groups[m.mode].push(m);});
+  const currentInfo=models.find(m=>m.name===current);
+  const modeMeta=currentInfo&&MODE_META[currentInfo.mode];
+
+  const selectEl=models.length>0
+    ? el('select',{
+        style:{background:'var(--card)',border:'1px solid var(--border)',color:'var(--text)',
+               borderRadius:7,padding:'5px 8px',fontSize:12,cursor:'pointer'},
+        value:current,
+        onChange:e=>save(e.target.value),
+        disabled:saving,
+      },
+      Object.entries(groups).filter(([,ms])=>ms.length>0).map(([mode,ms])=>
+        el('optgroup',{key:mode,label:MODE_META[mode]?.label||mode},
+          ms.map(m=>el('option',{key:m.name,value:m.name},
+            m.name+(m.size_gb>0?' ('+m.size_gb+'GB)':'')+(m.supports_vision?' 👁':'')
+          ))
+        )
+      )
+    )
+    : el('span',{style:{fontSize:12,fontFamily:'var(--mono)',color:'var(--muted)'}},current||'llama3.2');
+
   return el('div',{className:'s-card'},
     el('div',{className:'s-row'},
       el('div',{className:'s-info'},
         el('p',null,'Active model'),
-        el('span',null,'Runs locally via Ollama · no API key · data never leaves device')
+        el('span',null,modeMeta
+          ? el('span',null,
+              el('span',{style:{color:modeMeta.color,fontWeight:600}},modeMeta.label),
+              ' — ',modeMeta.tip
+            )
+          : 'Runs locally via Ollama · no API key · data never leaves device'
+        )
       ),
       el('div',{style:{display:'flex',alignItems:'center',gap:8}},
-        models.length>0
-          ? el('select',{
-              style:{background:'var(--card)',border:'1px solid var(--border)',color:'var(--text)',
-                     borderRadius:7,padding:'5px 8px',fontSize:12,cursor:'pointer'},
-              value:current,
-              onChange:e=>save(e.target.value),
-              disabled:saving,
-            },
-            models.map(m=>el('option',{key:m,value:m},m))
-          )
-          : el('span',{style:{fontSize:12,fontFamily:'var(--mono)',color:'var(--muted)'}},
-              current||'llama3.2'),
+        selectEl,
         saved&&el('span',{style:{fontSize:11,color:'var(--accent)',fontFamily:'var(--mono)'}},'✓ saved')
       )
     ),

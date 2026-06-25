@@ -24,6 +24,7 @@ from core.agent.llm import LLMAdapter
 from core.agent.permissions import Capability, get_permission_store
 from core.audit.logger import AuditEvent, get_audit_logger
 from core.agent.paths import resolve_path, get_system_context
+from core.agent.model_caps import ModelMode, strip_thinking_tokens
 
 
 # ─── Models ───────────────────────────────────────────────────────────────────
@@ -37,6 +38,7 @@ class AgentSession(BaseModel):
     user_id: str
     messages: list[Message] = []
     llm_backend: str = "ollama"
+    model_mode: str = ModelMode.FULL_AGENT.value
 
 class AgentResponse(BaseModel):
     message: str
@@ -381,7 +383,15 @@ class AgentRuntime:
                        {"preview": user_message[:100], "session_id": session.session_id},
                        user_id=session.user_id)
 
+        mode = ModelMode(session.model_mode)
+        if mode == ModelMode.CLOUD:
+            raise RuntimeError("Cloud models are not permitted in local-first mode.")
+
         llm = LLMAdapter(backend=session.llm_backend, user_id=session.user_id)
+
+        # THINKING / TEXT_ONLY → single call, no tool loop
+        if mode in (ModelMode.THINKING, ModelMode.TEXT_ONLY):
+            return await self._run_simple(session, user_message, llm, strip_thinking=(mode == ModelMode.THINKING))
         tool_calls_made      = []
         permissions_requested = []
         collected_results    = []   # gather tool results before synthesis
@@ -500,6 +510,29 @@ class AgentRuntime:
             message="I took too many steps. Please try a simpler request.",
             tool_calls_made=tool_calls_made,
             permissions_requested=permissions_requested,
+            session_id=session.session_id,
+        )
+
+    async def _run_simple(
+        self, session: AgentSession, user_message: str,
+        llm: LLMAdapter, *, strip_thinking: bool
+    ) -> AgentResponse:
+        """Single-call path for THINKING and TEXT_ONLY models (no tool loop)."""
+        messages = [{"role": m.role, "content": m.content} for m in session.messages]
+        response = await llm.chat(messages=messages, system=get_system_prompt(), tools=None)
+        text = " ".join(
+            _text(b) for b in response["content"] if _type(b) == "text"
+        ).strip()
+        if strip_thinking:
+            text = strip_thinking_tokens(text)
+        if not text:
+            text = "Done."
+        session.messages.append(Message(role="assistant", content=text))
+        self.audit.log(AuditEvent.AGENT_RESPONSE, {"mode": "simple"}, user_id=session.user_id)
+        return AgentResponse(
+            message=text,
+            tool_calls_made=[],
+            permissions_requested=[],
             session_id=session.session_id,
         )
 
