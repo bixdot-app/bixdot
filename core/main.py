@@ -34,7 +34,7 @@ from core.auth.routes import router as auth_router
 from core.agent.routes import router as agent_router
 from core.skills.calendar.routes import router as calendar_router
 from core.skills.terminal.routes import router as terminal_router
-from core.plugins.routes import router as plugins_router
+from core.skills.plugin_routes import router as skills_router
 from core.skills.memory.routes import router as memory_router
 from core.skills.documents.routes import router as documents_router
 from core.skills.github.routes import router as github_router
@@ -90,6 +90,17 @@ async def lifespan(app: FastAPI):
     from core.storage.db import get_connection
     with get_connection() as conn:
         conn.execute("DELETE FROM token_blocklist WHERE expires_at < datetime('now')")
+
+    # 3b. Verify integrity of every enabled third-party skill. Any skill whose
+    #     entry file no longer matches its manifest SHA-256 is auto-disabled
+    #     and audit-logged before it can be dispatched.
+    try:
+        from core.skills.plugin_manager import verify_all_on_startup
+        disabled = verify_all_on_startup()
+        if disabled:
+            print(f"[BixDot] Auto-disabled {len(disabled)} tampered skill(s): {disabled}")
+    except Exception as e:
+        print(f"[BixDot] Skill verification skipped: {e}")
 
     # 4. Log startup
     audit.log(AuditEvent.AGENT_QUERY, {"event": "server_startup", "version": settings.version})
@@ -219,7 +230,7 @@ app.include_router(auth_router)
 app.include_router(agent_router)
 app.include_router(calendar_router)
 app.include_router(terminal_router)
-app.include_router(plugins_router)
+app.include_router(skills_router)
 app.include_router(memory_router)
 app.include_router(documents_router)
 app.include_router(github_router)

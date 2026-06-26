@@ -111,8 +111,10 @@ hiddenimports = [
     "core.skills.research.routes",
     "core.skills.research.researcher",
     "core.sandbox.executor",
-    "core.plugins.routes",
-    "core.plugins.loader",
+    "core.skills.plugin_routes",
+    "core.skills.plugin_manager",
+    "core.skills.sandbox",
+    "core.skills.registry",
     "core.auth.license_check",
     # markitdown + trafilatura (document chat + research)
     "markitdown",

@@ -113,6 +113,7 @@ def create_session(
             user_id=user_id,
             llm_backend=llm_backend,
             model_mode=model_mode,
+            is_private=True,
         )
         _private_meta[session_id] = {
             "session_id": session_id,
