@@ -26,7 +26,6 @@ import shutil
 import tempfile
 import zipfile
 from pathlib import Path
-from typing import Optional
 
 from core.config import settings
 from core.audit.logger import get_audit_logger, AuditEvent
@@ -122,6 +121,45 @@ def _validate_manifest(manifest: dict) -> None:
 def mapped_capabilities(dotted: list[str]) -> list[Capability]:
     """Translate manifest dotted capabilities to first-party Capability enums."""
     return [SKILL_CAPABILITY_MAP[c] for c in dotted if c in SKILL_CAPABILITY_MAP]
+
+
+# ─── Inspect (validate without installing) ─────────────────────────────────────
+
+def inspect_skill(zip_path: Path) -> dict:
+    """
+    Extract and fully validate a skill archive WITHOUT installing it. Used to
+    show the user the capability-approval screen before they commit. Raises
+    ValueError on any validation failure; returns the validated manifest.
+    """
+    zip_path = Path(zip_path)
+    if not zip_path.exists() or not zipfile.is_zipfile(zip_path):
+        raise ValueError("Skill archive is not a valid zip file.")
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        with zipfile.ZipFile(zip_path) as zf:
+            for member in zf.namelist():
+                dest = (tmp_path / member).resolve()
+                if not str(dest).startswith(str(tmp_path.resolve())):
+                    raise ValueError("Skill archive contains an unsafe path.")
+            zf.extractall(tmp_path)
+        manifest_path = tmp_path / "bixdot-skill.json"
+        if not manifest_path.exists():
+            candidates = list(tmp_path.glob("*/bixdot-skill.json"))
+            if len(candidates) == 1:
+                manifest_path = candidates[0]
+        if not manifest_path.exists():
+            raise ValueError("bixdot-skill.json not found at the archive root.")
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as e:
+            raise ValueError(f"bixdot-skill.json is not valid JSON: {e}")
+        _validate_manifest(manifest)
+        entry_path = manifest_path.parent / manifest["entry"]
+        if not entry_path.exists():
+            raise ValueError(f"Entry file '{manifest['entry']}' not found in archive.")
+        if _sha256_file(entry_path).lower() != str(manifest["sha256"]).lower():
+            raise ValueError("SHA-256 of the entry file does not match the manifest.")
+    return manifest
 
 
 # ─── Install ───────────────────────────────────────────────────────────────────

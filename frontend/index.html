@@ -169,6 +169,50 @@
   .term-warn-bar{background:var(--warn-dim);border-bottom:1px solid rgba(245,166,35,.3);padding:7px 18px;font-size:11px;color:var(--warn);font-family:var(--mono);}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
   @keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
+
+  /* Session rail (inside Chat) */
+  .chat-wrap{display:flex;flex:1;overflow:hidden;}
+  .srail{width:240px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--surface);}
+  .srail-head{padding:10px;display:flex;flex-direction:column;gap:6px;border-bottom:1px solid var(--border);}
+  .srail-btn{display:flex;align-items:center;gap:7px;width:100%;border:1px solid var(--border);background:var(--card);color:var(--text);border-radius:8px;padding:8px 10px;font-size:12px;cursor:pointer;transition:all .15s;}
+  .srail-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .srail-btn.priv{border-color:rgba(245,166,35,.4);color:var(--warn);}
+  .srail-btn.priv:hover{background:var(--warn-dim);}
+  .srail-list{flex:1;overflow-y:auto;padding:6px;}
+  .srail-list::-webkit-scrollbar{width:3px;}
+  .srail-list::-webkit-scrollbar-thumb{background:var(--border);}
+  .sitem{display:flex;flex-direction:column;gap:3px;padding:8px 9px;border-radius:8px;cursor:pointer;margin-bottom:2px;position:relative;}
+  .sitem:hover{background:var(--card);}
+  .sitem.active{background:var(--accent-dim);}
+  .sitem-top{display:flex;align-items:center;gap:6px;}
+  .sitem-name{font-size:12px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;}
+  .sitem.priv .sitem-name{font-style:italic;color:var(--warn);}
+  .sitem-prev{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .sitem-menu{position:absolute;top:6px;right:6px;color:var(--muted);font-size:14px;padding:0 4px;border:none;background:none;cursor:pointer;opacity:0;line-height:1;}
+  .sitem:hover .sitem-menu{opacity:1;}
+  .sitem-rename{font-size:12px;background:var(--bg);border:1px solid var(--accent);border-radius:5px;padding:3px 6px;color:var(--text);outline:none;width:100%;}
+  .smenu{position:absolute;top:24px;right:6px;background:var(--card);border:1px solid var(--border);border-radius:8px;z-index:20;min-width:120px;box-shadow:0 6px 20px rgba(0,0,0,.4);overflow:hidden;}
+  .smenu button{display:block;width:100%;text-align:left;padding:8px 12px;font-size:12px;background:none;border:none;color:var(--text);cursor:pointer;}
+  .smenu button:hover{background:var(--surface);}
+  .smenu button.danger{color:var(--red);}
+  .srail-arch{border-top:1px solid var(--border);padding:8px;}
+  .srail-arch-h{font-size:10px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em;cursor:pointer;display:flex;align-items:center;gap:6px;padding:4px;}
+  .mode-badge{display:inline-flex;align-items:center;gap:4px;font-size:9px;font-family:var(--mono);padding:1px 5px;border-radius:4px;background:var(--card);border:1px solid var(--border);flex-shrink:0;}
+  .chat-pane{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+  .chat-header{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;border-bottom:1px solid var(--border);gap:10px;}
+  .chat-header-name{font-size:13px;font-weight:500;cursor:pointer;}
+  .chat-header-name:hover{color:var(--accent);}
+  .priv-banner{background:var(--warn-dim);border-top:1px solid rgba(245,166,35,.3);color:var(--warn);font-size:11px;padding:7px 16px;display:flex;align-items:center;gap:8px;}
+  /* Model picker groups */
+  .mp-group{margin-bottom:10px;}
+  .mp-ghead{font-size:11px;font-weight:600;margin-bottom:4px;display:flex;align-items:center;gap:6px;}
+  .mp-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:4px;cursor:pointer;font-size:12px;background:var(--card);}
+  .mp-item:hover{border-color:var(--accent);}
+  .mp-item.sel{border-color:var(--accent);background:var(--accent-dim);}
+  .mp-item.disabled{opacity:.6;cursor:not-allowed;}
+  .mp-warn{background:var(--warn-dim);border:1px solid rgba(245,166,35,.3);color:var(--warn);font-size:11px;border-radius:7px;padding:8px 10px;margin-bottom:8px;line-height:1.5;}
+  /* Skill cards */
+  .skill-cap{font-size:10px;font-family:var(--mono);background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:4px;padding:1px 5px;color:var(--blue);}
 </style>
 </head>
 <body>
@@ -366,130 +410,277 @@ function PermModal({cap,onAllow,onDeny}){
   );
 }
 
-// ── Chat ──────────────────────────────────────────────────────────────────────
+// ── Model mode badge ──────────────────────────────────────────────────────────
+const MODE_BADGE={
+  FULL_AGENT:{icon:'⚡',label:'Agent',  color:'var(--accent)'},
+  THINKING:  {icon:'🧠',label:'Reasoning',color:'var(--blue)'},
+  TEXT_ONLY: {icon:'💬',label:'Chat',   color:'var(--muted)'},
+  CLOUD:     {icon:'☁️',label:'Cloud',  color:'var(--warn)'},
+};
+function ModeBadge({mode}){
+  const m=MODE_BADGE[mode]||MODE_BADGE.TEXT_ONLY;
+  return el('span',{className:'mode-badge',style:{color:m.color},title:m.label},m.icon+' '+m.label);
+}
+
+// ── Create Session Modal ──────────────────────────────────────────────────────
+function CreateSessionModal({token,onClose,onCreate}){
+  const[name,setName]=useState('New Chat');
+  const[models,setModels]=useState([]);
+  const[ollamaUp,setOllamaUp]=useState(true);
+  const[sel,setSel]=useState('');
+  const[priv,setPriv]=useState(false);
+  const[busy,setBusy]=useState(false);
+  const[err,setErr]=useState('');
+
+  useEffect(()=>{
+    api('/agent/models',{},token).then(r=>{
+      setModels(r.models||[]); setOllamaUp(r.ollama_available!==false);
+      const def=(r.models||[]).find(m=>m.is_default)||(r.models||[])[0];
+      if(def) setSel(def.name);
+    }).catch(()=>setOllamaUp(false));
+  },[token]);
+
+  const groups=[
+    ['FULL_AGENT','✅ Full Agent','All skills available'],
+    ['THINKING','🧠 Reasoning','Chat only, shows reasoning'],
+    ['TEXT_ONLY','💬 Chat Only','No skills available'],
+    ['CLOUD','☁️ Cloud','Data leaves your device'],
+  ];
+
+  const create=async()=>{
+    setBusy(true); setErr('');
+    try{
+      const meta=await api('/agent/sessions',{method:'POST',
+        body:JSON.stringify({name:name||'New Chat',model:sel,is_private:priv})},token);
+      onCreate(meta);
+    }catch(e){ setErr(e.message); setBusy(false); }
+  };
+
+  return el('div',{className:'modal-bg'},
+    el('div',{className:'modal',style:{maxWidth:420,maxHeight:'85vh',overflowY:'auto'}},
+      el('div',{className:'modal-h'},
+        el('div',{className:'modal-icon'},'💬'),
+        el('div',null,
+          el('p',{style:{fontSize:14,fontWeight:600,marginBottom:2}},'New session'),
+          el('p',{style:{fontSize:11,color:'var(--muted)'}},'Pick a name, model, and privacy')
+        )
+      ),
+      el('div',{className:'modal-body'},
+        el('div',{className:'field'},
+          el('label',null,'Name'),
+          el('input',{value:name,autoFocus:true,onChange:e=>setName(e.target.value),
+            onKeyDown:e=>e.key==='Enter'&&create()})
+        ),
+        el('div',{style:{margin:'10px 0 6px',fontSize:10,color:'var(--muted)',fontFamily:'var(--mono)',textTransform:'uppercase',letterSpacing:'.08em'}},'Model'),
+        !ollamaUp&&el('div',{className:'mp-warn'},'Ollama is not running. Start Ollama to see available models.'),
+        ollamaUp&&models.length===0&&el('div',{style:{fontSize:12,color:'var(--muted)'}},'No models found. Try: ',el('code',{style:{color:'var(--accent)'}},'ollama pull llama3.2')),
+        groups.map(([mode,label,desc])=>{
+          const list=models.filter(m=>m.mode===mode);
+          if(list.length===0) return null;
+          return el('div',{key:mode,className:'mp-group'},
+            el('div',{className:'mp-ghead',style:{color:(MODE_BADGE[mode]||{}).color}},label,
+              el('span',{style:{color:'var(--muted)',fontWeight:400,fontSize:10}},'— '+desc)),
+            mode==='CLOUD'&&el('div',{className:'mp-warn'},'⚠️ Cloud models send your messages to external servers. This breaks BixDot’s local-first guarantee and is blocked at creation.'),
+            list.map(m=>el('div',{key:m.name,
+              className:'mp-item'+(sel===m.name?' sel':'')+(m.is_cloud?' disabled':''),
+              onClick:()=>{ if(!m.is_cloud) setSel(m.name); },
+            },
+              el('span',null,m.name+(m.supports_vision?' 👁':'')),
+              el('span',{style:{color:'var(--muted)',fontFamily:'var(--mono)'}},(m.size_gb>0?m.size_gb+' GB':''))
+            ))
+          );
+        }),
+        el('div',{className:'s-row',style:{padding:'10px 0 2px',borderBottom:'none'}},
+          el('div',{className:'s-info'},
+            el('p',{style:{margin:0}},'🔒 Private Session'),
+            el('span',null,'No history saved. Messages deleted when the session closes.')
+          ),
+          el('button',{className:'toggle'+(priv?' on':''),onClick:()=>setPriv(p=>!p)})
+        ),
+        err&&el('div',{className:'err-box',style:{marginTop:8}},err)
+      ),
+      el('div',{className:'modal-btns'},
+        el('button',{className:'btn btn-deny',onClick:onClose},'Cancel'),
+        el('button',{className:'btn btn-allow',onClick:create,disabled:busy||(!sel&&ollamaUp&&models.length>0)},busy?'Creating…':'Create')
+      )
+    )
+  );
+}
+
+// ── Chat (multi-session) ──────────────────────────────────────────────────────
 function Chat({token,model}){
-  const mdl=model||'local';
+  const[sessions,setSessions]=useState([]);
+  const[archived,setArchived]=useState([]);
+  const[active,setActive]=useState(null);
   const[msgs,setMsgs]=useState([]);
   const[input,setInput]=useState('');
   const[loading,setLoading]=useState(false);
-  const[sid,setSid]=useState(null);
-  const[status,setStatus]=useState('Connecting...');
+  const[status,setStatus]=useState('');
   const[pendingPerm,setPendingPerm]=useState(null);
   const[pendingMsg,setPendingMsg]=useState(null);
+  const[showCreate,setShowCreate]=useState(false);
+  const[showArch,setShowArch]=useState(false);
+  const[menuId,setMenuId]=useState(null);
+  const[renameId,setRenameId]=useState(null);
+  const[renameVal,setRenameVal]=useState('');
   const bottom=useRef(null);
-
   const addMsg=(role,text)=>setMsgs(m=>[...m,{role,text}]);
 
-  const newSession=useCallback(async()=>{
-    setStatus('Creating session...');
-    setSid(null);
+  const loadSessions=useCallback(async()=>{
     try{
-      const d=await api('/agent/sessions',{method:'POST',body:JSON.stringify({llm_backend:'ollama'})},token);
-      setSid(d.session_id);
-      setStatus('Ready · '+mdl+' · local');
-      return d.session_id;
-    }catch(e){
-      setStatus('Error: '+e.message);
-      addMsg('err','Could not start session: '+e.message+'. Try refreshing the page.');
-      return null;
+      const act=await api('/agent/sessions',{},token);
+      setSessions(act||[]);
+      const all=await api('/agent/sessions?include_archived=true',{},token);
+      setArchived((all||[]).filter(s=>s.is_archived));
+      return act||[];
+    }catch(e){ return []; }
+  },[token]);
+
+  const loadMessages=useCallback(async(meta)=>{
+    if(!meta){ setMsgs([]); return; }
+    try{
+      const r=await api('/agent/sessions/'+meta.session_id+'/messages',{},token);
+      setMsgs((r.messages||[]).map(m=>({role:m.role,text:m.content})));
+    }catch(e){ setMsgs([]); }
+    setStatus((meta.is_private?'Private · ':'Ready · ')+(meta.model||'local'));
+  },[token]);
+
+  const selectSession=async(meta)=>{
+    setMenuId(null);
+    if(active&&active.is_private&&active.session_id!==meta.session_id){
+      if(!window.confirm('Leave private session? All messages will be deleted permanently.')) return;
+      await api('/agent/sessions/'+active.session_id,{method:'DELETE'},token).catch(()=>{});
     }
-  },[token,mdl]);
+    setActive(meta); loadMessages(meta);
+  };
 
   useEffect(()=>{
-    setStatus('Connecting...');
-    api('/agent/sessions',{},token)
-      .then(sessions=>{
-        if(sessions&&Array.isArray(sessions)&&sessions.length>0){
-          const id=sessions[0].session_id;
-          setSid(id);
-          setStatus('Ready · '+mdl+' · local');
-          // Restore the visible transcript from the persisted session
-          api('/agent/sessions/'+id+'/messages',{},token)
-            .then(r=>{ if(r&&Array.isArray(r.messages)) setMsgs(r.messages.map(m=>({role:m.role,text:m.content}))); })
-            .catch(()=>{});
-        } else {
-          newSession();
-        }
-      })
-      .catch(()=>newSession());
+    loadSessions().then(list=>{
+      if(list&&list.length>0){ setActive(list[0]); loadMessages(list[0]); }
+      else { setShowCreate(true); }
+    });
   },[token]);
   useEffect(()=>{ bottom.current?.scrollIntoView({behavior:'smooth'}); },[msgs,loading]);
 
-  const send=async(text)=>{
-    if(!text.trim()||loading) return;
-    let sessionId=sid;
-    if(!sessionId){
-      addMsg('sys','Reconnecting...');
-      sessionId=await newSession();
-      if(!sessionId) return;
-    }
-    setInput('');
-    addMsg('user',text);
-    setLoading(true);
-    setStatus('Thinking...');
+  const onCreate=(meta)=>{ setShowCreate(false); setActive(meta); setMsgs([]);
+    setStatus((meta.is_private?'Private · ':'Ready · ')+(meta.model||'local')); loadSessions(); };
+
+  const newPrivate=async()=>{
     try{
-      const r=await api('/agent/chat',{method:'POST',body:JSON.stringify({message:text,session_id:sessionId})},token);
+      const meta=await api('/agent/sessions',{method:'POST',
+        body:JSON.stringify({name:'Private Session',is_private:true})},token);
+      onCreate(meta);
+    }catch(e){ alert(e.message); }
+  };
+
+  const send=async(text)=>{
+    if(!text.trim()||loading||!active) return;
+    setInput(''); addMsg('user',text); setLoading(true); setStatus('Thinking…');
+    try{
+      const r=await api('/agent/chat',{method:'POST',
+        body:JSON.stringify({message:text,session_id:active.session_id})},token);
       if(r.permissions_requested?.length>0){
-        setPendingPerm(r.permissions_requested[0]);
-        setPendingMsg(text);
+        setPendingPerm(r.permissions_requested[0]); setPendingMsg(text);
         addMsg('sys','Permission needed: "'+r.permissions_requested[0]+'" — approve below.');
-      }else{
-        addMsg('agent',r.message||'(no response)');
-      }
-    }catch(e){
-      addMsg('err','Error: '+e.message);
-      if(e.message.includes('404')||e.message.includes('not found')){
-        setSid(null);
-        addMsg('sys','Session lost — will reconnect on next message.');
-      }
-    }
+      } else { addMsg('agent',r.message||'(no response)'); }
+      loadSessions();
+    }catch(e){ addMsg('err','Error: '+e.message); }
     setLoading(false);
-    setStatus(sid?('Ready · '+mdl+' · local'):'Disconnected');
+    setStatus((active.is_private?'Private · ':'Ready · ')+(active.model||'local'));
   };
 
   const allowPerm=async()=>{
     const cap=pendingPerm, msg=pendingMsg;
     setPendingPerm(null); setPendingMsg(null);
     await api('/agent/permissions/grant',{method:'POST',body:JSON.stringify({capability:cap,skill_id:'builtin'})},token).catch(()=>{});
-    addMsg('sys','✓ "'+cap+'" granted. Retrying...');
+    addMsg('sys','✓ "'+cap+'" granted. Retrying…');
     await send(msg);
   };
+  const denyPerm=()=>{ addMsg('agent',"Understood — I won't access that. What else can I help with?"); setPendingPerm(null); setPendingMsg(null); };
 
-  const denyPerm=()=>{
-    addMsg('agent',"Understood — I won't access that. What else can I help with?");
-    setPendingPerm(null); setPendingMsg(null);
+  const archiveOrDelete=async(meta)=>{
+    setMenuId(null);
+    await api('/agent/sessions/'+meta.session_id,{method:'DELETE'},token).catch(()=>{});
+    const list=await loadSessions();
+    if(active&&active.session_id===meta.session_id){ const next=(list&&list[0])||null; setActive(next); loadMessages(next); }
   };
+  const doRename=async(id)=>{
+    const nm=renameVal.trim()||'New Chat'; setRenameId(null);
+    await api('/agent/sessions/'+id,{method:'PUT',body:JSON.stringify({name:nm})},token).catch(()=>{});
+    loadSessions(); if(active&&active.session_id===id) setActive({...active,name:nm});
+  };
+  const restore=async(meta)=>{ await api('/agent/sessions/'+meta.session_id,{method:'PUT',body:JSON.stringify({is_archived:false})},token).catch(()=>{}); loadSessions(); };
 
-  return el('div',{style:{display:'flex',flexDirection:'column',flex:1,overflow:'hidden'}},
-    el('div',{style:{padding:'4px 18px',fontSize:11,color:'var(--muted)',borderBottom:'1px solid var(--border)',fontFamily:'var(--mono)'}},status),
-    msgs.length===0
-      ? el('div',{className:'empty'},
-          el('div',{className:'logo-dot',style:{width:10,height:10}}),
-          el('p',null,'BixDot is running on your device using Ollama. Your data never leaves this machine.'),
-          el('p',{style:{fontSize:12}},'Try: "What can you do?" or "Hello!"')
-        )
-      : el('div',{className:'chat-body'},
-      msgs.map((m,i)=>el('div',{key:i,className:'msg-row '+(m.role==='user'?'user':'')},
-        el('div',{className:'msg '+(m.role==='err'?'err':m.role==='sys'?'sys':m.role)},m.text)
-      )),
-      loading&&el('div',{className:'msg-row'},
-        el('div',{className:'typing'},el('span'),el('span'),el('span'))
-      ),
-      el('div',{ref:bottom})
+  const sitem=(s)=>el('div',{key:s.session_id,
+      className:'sitem'+(active&&active.session_id===s.session_id?' active':'')+(s.is_private?' priv':''),
+      onClick:()=>renameId!==s.session_id&&selectSession(s)},
+    el('div',{className:'sitem-top'},
+      s.is_private&&el('span',{title:'Private'},'🔒'),
+      renameId===s.session_id
+        ? el('input',{className:'sitem-rename',value:renameVal,autoFocus:true,
+            onClick:e=>e.stopPropagation(),
+            onChange:e=>setRenameVal(e.target.value),
+            onKeyDown:e=>{ if(e.key==='Enter')doRename(s.session_id); if(e.key==='Escape')setRenameId(null); },
+            onBlur:()=>doRename(s.session_id)})
+        : el('span',{className:'sitem-name',onDoubleClick:e=>{e.stopPropagation();setRenameId(s.session_id);setRenameVal(s.name);}},s.name),
+      el(ModeBadge,{mode:s.model_mode})
     ),
-    el('div',{className:'chat-input'},
-      el('input',{
-        value:input,
-        onChange:e=>setInput(e.target.value),
-        onKeyDown:e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); send(input); } },
-        placeholder:loading?'BixDot is thinking…':'Ask BixDot anything…',
-        disabled:loading,
-        autoFocus:true
-      }),
-      el('button',{className:'send-btn',onClick:()=>send(input),disabled:loading||!input.trim()},
-        el(SVG,{d:SEND_ICON,size:14})
+    s.last_message_preview&&el('div',{className:'sitem-prev'},s.last_message_preview),
+    el('button',{className:'sitem-menu',onClick:e=>{e.stopPropagation();setMenuId(menuId===s.session_id?null:s.session_id);}},'⋯'),
+    menuId===s.session_id&&el('div',{className:'smenu',onClick:e=>e.stopPropagation()},
+      el('button',{onClick:()=>{setRenameId(s.session_id);setRenameVal(s.name);setMenuId(null);}},'Rename'),
+      el('button',{className:'danger',onClick:()=>archiveOrDelete(s)},s.is_private?'Delete':'Archive')
+    )
+  );
+
+  return el('div',{className:'chat-wrap'},
+    el('div',{className:'srail'},
+      el('div',{className:'srail-head'},
+        el('button',{className:'srail-btn',onClick:()=>setShowCreate(true)},'＋ New Chat'),
+        el('button',{className:'srail-btn priv',onClick:newPrivate},'🔒 New Private Session')
+      ),
+      el('div',{className:'srail-list'},
+        sessions.length===0&&el('div',{style:{fontSize:11,color:'var(--muted)',padding:'10px'}},'No sessions yet.'),
+        sessions.map(sitem)
+      ),
+      archived.length>0&&el('div',{className:'srail-arch'},
+        el('div',{className:'srail-arch-h',onClick:()=>setShowArch(a=>!a)},(showArch?'▾':'▸')+' Archived ('+archived.length+')'),
+        showArch&&archived.map(s=>el('div',{key:s.session_id,className:'sitem',onClick:()=>restore(s),title:'Click to restore'},
+          el('div',{className:'sitem-top'},el('span',{className:'sitem-name',style:{color:'var(--muted)'}},s.name),el('span',{style:{fontSize:9,color:'var(--accent)'}},'restore'))
+        ))
       )
     ),
+    el('div',{className:'chat-pane'},
+      active&&el('div',{className:'chat-header'},
+        el('span',{className:'chat-header-name',title:'Click to rename',
+          onClick:()=>{setRenameId(active.session_id);setRenameVal(active.name);}},active.name),
+        el(ModeBadge,{mode:active.model_mode})
+      ),
+      msgs.length===0
+        ? el('div',{className:'empty'},
+            el('div',{className:'logo-dot',style:{width:10,height:10}}),
+            el('p',null,active?'Start chatting — your data never leaves this machine.':'Create a session to begin.'),
+            active&&el('p',{style:{fontSize:12}},'Try: "What can you do?" or "Hello!"')
+          )
+        : el('div',{className:'chat-body'},
+            msgs.map((m,i)=>el('div',{key:i,className:'msg-row '+(m.role==='user'?'user':'')},
+              el('div',{className:'msg '+(m.role==='err'?'err':m.role==='sys'?'sys':m.role)},m.text)
+            )),
+            loading&&el('div',{className:'msg-row'},el('div',{className:'typing'},el('span'),el('span'),el('span'))),
+            el('div',{ref:bottom})
+          ),
+      active&&active.is_private&&el('div',{className:'priv-banner'},
+        '🔒 Private Session — No history saved. Messages deleted when this session closes.'),
+      el('div',{className:'chat-input'},
+        el('input',{value:input,onChange:e=>setInput(e.target.value),
+          onKeyDown:e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); send(input); } },
+          placeholder:loading?'BixDot is thinking…':active?'Ask BixDot anything…':'Create a session first',
+          disabled:loading||!active,autoFocus:true}),
+        el('button',{className:'send-btn',onClick:()=>send(input),disabled:loading||!input.trim()||!active},
+          el(SVG,{d:SEND_ICON,size:14}))
+      )
+    ),
+    showCreate&&el(CreateSessionModal,{token,onClose:()=>{setShowCreate(false);},onCreate}),
     pendingPerm&&el(PermModal,{cap:pendingPerm,onAllow:allowPerm,onDeny:denyPerm})
   );
 }
@@ -636,92 +827,92 @@ function CalendarSettings({token}){
   );
 }
 
-// ── Plugins Panel ─────────────────────────────────────────────────────────────
-function PluginsPanel({token}){
-  const[plugins,setPlugins]=useState([]);
-  const[installPath,setInstallPath]=useState('');
-  const[installing,setInstalling]=useState(false);
+// ── Skills Panel (third-party skill plugins) ──────────────────────────────────
+async function uploadSkill(path,token,file){
+  const fd=new FormData(); fd.append('file',file,file.name);
+  const r=await fetch('http://localhost:8747'+path,{method:'POST',
+    headers:{'Authorization':'Bearer '+token},body:fd});
+  if(!r.ok){ let m=r.statusText; try{const e=await r.json();m=e.detail||m;}catch(e){} throw new Error(m); }
+  return r.json();
+}
+function SkillsPanel({token}){
+  const[skills,setSkills]=useState([]);
+  const[pending,setPending]=useState(null); // {file, manifest} awaiting approval
+  const[busy,setBusy]=useState(false);
   const[msg,setMsg]=useState('');
-  const[showInstall,setShowInstall]=useState(false);
+  const fileRef=useRef(null);
 
-  const load=()=>api('/plugins',{},token).then(setPlugins).catch(()=>{});
+  const load=()=>api('/agent/skills',{},token).then(setSkills).catch(()=>{});
   useEffect(()=>{load();},[token]);
 
-  const toggle=async(p)=>{
-    const ep=p.is_enabled?'/disable':'/enable';
-    await api('/plugins/'+p.id+ep,{method:'POST'},token).catch(()=>{});
-    load();
-  };
-
-  const uninstall=async(id)=>{
-    if(!confirm('Uninstall plugin "'+id+'"? This cannot be undone.')) return;
-    await api('/plugins/'+id,{method:'DELETE'},token).catch(()=>{});
-    setMsg('Plugin uninstalled.');
-    load();
-  };
-
-  const install=async()=>{
-    if(!installPath.trim()) return;
-    setInstalling(true); setMsg('');
+  const onFile=async(e)=>{
+    const file=e.target.files&&e.target.files[0];
+    if(!file) return;
+    setBusy(true); setMsg('');
     try{
-      await api('/plugins/install',{method:'POST',body:JSON.stringify({path:installPath})},token);
-      setMsg('Plugin installed!');
-      setInstallPath(''); setShowInstall(false);
-      load();
-    }catch(e){ setMsg('Error: '+e.message); }
-    setInstalling(false);
+      const manifest=await uploadSkill('/agent/skills/inspect',token,file);
+      setPending({file,manifest});
+    }catch(err){ setMsg('Rejected: '+err.message); }
+    setBusy(false);
+    if(fileRef.current) fileRef.current.value='';
   };
 
-  const capColor=c=>c.startsWith('fs:')?'var(--blue)':c.startsWith('net:')?'var(--warn)':c.startsWith('exec:')?'var(--red)':'var(--muted)';
+  const approve=async()=>{
+    if(!pending) return;
+    setBusy(true); setMsg('');
+    try{
+      await uploadSkill('/agent/skills/install',token,pending.file);
+      setMsg('✓ Installed "'+pending.manifest.name+'"'); setPending(null); load();
+    }catch(err){ setMsg('Install failed: '+err.message); }
+    setBusy(false);
+  };
+
+  const toggle=async(s)=>{
+    await api('/agent/skills/'+s.skill_id+'/toggle',{method:'PUT',body:JSON.stringify({enabled:!s.is_enabled})},token).catch(()=>{});
+    load();
+  };
+  const remove=async(s)=>{
+    if(!confirm('Uninstall skill "'+s.name+'"? This deletes its files.')) return;
+    await api('/agent/skills/'+s.skill_id,{method:'DELETE'},token).catch(()=>{});
+    setMsg('Skill removed.'); load();
+  };
 
   return el('div',{className:'s-card'},
-    plugins.length===0&&!showInstall&&el('div',{className:'s-row'},
+    skills.length===0&&!pending&&el('div',{className:'s-row'},
       el('div',{className:'s-info'},
-        el('p',null,'No plugins installed'),
-        el('span',null,'Install plugins to extend BixDot with custom skills')
-      ),
-      el('button',{className:'connect-btn',onClick:()=>setShowInstall(true)},'+ Install')
+        el('p',null,'No skills installed'),
+        el('span',null,'Install a .zip skill to extend BixDot. Code is SHA-256 verified and sandboxed.')
+      )
     ),
-    plugins.map(p=>el('div',{key:p.id,className:'s-row',style:{flexWrap:'wrap',gap:6}},
+    skills.map(s=>el('div',{key:s.skill_id,className:'s-row',style:{flexWrap:'wrap',gap:6}},
       el('div',{className:'s-info',style:{flex:1,minWidth:0}},
-        el('p',null,p.name+' ',el('span',{style:{fontSize:10,color:'var(--muted)',fontFamily:'var(--mono)'}},'v'+p.version)),
-        el('span',null,p.author),
-        p.capabilities.length>0&&el('div',{style:{display:'flex',flexWrap:'wrap',gap:4,marginTop:4}},
-          p.capabilities.map(c=>el('span',{key:c,style:{
-            fontSize:10,fontFamily:'var(--mono)',
-            background:'rgba(0,0,0,.3)',border:'1px solid var(--border)',
-            borderRadius:4,padding:'1px 5px',color:capColor(c),
-          }},c))
+        el('p',null,s.name+' ',el('span',{style:{fontSize:10,color:'var(--muted)',fontFamily:'var(--mono)'}},'v'+s.version)),
+        el('span',null,s.author+' · '+s.license),
+        s.capabilities.length>0&&el('div',{style:{display:'flex',flexWrap:'wrap',gap:4,marginTop:4}},
+          s.capabilities.map(c=>el('span',{key:c,className:'skill-cap'},c))
         )
       ),
       el('div',{style:{display:'flex',gap:6,alignItems:'center',flexShrink:0}},
-        el('button',{
-          className:'toggle'+(p.is_enabled?' on':''),
-          onClick:()=>toggle(p),
-          title:p.is_enabled?'Disable':'Enable',
-        }),
-        el('button',{className:'revoke-btn',onClick:()=>uninstall(p.id)},'Remove')
+        el('button',{className:'toggle'+(s.is_enabled?' on':''),onClick:()=>toggle(s),title:s.is_enabled?'Disable':'Enable'}),
+        el('button',{className:'revoke-btn',onClick:()=>remove(s)},'Remove')
       )
     )),
-    plugins.length>0&&el('div',{className:'s-row',style:{borderTop:'1px solid var(--border)'}},
-      el('button',{className:'connect-btn',style:{fontSize:11},onClick:()=>setShowInstall(s=>!s)},'+ Install plugin')
-    ),
-    showInstall&&el('div',{className:'setup-form'},
-      el('div',{style:{fontSize:11,color:'var(--muted)',marginBottom:8,lineHeight:1.5}},
-        'Enter the full path to a plugin directory or .zip file. The directory must contain a ',
-        el('code',{style:{fontFamily:'var(--mono)',color:'var(--accent)'}},'manifest.json'),
-        '.'
+    // Capability approval screen
+    pending&&el('div',{className:'setup-form'},
+      el('div',{style:{fontSize:13,fontWeight:600,marginBottom:4}},pending.manifest.name+' v'+pending.manifest.version),
+      el('div',{style:{fontSize:11,color:'var(--muted)',marginBottom:8}},pending.manifest.description+' — '+pending.manifest.author+' · '+pending.manifest.license),
+      el('div',{style:{fontSize:11,color:'var(--text)',marginBottom:6}},'This skill is requesting these capabilities:'),
+      el('div',{style:{display:'flex',flexWrap:'wrap',gap:4,marginBottom:10}},
+        (pending.manifest.capabilities||[]).map(c=>el('span',{key:c,className:'skill-cap'},c))
       ),
-      el('input',{
-        className:'setup-input',
-        placeholder:'C:\\Users\\you\\myplugin  or  ~/plugins/myplugin.zip',
-        value:installPath,
-        onChange:e=>setInstallPath(e.target.value),
-        onKeyDown:e=>e.key==='Enter'&&install(),
-      }),
-      el('button',{className:'connect-btn',onClick:install,disabled:installing||!installPath.trim()},
-        installing?'Installing…':'Install'
+      el('div',{style:{display:'flex',gap:8}},
+        el('button',{className:'btn btn-deny',style:{flex:'0 0 auto',padding:'8px 14px'},onClick:()=>setPending(null)},'Cancel'),
+        el('button',{className:'btn btn-allow',style:{flex:'0 0 auto',padding:'8px 14px'},onClick:approve,disabled:busy},busy?'Installing…':'Approve & Install')
       )
+    ),
+    !pending&&el('div',{className:'s-row',style:{borderTop:skills.length>0?'1px solid var(--border)':'none'}},
+      el('button',{className:'connect-btn',style:{fontSize:11},disabled:busy,onClick:()=>fileRef.current&&fileRef.current.click()},busy?'Reading…':'+ Install skill (.zip)'),
+      el('input',{ref:fileRef,type:'file',accept:'.zip',style:{display:'none'},onChange:onFile})
     ),
     msg&&el('div',{style:{padding:'8px 14px',fontSize:12,color:'var(--accent)',background:'var(--accent-dim)',borderTop:'1px solid var(--border)'}},msg)
   );
@@ -837,8 +1028,8 @@ function Settings({token, onModelChange}){
       el(CalendarSettings,{token}),
     ),
     el('div',{className:'s-section'},
-      el('div',{className:'s-label'},'Plugins'),
-      el(PluginsPanel,{token})
+      el('div',{className:'s-label'},'Skills'),
+      el(SkillsPanel,{token})
     ),
     el('div',{className:'s-section'},
       el('div',{className:'s-label'},'Active permissions ('+perms.length+')'),

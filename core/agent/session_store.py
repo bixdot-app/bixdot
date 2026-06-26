@@ -18,7 +18,6 @@ is a thin data-access layer over it.
 """
 
 import uuid
-from pathlib import Path
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -277,8 +276,10 @@ def update_session(
         params.append(_now())
         params.append(session_id)
         with get_connection() as conn:
+            # `sets` contains only hardcoded "<col> = ?" fragments; every value
+            # is parameterized via `params`. Safe despite the f-string. noqa S608.
             conn.execute(
-                f"UPDATE sessions SET {', '.join(sets)} WHERE session_id = ?",
+                f"UPDATE sessions SET {', '.join(sets)} WHERE session_id = ?",  # noqa: S608
                 params,
             )
     return get_session_meta(session_id)

@@ -71,6 +71,24 @@ async def list_skills(user=Depends(require_auth)):
     return [_to_response(s) for s in registry.list_skills()]
 
 
+@router.post("/inspect")
+async def inspect_skill(file: UploadFile = File(...), user=Depends(require_owner)):
+    """
+    Validate an uploaded .zip and return its manifest (id, capabilities, license,
+    …) WITHOUT installing — powers the capability-approval screen.
+    """
+    if not file.filename or not file.filename.lower().endswith(".zip"):
+        raise HTTPException(status_code=400, detail="Upload must be a .zip archive.")
+    with tempfile.TemporaryDirectory() as tmp:
+        zip_path = Path(tmp) / "skill.zip"
+        zip_path.write_bytes(await file.read())
+        try:
+            manifest = plugin_manager.inspect_skill(zip_path)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+    return manifest
+
+
 @router.post("/install", response_model=SkillResponse)
 async def install_skill(file: UploadFile = File(...), user=Depends(require_owner)):
     """
