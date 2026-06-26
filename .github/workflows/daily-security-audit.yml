@@ -140,13 +140,13 @@ jobs:
           path: bandit-report.json
           retention-days: 30
 
-      # ── 3. Ruff Lint Fix ────────────────────────────────────────────────────
-      - name: ruff — auto-fix lint issues
+      # ── 3. Ruff Lint Fix (core/ CI gate + full-repo success bar) ────────────
+      - name: ruff — auto-fix lint issues (core/ and full repo)
         id: ruff
         run: |
           set +e
           ruff check core/ --fix --quiet
-          EXIT=$?
+          ruff check . --fix --quiet
           set -e
 
           if git diff --quiet; then
@@ -158,14 +158,16 @@ jobs:
             git diff --name-only >> "$GITHUB_STEP_SUMMARY"
           fi
 
-          # Report any remaining errors that ruff couldn't auto-fix
-          REMAINING=$(ruff check core/ --quiet 2>&1 || true)
-          if [ -n "$REMAINING" ]; then
-            echo "### ⚠️ Ruff — Remaining issues (need manual fix)" >> "$GITHUB_STEP_SUMMARY"
-            echo "\`\`\`" >> "$GITHUB_STEP_SUMMARY"
-            echo "$REMAINING" >> "$GITHUB_STEP_SUMMARY"
-            echo "\`\`\`" >> "$GITHUB_STEP_SUMMARY"
-          fi
+          # Report remaining (non-auto-fixable) issues for BOTH scopes
+          for SCOPE in "core/" "."; do
+            REMAINING=$(ruff check "$SCOPE" --quiet 2>&1 || true)
+            if [ -n "$REMAINING" ]; then
+              echo "### ⚠️ Ruff — Remaining issues in '$SCOPE' (need manual fix)" >> "$GITHUB_STEP_SUMMARY"
+              echo "\`\`\`" >> "$GITHUB_STEP_SUMMARY"
+              echo "$REMAINING" >> "$GITHUB_STEP_SUMMARY"
+              echo "\`\`\`" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
 
       # ── 4. Commit & Push (if anything changed) ─────────────────────────────
       - name: Commit and push fixes
@@ -174,7 +176,7 @@ jobs:
           git config user.name  "BixDot Security Bot"
           git config user.email "security@bixdot.app"
 
-          git add requirements.txt pyproject.toml core/ || true
+          git add requirements.txt pyproject.toml core/ tests/ scripts/ docs/ ruff.toml || true
 
           if git diff --cached --quiet; then
             echo "committed=false" >> "$GITHUB_OUTPUT"

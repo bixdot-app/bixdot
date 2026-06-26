@@ -11,9 +11,12 @@ BixDot pre-release validation script.
 Runs before every tag to ensure the repo is in a releasable state:
 - All version strings are consistent across all files
 - Tests pass
+- Lint + security gate: ruff (core/ and full repo), bandit, pip-audit all clean
 - No uncommitted changes
 - CHANGELOG has an entry for this version
 - Release notes file exists
+
+Tools are invoked via ``python -m`` so they work on Windows and Linux alike.
 
 Usage:
     python scripts/pre_release.py              # validates against current version
@@ -93,6 +96,42 @@ def check_tests() -> list[str]:
     return []
 
 
+def check_lint() -> list[str]:
+    """ruff must be clean on core/ (CI gate) AND the full repo (success bar)."""
+    failures = []
+    for target in ("core/", "."):
+        code, output = _run([sys.executable, "-m", "ruff", "check", target])
+        if code != 0:
+            tail = "\n    ".join([ln for ln in output.splitlines() if ln.strip()][-6:])
+            failures.append(f"{FAIL} ruff check {target} — issues:\n    {tail}")
+        else:
+            print(f"  {PASS} ruff check {target}")
+    return failures
+
+
+def check_bandit() -> list[str]:
+    """bandit must report no medium+ severity issues in core/ (matches CI flags)."""
+    code, output = _run([
+        sys.executable, "-m", "bandit", "-r", "core/",
+        "-ll", "-ii", "--skip", "B101,B603,B607", "-q",
+    ])
+    if code != 0:
+        tail = "\n    ".join([ln for ln in output.splitlines() if ln.strip()][-8:])
+        return [f"{FAIL} bandit (medium+ severity) — issues:\n    {tail}"]
+    print(f"  {PASS} bandit — no medium+ severity issues")
+    return []
+
+
+def check_pip_audit() -> list[str]:
+    """pip-audit must find zero CVEs (scoped to requirements.txt — never bare)."""
+    code, output = _run([sys.executable, "-m", "pip_audit", "-r", "requirements.txt"])
+    if code != 0:
+        tail = "\n    ".join([ln for ln in output.splitlines() if ln.strip()][-8:])
+        return [f"{FAIL} pip-audit — CVE(s) or error:\n    {tail}"]
+    print(f"  {PASS} pip-audit — zero CVEs")
+    return []
+
+
 def check_clean_working_tree() -> list[str]:
     code, output = _run(["git", "status", "--porcelain"])
     if output:
@@ -137,6 +176,11 @@ def main():
 
     print("\nTest suite:")
     failures += check_tests()
+
+    print("\nLint + security gate:")
+    failures += check_lint()
+    failures += check_bandit()
+    failures += check_pip_audit()
 
     print("\nGit state:")
     w = check_clean_working_tree()
