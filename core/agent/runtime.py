@@ -40,6 +40,7 @@ class AgentSession(BaseModel):
     messages: list[Message] = []
     llm_backend: str = "ollama"
     model_mode: str = ModelMode.FULL_AGENT.value
+    is_private: bool = False   # private sessions: no message content in audit log
 
 class AgentResponse(BaseModel):
     message: str
@@ -380,9 +381,13 @@ class AgentRuntime:
 
     async def run(self, session: AgentSession, user_message: str) -> AgentResponse:
         session.messages.append(Message(role="user", content=user_message))
-        self.audit.log(AuditEvent.AGENT_QUERY,
-                       {"preview": user_message[:100], "session_id": session.session_id},
-                       user_id=session.user_id)
+        # Private sessions: never record message content in the audit log.
+        query_details = {"session_id": session.session_id}
+        if session.is_private:
+            query_details["private"] = True
+        else:
+            query_details["preview"] = user_message[:100]
+        self.audit.log(AuditEvent.AGENT_QUERY, query_details, user_id=session.user_id)
 
         mode = ModelMode(session.model_mode)
         if mode == ModelMode.CLOUD:
@@ -473,9 +478,12 @@ class AgentRuntime:
                 tool_name  = _name(tool_use)
                 tool_input = _input(tool_use)
 
-                self.audit.log(AuditEvent.AGENT_TOOL_CALL,
-                               {"tool": tool_name, "input": tool_input},
-                               user_id=session.user_id)
+                self.audit.log(
+                    AuditEvent.AGENT_TOOL_CALL,
+                    {"tool": tool_name,
+                     "input": "[redacted — private session]" if session.is_private else tool_input},
+                    user_id=session.user_id,
+                )
 
                 required_cap = TOOL_CAPABILITY_MAP.get(tool_name)
                 if required_cap and not self.permissions.check("builtin", required_cap):

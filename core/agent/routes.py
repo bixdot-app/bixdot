@@ -12,23 +12,27 @@ GET  /agent/sessions  — list active sessions
 POST /agent/sessions  — create a new session
 DELETE /agent/sessions/{id} — end a session
 """
-import uuid
 from typing import Literal, Optional
 from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException
 
 from core.auth.middleware import require_auth
-from core.agent.runtime import AgentRuntime, AgentSession, AgentResponse
+from core.agent.runtime import AgentRuntime, AgentResponse
 from core.agent.permissions import get_permission_store, Capability
 from core.agent.model_caps import ModelMode, classify_model
-from core.audit.logger import get_audit_logger
+from core.audit.logger import get_audit_logger, AuditEvent
 from core.agent.session_store import (
     get_session_store,
-    save_session,
+    create_session as store_create_session,
+    get_session_meta,
+    list_sessions as store_list_sessions,
+    update_session as store_update_session,
+    get_messages as store_get_messages,
     load_session,
-    load_user_sessions,
+    save_session,
     delete_session,
     session_belongs_to,
+    is_private as store_is_private,
 )
 
 router = APIRouter(prefix="/agent", tags=["agent"])
@@ -44,16 +48,42 @@ class ChatRequest(BaseModel):
     session_id: str
 
 
-class NewSessionRequest(BaseModel):
-    llm_backend: Literal["claude", "ollama"] = "ollama"  # Local-first default
-    model: Optional[str] = None  # Override the persisted model for this session
+class CreateSessionRequest(BaseModel):
+    model_config = {"protected_namespaces": ()}
+    name: str = "New Chat"
+    model: str = ""               # empty = use persisted/settings default
+    is_private: bool = False
+    llm_backend: Literal["claude", "ollama"] = "ollama"
 
 
-class SessionResponse(BaseModel):
+class UpdateSessionRequest(BaseModel):
+    name: Optional[str] = None
+    is_archived: Optional[bool] = None
+
+
+class SessionSummary(BaseModel):
+    model_config = {"protected_namespaces": ()}
     session_id: str
-    llm_backend: str
-    message_count: int
-    model_mode: str = ModelMode.FULL_AGENT.value
+    name: str
+    model: str
+    model_mode: str
+    is_private: bool
+    is_archived: bool = False
+    created_at: str
+    updated_at: str
+    last_message_preview: Optional[str] = None
+    message_count: int = 0
+    # Legacy field kept for older frontend builds
+    llm_backend: str = "ollama"
+
+
+class MessageItem(BaseModel):
+    role: str
+    content: str
+
+
+class SessionDetail(SessionSummary):
+    messages: list[MessageItem] = []
 
 
 class ModelInfo(BaseModel):
@@ -74,104 +104,206 @@ class SetModelRequest(BaseModel):
     model: str
 
 
-# ─── Routes ───────────────────────────────────────────────────────────────────
+# ─── Helpers ──────────────────────────────────────────────────────────────────
 
-@router.post("/sessions", response_model=SessionResponse)
-async def create_session(
-    request: NewSessionRequest,
-    user=Depends(require_auth),
-):
-    """Create a new agent session."""
+async def _resolve_model_and_mode(
+    llm_backend: str, model: str, user_id: str
+) -> tuple[str, ModelMode]:
+    """
+    Resolve the effective model name and its ModelMode from live Ollama
+    capabilities. Raises HTTP 400 (and audits cloud_model_blocked) for cloud
+    models — they transmit data off-device, violating the local-first guarantee.
+    """
     import httpx
     from core.config import settings as cfg
     from core.storage.db import get_setting
 
-    # Resolve model_mode from Ollama capabilities
+    model_name = model or get_setting("local_model") or cfg.local_model
     model_mode = ModelMode.FULL_AGENT
-    if request.llm_backend == "claude":
+
+    if llm_backend == "claude":
         model_mode = ModelMode.CLOUD
     else:
-        model_name = request.model or get_setting("local_model") or cfg.local_model
         try:
             async with httpx.AsyncClient(base_url=cfg.ollama_url, timeout=5) as client:
                 r = await client.get("/api/tags")
                 r.raise_for_status()
                 for m in r.json().get("models", []):
-                    if m["name"] == model_name:
+                    if m["name"].split(":")[0] == model_name.split(":")[0]:
                         model_mode = classify_model(m.get("capabilities", []))
                         break
         except Exception:
-            pass  # Ollama unreachable — default FULL_AGENT
+            pass  # Ollama unreachable — default to FULL_AGENT
 
     if model_mode == ModelMode.CLOUD:
+        get_audit_logger().log(
+            AuditEvent.CLOUD_MODEL_BLOCKED,
+            {"model_name": model_name},
+            user_id=user_id,
+        )
         raise HTTPException(
             status_code=400,
-            detail="Cloud models are blocked in local-first mode. "
-                   "Use a local Ollama model.",
+            detail=(
+                "Cloud models transmit data to external servers, violating "
+                "BixDot's local-first guarantee. Pull a local model instead: "
+                "ollama pull <model-name>"
+            ),
         )
+    return model_name, model_mode
 
-    session_id = str(uuid.uuid4())
-    session = AgentSession(
-        session_id=session_id,
-        user_id=user.sub,
-        llm_backend=request.llm_backend,
-        model_mode=model_mode.value,
+
+def _summary(meta: dict) -> SessionSummary:
+    return SessionSummary(
+        session_id=meta["session_id"],
+        name=meta["name"],
+        model=meta["model"],
+        model_mode=meta["model_mode"],
+        is_private=meta["is_private"],
+        is_archived=meta.get("is_archived", False),
+        created_at=meta["created_at"],
+        updated_at=meta["updated_at"],
+        last_message_preview=meta.get("last_message_preview"),
+        message_count=meta.get("message_count", 0),
+        llm_backend=meta.get("llm_backend", "ollama"),
     )
-    save_session(session)  # persisted to SQLite
 
-    return SessionResponse(
-        session_id=session_id,
-        llm_backend=request.llm_backend,
-        message_count=0,
-        model_mode=model_mode.value,
+
+# ─── Routes ───────────────────────────────────────────────────────────────────
+
+@router.post("/sessions", response_model=SessionSummary)
+async def create_session(
+    request: CreateSessionRequest,
+    user=Depends(require_auth),
+):
+    """
+    Create a new agent session (regular or private).
+    Cloud models are blocked with HTTP 400 (local-first guarantee).
+    """
+    model_name, model_mode = await _resolve_model_and_mode(
+        request.llm_backend, request.model, user.sub
     )
 
+    meta = store_create_session(
+        user.sub,
+        name=request.name or "New Chat",
+        model=model_name,
+        model_mode=model_mode.value,
+        llm_backend=request.llm_backend,
+        is_private=request.is_private,
+    )
 
-@router.get("/sessions", response_model=list[SessionResponse])
-async def list_sessions(user=Depends(require_auth)):
-    """List all sessions for the current user (loaded from SQLite)."""
-    sessions = load_user_sessions(user.sub)
-    return [
-        SessionResponse(
-            session_id=s.session_id,
-            llm_backend=s.llm_backend,
-            message_count=len(s.messages),
+    audit = get_audit_logger()
+    if request.is_private:
+        # NEVER record name or message content for private sessions.
+        audit.log(
+            AuditEvent.PRIVATE_SESSION_STARTED,
+            {"session_id": meta["session_id"], "model": model_name},
+            user_id=user.sub,
         )
-        for s in sessions
-    ]
+    else:
+        audit.log(
+            AuditEvent.SESSION_CREATED,
+            {"session_id": meta["session_id"], "name": meta["name"],
+             "model": model_name, "is_private": False},
+            user_id=user.sub,
+        )
+    return _summary(meta)
+
+
+@router.get("/sessions", response_model=list[SessionSummary])
+async def list_sessions(
+    include_archived: bool = False,
+    user=Depends(require_auth),
+):
+    """List the current user's sessions (non-archived, newest first by default)."""
+    return [_summary(m) for m in store_list_sessions(user.sub, include_archived=include_archived)]
+
+
+@router.get("/sessions/{session_id}", response_model=SessionDetail)
+async def get_session(session_id: str, user=Depends(require_auth)):
+    """Return session metadata plus the last 50 messages."""
+    if not session_belongs_to(session_id, user.sub):
+        raise HTTPException(status_code=404, detail="Session not found")
+    meta = get_session_meta(session_id)
+    if not meta:
+        raise HTTPException(status_code=404, detail="Session not found")
+    msgs = store_get_messages(session_id, limit=50)
+    detail = SessionDetail(**_summary(meta).model_dump())
+    detail.messages = [MessageItem(role=m["role"], content=m["content"]) for m in msgs]
+    return detail
 
 
 @router.get("/sessions/{session_id}/messages")
-async def get_session_messages(session_id: str, user=Depends(require_auth)):
+async def get_session_messages(
+    session_id: str,
+    limit: int = 50,
+    before: Optional[int] = None,
+    user=Depends(require_auth),
+):
     """
-    Return the visible message history for a session so the UI can restore the
-    chat transcript after the Chat screen is unmounted/remounted on navigation.
-    Internal memory-context messages are filtered out.
+    Paginated message history (oldest-first within the page). Roles are mapped
+    to the UI vocabulary ('assistant' -> 'agent'); internal memory-context
+    messages are already filtered by the store.
     """
-    session = load_session(session_id)
-    if not session or session.user_id != user.sub:
+    if not session_belongs_to(session_id, user.sub):
+        raise HTTPException(status_code=404, detail="Session not found")
+    msgs = store_get_messages(session_id, limit=min(limit, 200), before_id=before)
+    return {
+        "messages": [
+            {"id": m.get("id"),
+             "role": "user" if m["role"] == "user" else "agent",
+             "content": m["content"]}
+            for m in msgs
+        ]
+    }
+
+
+@router.put("/sessions/{session_id}", response_model=SessionSummary)
+async def update_session(
+    session_id: str,
+    request: UpdateSessionRequest,
+    user=Depends(require_auth),
+):
+    """Rename and/or archive a session."""
+    if not session_belongs_to(session_id, user.sub):
+        raise HTTPException(status_code=404, detail="Session not found")
+    before = get_session_meta(session_id)
+    meta = store_update_session(session_id, name=request.name, is_archived=request.is_archived)
+    if not meta:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    visible = []
-    for m in session.messages:
-        if m.content.startswith("[MEMORY CONTEXT]"):
-            continue
-        if m.role == "assistant" and m.content == "Noted, I have that context.":
-            continue
-        visible.append({
-            "role": "user" if m.role == "user" else "agent",
-            "content": m.content,
-        })
-    return {"messages": visible}
+    audit = get_audit_logger()
+    if request.name is not None and not meta["is_private"]:
+        audit.log(
+            AuditEvent.SESSION_RENAMED,
+            {"session_id": session_id,
+             "old_name": before["name"] if before else None,
+             "new_name": request.name},
+            user_id=user.sub,
+        )
+    if request.is_archived:
+        audit.log(AuditEvent.SESSION_ARCHIVED, {"session_id": session_id}, user_id=user.sub)
+    return _summary(meta)
 
 
 @router.delete("/sessions/{session_id}")
 async def end_session(session_id: str, user=Depends(require_auth)):
-    """End and delete a session."""
+    """
+    Delete a session. Private sessions are hard-deleted (no DB trace).
+    Regular sessions are archived (recoverable) rather than destroyed.
+    """
     if not session_belongs_to(session_id, user.sub):
         raise HTTPException(status_code=404, detail="Session not found")
-    delete_session(session_id)
-    return {"status": "ended", "session_id": session_id}
+
+    audit = get_audit_logger()
+    if store_is_private(session_id):
+        delete_session(session_id)  # hard delete from memory
+        audit.log(AuditEvent.PRIVATE_SESSION_ENDED, {"session_id": session_id}, user_id=user.sub)
+        return {"status": "deleted", "session_id": session_id}
+
+    store_update_session(session_id, is_archived=True)
+    audit.log(AuditEvent.SESSION_ARCHIVED, {"session_id": session_id}, user_id=user.sub)
+    return {"status": "archived", "session_id": session_id}
 
 
 @router.post("/chat", response_model=AgentResponse)

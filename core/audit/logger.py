@@ -42,6 +42,20 @@ class AuditEvent(str, Enum):
     SKILL_REMOVED = "skill.removed"
     SKILL_EXECUTED = "skill.executed"
     SKILL_BLOCKED = "skill.blocked"            # Sandbox kill logged here
+    SKILL_DISABLED = "skill.disabled"          # Integrity failure / user disable
+    SKILL_VERIFY_FAILED = "skill.verify_failed"  # SHA-256 mismatch at startup
+    SKILL_TOGGLED = "skill.toggled"
+
+    # Sessions (v0.4 multi-session). For private sessions, NEVER log content.
+    SESSION_CREATED = "session.created"
+    SESSION_RENAMED = "session.renamed"
+    SESSION_ARCHIVED = "session.archived"
+    SESSION_DELETED = "session.deleted"
+    PRIVATE_SESSION_STARTED = "session.private_started"
+    PRIVATE_SESSION_ENDED = "session.private_ended"
+
+    # Models
+    CLOUD_MODEL_BLOCKED = "model.cloud_blocked"
 
     # Agent
     AGENT_QUERY = "agent.query"
