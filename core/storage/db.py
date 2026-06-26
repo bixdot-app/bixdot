@@ -159,14 +159,57 @@ CREATE TABLE IF NOT EXISTS permission_grants (
     is_active       INTEGER NOT NULL DEFAULT 1
 );
 
--- Agent sessions
+-- Agent sessions (v0.4 multi-session schema)
+-- Private sessions (is_private=1) are NEVER written here — they live only in
+-- memory in session_store and vanish on restart. Only regular sessions persist.
 CREATE TABLE IF NOT EXISTS sessions (
-    id          TEXT PRIMARY KEY,
-    user_id     TEXT NOT NULL REFERENCES users(id),
-    started_at  TEXT NOT NULL DEFAULT (datetime('now')),
-    ended_at    TEXT,
-    llm_backend TEXT NOT NULL DEFAULT 'claude',
-    message_count INTEGER NOT NULL DEFAULT 0
+    session_id   TEXT PRIMARY KEY,
+    user_id      TEXT NOT NULL,
+    name         TEXT NOT NULL DEFAULT 'New Chat',
+    model        TEXT NOT NULL DEFAULT '',
+    model_mode   TEXT NOT NULL DEFAULT 'FULL_AGENT',
+    llm_backend  TEXT NOT NULL DEFAULT 'ollama',
+    is_private   INTEGER NOT NULL DEFAULT 0,
+    is_archived  INTEGER NOT NULL DEFAULT 0,
+    created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Per-session chat history (regular sessions only — never private)
+CREATE TABLE IF NOT EXISTS session_messages (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id   TEXT NOT NULL,
+    role         TEXT NOT NULL,   -- 'user' | 'assistant' | 'system'
+    content      TEXT NOT NULL,
+    created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE CASCADE
+);
+
+-- Installed third-party skills registry (v0.4 skill plugin API)
+CREATE TABLE IF NOT EXISTS installed_skills (
+    skill_id      TEXT PRIMARY KEY,        -- e.g. com.example.my-skill
+    name          TEXT NOT NULL,
+    version       TEXT NOT NULL,
+    description   TEXT NOT NULL,
+    author        TEXT NOT NULL,
+    license       TEXT NOT NULL,
+    entry_file    TEXT NOT NULL,           -- absolute path to entry script
+    capabilities  TEXT NOT NULL,           -- JSON array (dotted manifest caps)
+    trigger_text  TEXT NOT NULL,
+    entry_sha256  TEXT NOT NULL,           -- verified at install and every startup
+    is_enabled    INTEGER NOT NULL DEFAULT 1,
+    installed_at  TEXT NOT NULL,
+    approved_by   TEXT NOT NULL            -- user_id who approved the install
+);
+
+CREATE TABLE IF NOT EXISTS skill_capability_grants (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    skill_id      TEXT NOT NULL,
+    user_id       TEXT NOT NULL,
+    capability    TEXT NOT NULL,
+    granted_at    TEXT NOT NULL,
+    UNIQUE(skill_id, user_id, capability),
+    FOREIGN KEY (skill_id) REFERENCES installed_skills(skill_id) ON DELETE CASCADE
 );
 
 -- App settings (non-secret config persisted across restarts)
@@ -180,8 +223,27 @@ CREATE TABLE IF NOT EXISTS settings (
 INDEXES = """
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_permission_grants_skill ON permission_grants(skill_id);
-CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_updated ON sessions(updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_messages_session ON session_messages(session_id, id ASC);
+CREATE INDEX IF NOT EXISTS idx_skill_grants_skill ON skill_capability_grants(skill_id);
 """
+
+
+def _premigrate_sessions(conn) -> None:
+    """
+    Idempotent pre-migration: if a pre-v0.4 `sessions` table exists (old schema
+    with an `id` PK or a `messages` blob column), drop it so the v0.4 schema can
+    be created cleanly. Chat history in old sessions is ephemeral and safe to
+    reset — this mirrors the prior drop-on-stale-schema behaviour.
+    """
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(sessions)")}
+    if not cols:
+        return  # table doesn't exist yet — nothing to migrate
+    required = {"session_id", "name", "model_mode", "is_private", "is_archived"}
+    if not required.issubset(cols):
+        conn.execute("DROP TABLE IF EXISTS session_messages")
+        conn.execute("DROP TABLE IF EXISTS sessions")
 
 
 def init_db() -> None:
@@ -190,6 +252,7 @@ def init_db() -> None:
     Creates tables if they don't exist, runs pending migrations.
     """
     with get_connection() as conn:
+        _premigrate_sessions(conn)
         conn.executescript(SCHEMA)
         conn.executescript(INDEXES)
 

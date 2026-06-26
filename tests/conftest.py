@@ -46,6 +46,11 @@ def isolated_db(tmp_path, monkeypatch):
     from core.storage.db import init_db
     init_db()
 
+    # Reset session store: clear in-memory private sessions and force re-init
+    import core.agent.session_store as ss_mod
+    monkeypatch.setattr(ss_mod, "_initialized", False)
+    ss_mod._reset_for_tests()
+
     # Reset rate limiter storage so tests don't accumulate counts and hit 429
     from core.security import limiter
     limiter.reset()
