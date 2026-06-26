@@ -4,6 +4,15 @@ All notable changes to BixDot are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).  
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] — 2026-06-26
+
+### Fixed
+- **Per-session model now actually used** — `_chat_ollama` read the global `local_model` setting and ignored the model chosen when creating a session, so every chat ran on the default model regardless of selection. `AgentSession` now carries its `model`, the runtime passes it to `LLMAdapter`, and the adapter prefers the per-session model (falling back to the global default only when unset).
+- **Cloud models detected by name tag** — Ollama's hosted models (e.g. `minimax-m3:cloud`) advertise the `:cloud`/`-cloud` tag in the name but do not include a `cloud` capability, so they were misclassified as Full Agent and not blocked. `classify_model` now treats a `:cloud`/`-cloud` name as CLOUD; such models are flagged, grouped under Cloud (disabled) in the picker, and blocked at session creation.
+- **Chat header shows the active model** — the per-session model name is displayed next to the mode badge.
+
+---
+
 ## [0.4.0] — 2026-06-26
 
 ### Added — Multi-session UI + Private Session mode

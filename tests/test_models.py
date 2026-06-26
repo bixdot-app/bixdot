@@ -42,6 +42,14 @@ def test_cloud_takes_priority_over_tools():
 def test_embedding_takes_priority_over_cloud():
     assert classify_model(["embedding", "cloud"]) == ModelMode.EMBEDDING
 
+def test_cloud_detected_by_name_tag_without_capability():
+    # Ollama hosted models advertise ":cloud" in the name, not in capabilities
+    assert classify_model(["tools"], "minimax-m3:cloud") == ModelMode.CLOUD
+    assert classify_model([], "gpt-oss-120b-cloud") == ModelMode.CLOUD
+
+def test_local_model_not_cloud_by_name():
+    assert classify_model(["tools"], "llama3.2:latest") == ModelMode.FULL_AGENT
+
 
 # ── strip_thinking_tokens ─────────────────────────────────────────────────────
 

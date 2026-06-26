@@ -28,17 +28,21 @@ class ModelMode(str, Enum):
     EMBEDDING  = "EMBEDDING"   # embedding model — excluded from chat
 
 
-def classify_model(capabilities: list[str]) -> ModelMode:
+def classify_model(capabilities: list[str], name: str = "") -> ModelMode:
     """
-    Map an Ollama model's capability list to a ModelMode.
+    Map an Ollama model to a ModelMode from its capabilities (and, for cloud
+    detection, its name tag).
 
-    Relies entirely on the capabilities field from /api/tags — no family
-    name heuristics. Falls back to TEXT_ONLY if the field is absent or empty.
+    Cloud models are identified by a "cloud" capability OR a ``:cloud`` /
+    ``-cloud`` name tag — Ollama's hosted models advertise the tag in the name
+    but do not always include "cloud" in the capability list. Everything else
+    is driven purely by capabilities (no family-name heuristics).
     """
     caps = set(capabilities)
+    n = name.lower()
     if "embedding" in caps:
         return ModelMode.EMBEDDING      # not a chat model — filtered from picker
-    if "cloud" in caps:
+    if "cloud" in caps or n.endswith(":cloud") or n.endswith("-cloud"):
         return ModelMode.CLOUD          # cloud wins over tools — data leaves device
     if "tools" in caps:
         return ModelMode.FULL_AGENT     # tool calling → two-phase agent runtime

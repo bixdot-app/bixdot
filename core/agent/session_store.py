@@ -111,6 +111,7 @@ def create_session(
             session_id=session_id,
             user_id=user_id,
             llm_backend=llm_backend,
+            model=model,
             model_mode=model_mode,
             is_private=True,
         )
@@ -336,6 +337,7 @@ def load_session(session_id: str) -> Optional[AgentSession]:
         session_id=row["session_id"],
         user_id=row["user_id"],
         llm_backend=row["llm_backend"],
+        model=row["model"],
         model_mode=row["model_mode"],
         messages=messages,
     )

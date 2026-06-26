@@ -195,3 +195,19 @@ def test_cloud_backend_blocked_at_creation(client, auth_headers):
                     json={"name": "Cloud", "llm_backend": "claude"}, headers=auth_headers)
     assert r.status_code == 400
     assert "local-first" in r.json()["detail"].lower()
+
+
+def test_cloud_named_model_blocked_at_creation(client, auth_headers):
+    # A model whose name carries a :cloud tag is blocked even via the ollama backend
+    r = client.post("/agent/sessions",
+                    json={"name": "X", "model": "minimax-m3:cloud"}, headers=auth_headers)
+    assert r.status_code == 400
+
+
+def test_session_persists_chosen_model(client, auth_headers):
+    r = client.post("/agent/sessions",
+                    json={"name": "Pick", "model": "llama3.2:latest"}, headers=auth_headers)
+    sid = r.json()["session_id"]
+    assert r.json()["model"] == "llama3.2:latest"
+    # The runtime-facing AgentSession carries the per-session model
+    assert ss.load_session(sid).model == "llama3.2:latest"

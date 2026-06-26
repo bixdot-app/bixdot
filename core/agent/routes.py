@@ -130,8 +130,12 @@ async def _resolve_model_and_mode(
                 r.raise_for_status()
                 for m in r.json().get("models", []):
                     if m["name"].split(":")[0] == model_name.split(":")[0]:
-                        model_mode = classify_model(m.get("capabilities", []))
+                        model_mode = classify_model(m.get("capabilities", []), m["name"])
                         break
+            # If the chosen name itself carries a cloud tag, classify it as cloud
+            # even when Ollama is unreachable or didn't list it.
+            if model_name.lower().endswith((":cloud", "-cloud")):
+                model_mode = ModelMode.CLOUD
         except Exception:
             pass  # Ollama unreachable — default to FULL_AGENT
 
@@ -436,7 +440,7 @@ async def list_models(user=Depends(require_auth)):
     infos: list[ModelInfo] = []
     for m in raw_models:
         caps = m.get("capabilities", [])
-        mode = classify_model(caps)
+        mode = classify_model(caps, m.get("name", ""))
         if mode == ModelMode.EMBEDDING:
             continue  # never expose embedding models in the chat picker
         infos.append(ModelInfo(

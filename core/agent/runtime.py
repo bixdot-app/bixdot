@@ -39,6 +39,7 @@ class AgentSession(BaseModel):
     user_id: str
     messages: list[Message] = []
     llm_backend: str = "ollama"
+    model: str = ""            # per-session Ollama model (empty = global default)
     model_mode: str = ModelMode.FULL_AGENT.value
     is_private: bool = False   # private sessions: no message content in audit log
 
@@ -433,7 +434,8 @@ class AgentRuntime:
         if mode == ModelMode.CLOUD:
             raise RuntimeError("Cloud models are not permitted in local-first mode.")
 
-        llm = LLMAdapter(backend=session.llm_backend, user_id=session.user_id)
+        llm = LLMAdapter(backend=session.llm_backend, user_id=session.user_id,
+                         model=session.model or None)
 
         # THINKING / TEXT_ONLY → single call, no tool loop
         if mode in (ModelMode.THINKING, ModelMode.TEXT_ONLY):

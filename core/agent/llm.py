@@ -107,6 +107,7 @@ class LLMAdapter:
         self,
         backend: Literal["ollama", "cloud"] = "ollama",
         user_id: Optional[str] = None,
+        model: Optional[str] = None,
     ):
         if backend == "cloud" and not settings.cloud_llm_enabled:
             raise RuntimeError(
@@ -115,6 +116,7 @@ class LLMAdapter:
             )
         self.backend = backend
         self.user_id = user_id
+        self.model = model  # per-session override; falls back to global setting
 
     async def chat(
         self,
@@ -138,9 +140,9 @@ class LLMAdapter:
         Local Ollama inference — no data leaves the device.
         Passes tool definitions so llama3.2 can call them.
         """
-        # Read model from DB setting so the UI model selector takes effect
+        # Prefer the per-session model; fall back to the persisted global setting.
         from core.storage.db import get_setting
-        active_model = get_setting("local_model") or settings.local_model
+        active_model = self.model or get_setting("local_model") or settings.local_model
 
         audit.log(
             AuditEvent.AGENT_QUERY,

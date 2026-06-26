@@ -654,7 +654,10 @@ function Chat({token,model}){
       active&&el('div',{className:'chat-header'},
         el('span',{className:'chat-header-name',title:'Click to rename',
           onClick:()=>{setRenameId(active.session_id);setRenameVal(active.name);}},active.name),
-        el(ModeBadge,{mode:active.model_mode})
+        el('div',{style:{display:'flex',alignItems:'center',gap:8}},
+          active.model&&el('span',{style:{fontSize:11,fontFamily:'var(--mono)',color:'var(--muted)'}},active.model),
+          el(ModeBadge,{mode:active.model_mode})
+        )
       ),
       msgs.length===0
         ? el('div',{className:'empty'},
