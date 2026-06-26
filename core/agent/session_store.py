@@ -279,7 +279,7 @@ def update_session(
             # `sets` contains only hardcoded "<col> = ?" fragments; every value
             # is parameterized via `params`. Safe despite the f-string. noqa S608.
             conn.execute(
-                f"UPDATE sessions SET {', '.join(sets)} WHERE session_id = ?",  # noqa: S608
+                f"UPDATE sessions SET {', '.join(sets)} WHERE session_id = ?",  # noqa: S608  # nosec B608
                 params,
             )
     return get_session_meta(session_id)
