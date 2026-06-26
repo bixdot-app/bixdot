@@ -8,7 +8,7 @@
 """Tests for persistent memory skill."""
 
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
 
 
 @pytest.fixture(autouse=True)

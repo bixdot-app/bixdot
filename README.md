@@ -6,7 +6,7 @@
   [![CI](https://github.com/bixdot-app/bixdot/actions/workflows/ci.yml/badge.svg)](https://github.com/bixdot-app/bixdot/actions/workflows/ci.yml)
   [![Release](https://github.com/bixdot-app/bixdot/actions/workflows/release.yml/badge.svg)](https://github.com/bixdot-app/bixdot/actions/workflows/release.yml)
   [![License: BUSL-1.1](https://img.shields.io/badge/License-BUSL--1.1-blue.svg)](LICENSE)
-  [![Version](https://img.shields.io/badge/version-0.3.8-green.svg)](https://github.com/bixdot-app/bixdot/releases/tag/v0.3.8)
+  [![Version](https://img.shields.io/badge/version-0.4.0-green.svg)](https://github.com/bixdot-app/bixdot/releases/tag/v0.4.0)
 
   [Download](https://github.com/bixdot-app/bixdot/releases/latest) · [Docs](docs/) · [Security](mailto:security@bixdot.app)
 </div>
@@ -25,7 +25,7 @@ It's also the most secure AI agent available. We built it after studying every k
 
 ## Download
 
-**[→ Download BixDot v0.3.8](https://github.com/bixdot-app/bixdot/releases/latest)**
+**[→ Download BixDot v0.4.0](https://github.com/bixdot-app/bixdot/releases/latest)**
 
 | Platform | Installer |
 |---|---|
@@ -49,7 +49,7 @@ It's also the most secure AI agent available. We built it after studying every k
 - **Web search skill** — DuckDuckGo search, no API key required
 - **Calendar skill** — Google Calendar, Outlook/M365, or a local `.ics` file
 - **Terminal skill** — sandboxed command execution with strict allowlist
-- **Plugin system** — install community skills from `~/.bixdot/plugins/`
+- **Skill Plugin API** — install third-party skills from a `.zip`: SHA-256 verified, capability-approved, and run in an isolated sandbox
 - **Permission prompts** — you approve every action before it runs
 - **Audit log** — tamper-evident SHA-256 hash chain of everything BixDot does
 - **Onboarding wizard** — guided first-run setup with Ollama detection
@@ -105,6 +105,11 @@ Full threat model: [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md)
 | Document Chat skill (PDF/DOCX/PPTX/XLSX) | ✅ v0.3.0 |
 | GitHub integration skill | ✅ v0.3.0 |
 | Deep Research skill | ✅ v0.3.0 |
+| Multi-session UI + session sidebar | ✅ v0.4.0 |
+| Private Session mode | ✅ v0.4.0 |
+| Dynamic Ollama model selector | ✅ v0.4.0 |
+| Thinking model support (strip tokens) | ✅ v0.4.0 |
+| Skill Plugin API | ✅ v0.4.0 |
 | Mobile (iOS + Android) | 📅 Phase 2 |
 | Skill marketplace | 📅 Phase 2 |
 
@@ -134,7 +139,7 @@ For the desktop app, [download the installer](https://github.com/bixdot-app/bixd
 We welcome contributors. BixDot is built in the open and we want the best engineers working on the hardest problems in local AI.
 
 **Before your first PR:**
-Sign our CLA (2 minutes, one time): [cla.bixdot.app](https://cla.bixdot.app)
+Sign our CLA (one time): email **legal@bixdot.app** with subject **CLA Request**.
 
 **Security vulnerabilities:**
 Email **security@bixdot.app** — never open a public issue. We respond within 48 hours and credit every researcher.
@@ -145,10 +150,13 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) for full guidelines.
 
 ## Roadmap
 
-**v0.4.0 — Coming next**
-Plugin execution (run entry points in sandboxed subprocess), bundled OAuth credentials (Google Calendar client ID ships with app), code signing (Windows EV cert + macOS Developer ID), session memory summarisation pipeline
+**v0.5.0 — Coming next**
+Multi-agent orchestration (primary agent spawns sub-agents for parallel tasks), persistent agent personas (named agents with their own prompt, model, skills, and memory), scheduled/background agents (cron-triggered, no active session), Telegram and Slack channel integration (webhook receiver on the same JWT/audit path)
 
 ---
+
+**v0.4.0 — Released 26 June 2026**
+Multi-session UI with a session sidebar (SQLite-persisted), Private Session mode (in-memory only, no DB writes, audit log records no message content), dynamic Ollama model selector with capability classification (Full Agent / Reasoning / Chat / Cloud), thinking-token stripping for reasoning models, cloud model blocking at session creation, and the Skill Plugin API (manifest validation, SHA-256 integrity, capability gating, subprocess sandbox).
 
 **v0.3.2 — Released 12 June 2026**
 Navigation fix: blank screen after Settings → Chat; chat session and history now survive all navigation.

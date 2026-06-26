@@ -4,6 +4,17 @@
 line-length = 120
 target-version = "py311"
 
+# Exclude generated files and test fixtures
+exclude = [
+    ".git",
+    "__pycache__",
+    "*.pyc",
+    ".venv",
+    "venv",
+    "build",
+    "dist",
+]
+
 [lint]
 select = ["E", "W", "F", "S"]
 ignore = [
@@ -41,13 +52,9 @@ ignore = [
               # the full path via PATH lookup, which is correct behaviour
 ]
 
-# Exclude generated files and test fixtures
-exclude = [
-    ".git",
-    "__pycache__",
-    "*.pyc",
-    ".venv",
-    "venv",
-    "build",
-    "dist",
-]
+[lint.per-file-ignores]
+# Tests legitimately use assert (S101), hardcoded test credentials (S105/S106),
+# fixed /tmp paths in sandbox tests (S108), and explanatory unused locals (F841).
+"tests/**" = ["S101", "S105", "S106", "S108", "F841"]
+# Dev automation scripts: short loop vars (E741), local file open (S310, S108).
+"scripts/**" = ["E741", "S310", "S108"]

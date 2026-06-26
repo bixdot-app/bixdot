@@ -12,8 +12,6 @@ Verifies the full authentication flow via HTTP:
 - Protected routes enforce auth
 - Role is always server-derived
 """
-import pytest
-from fastapi.testclient import TestClient
 
 
 # ── /health — unauthenticated ───────────────────────────────────────────────────

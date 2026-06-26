@@ -186,11 +186,11 @@ def main():
             print(f"  [UPDATED] {desc}")
 
     print(f"\n[DONE] {total} occurrences replaced.")
-    print(f"\nNext steps:")
+    print("\nNext steps:")
     print(f"  1. Create .github/RELEASE_NOTES_v{new}.md")
     print(f"  2. Add ## [{new}] section to CHANGELOG.md")
-    print(f"  3. Update docs/THREAT_MODEL.md version header")
-    print(f"  4. Update bixdot-website/index.html (hero badge + all 6 download links)")
+    print("  3. Update docs/THREAT_MODEL.md version header")
+    print("  4. Update bixdot-website/index.html (hero badge + all 6 download links)")
     print(f"  5. git add -A && git commit -m 'chore: bump version to v{new}'")
     print(f"  6. git tag v{new} && git push origin main v{new}")
 

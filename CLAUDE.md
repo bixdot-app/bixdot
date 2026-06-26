@@ -12,7 +12,7 @@
 - **Website:** https://bixdot.app
 - **GitHub:** https://github.com/bixdot-app/bixdot
 - **License:** BUSL-1.1 (source-available, free to self-host, commercial use requires license)
-- **Version:** v0.3.8 (released 2026-06-11)
+- **Version:** v0.4.0 (released 2026-06-11)
 - **Owner:** Shanker / DigiTech Business Pte. Ltd
 
 ---
@@ -84,10 +84,11 @@ bixdot/
 │   │   ├── memory/                # remember, recall — SQLite FTS5, auto-injected into context
 │   │   ├── documents/             # list_documents, search_document — markitdown (MIT), PDF/DOCX/PPTX/XLSX
 │   │   ├── github/                # list_github_repos, list_github_issues, read_github_issue — PAT in keyring
-│   │   └── research/              # deep_research — 4-step pipeline: plan → search → fetch → synthesise
-│   ├── plugins/
-│   │   ├── loader.py              # Scans ~/.bixdot/plugins/ on startup, manifest v1 validation
-│   │   └── routes.py              # /plugins/* — install, enable, disable, uninstall
+│   │   ├── research/              # deep_research — 4-step pipeline: plan → search → fetch → synthesise
+│   │   ├── registry.py            # installed_skills + skill_capability_grants data access
+│   │   ├── plugin_manager.py      # Skill install/verify/sandbox lifecycle, SHA-256, capability gate
+│   │   ├── sandbox.py             # Subprocess skill sandbox — JSON stdin/stdout, stripped env, 30s/1MB
+│   │   └── plugin_routes.py       # /agent/skills/* — inspect, install, list, toggle, verify, uninstall
 │   ├── sandbox/
 │   │   └── executor.py            # Sandboxed subprocess executor for plugin/terminal isolation
 │   ├── audit/
@@ -118,7 +119,7 @@ bixdot/
 │   ├── RELEASE_NOTES_v0.1.0.md
 │   ├── RELEASE_NOTES_v0.1.1.md
 │   ├── RELEASE_NOTES_v0.2.1.md
-│   └── RELEASE_NOTES_v0.3.8.md
+│   └── RELEASE_NOTES_v0.4.0.md
 ├── .claude/
 │   └── settings.json              # PostToolUse hooks: ruff auto-fix, pip-audit on requirements
 ├── requirements.txt               # Python 3.11+ dependencies
@@ -187,9 +188,44 @@ Capabilities: `fs:read`, `fs:write`, `fs:delete`, `net:fetch`, `net:outbound`, `
 Having both `[lib]` and `[[bin]]` causes `#[tauri::command]` macro export conflicts.
 All Tauri commands are defined directly in `main.rs`.
 
+### 6. Model Modes (v0.4.0)
+
+`core/agent/model_caps.py` — `classify_model()` reads Ollama `/api/tags`
+capabilities (no hardcoded family names) → `ModelMode`:
+`FULL_AGENT` (tools) / `THINKING` (reasoning, strip `<think>`) / `TEXT_ONLY` /
+`CLOUD` (blocked — data leaves device) / `EMBEDDING` (filtered from picker).
+Precedence: embedding > cloud > tools > thinking > text. The runtime branches on
+`session.model_mode`; CLOUD is rejected at session creation.
+
+### 7. Session Persistence + Private Sessions (v0.4.0)
+
+`core/agent/session_store.py` over the `sessions` + `session_messages` tables
+(schema owned by `core/storage/db.py`). **Private sessions (`is_private=1`) are
+held entirely in memory** — never written to either table — and the audit log
+records event type only (`private_session_started` / `private_session_ended`),
+never message content. The runtime suppresses previews and redacts tool inputs
+for private sessions.
+
+### 8. Skill Plugin API (v0.4.0)
+
+- Manifest `bixdot-skill.json` required at skill root.
+- Dotted capabilities (`filesystem.read`) map onto the first-party `Capability`
+  enum (`fs:read`) — one permission + audit system (`core/skills/plugin_manager.py`
+  `SKILL_CAPABILITY_MAP`). Forbidden prefixes (`network.`, `shell.`, `database.`,
+  `auth.`) and any non-allowlisted capability are rejected at install.
+- Entry file SHA-256 verified at install and on every startup; tampered skills
+  auto-disable (`verify_all_on_startup()` in the lifespan).
+- License gate: MIT / BSD / Apache 2.0 only.
+- Sandbox (`core/skills/sandbox.py`): subprocess, JSON stdin/stdout, env stripped
+  of all secrets, `shell=False` always, 30s timeout, 1MB output cap. The
+  `BIXDOT_CAPABILITIES` env var is the only grant vector.
+- Enabled verified skills surface as agent tools (`skill__<id>`) in FULL_AGENT
+  sessions and dispatch to the sandbox after user approval at install time.
+- Routes under `/agent/skills`. Replaces the retired `core/plugins` loader.
+
 ---
 
-## Current Status — v0.3.8 ✅ SHIPPED
+## Current Status — v0.4.0 ✅ SHIPPED
 
 | Feature | Status |
 |---|---|
@@ -218,22 +254,26 @@ All Tauri commands are defined directly in `main.rs`.
 | Document Chat skill (PDF/DOCX/PPTX/XLSX) | ✅ Done |
 | GitHub integration skill | ✅ Done |
 | Deep Research skill | ✅ Done |
+| Multi-session UI + session sidebar | ✅ v0.4.0 |
+| Private Session mode (in-memory only) | ✅ v0.4.0 |
+| Dynamic Ollama model selector | ✅ v0.4.0 |
+| Thinking model support (strip tokens) | ✅ v0.4.0 |
+| Cloud model blocking at session creation | ✅ v0.4.0 |
+| Skill Plugin API (verify + sandbox + capability gate) | ✅ v0.4.0 |
 
 ---
 
-## v0.4.0 Roadmap — Next Sprint
+## v0.5.0 Roadmap — Next Sprint
 
 Priority order:
 
-1. **Plugin execution** — load and run plugin entry points in a sandboxed subprocess. Registry for community plugins.
+1. **Multi-agent orchestration** — a primary agent spawns sub-agents for parallel tasks.
 
-2. **Bundled OAuth credentials** — ship default Google Calendar client ID so users don't need to register their own app.
+2. **Persistent agent personas** — named agents with their own system prompt, model, skills, and memory.
 
-3. **Code signing** — Windows EV cert + macOS Developer ID to remove SmartScreen/Gatekeeper warnings.
+3. **Scheduled / background agents** — cron-triggered, no active user session.
 
-4. **Session memory summarisation** — summarisation pipeline to work around llama3.2 context window limit.
-
-5. **Mobile app** — iOS + Android via Tauri Mobile.
+4. **Telegram and Slack channel integration** — webhook receiver on the same JWT/audit path.
 
 ---
 
@@ -383,5 +423,5 @@ Every release follows this exact sequence — no manual checks needed:
 
 ---
 
-*Last updated: 2026-06-25 | v0.3.8*
+*Last updated: 2026-06-26 | v0.4.0*
 *© 2026 DigiTech Business Pte. Ltd.*

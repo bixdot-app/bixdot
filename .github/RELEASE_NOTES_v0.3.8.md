@@ -27,12 +27,11 @@ A focused patch fixing a blank screen that appeared when navigating away from th
 
 ---
 
-## What's Next — v0.4.0
+## What's Next — v0.4.0 ✅ Shipped
 
-- **Plugin execution** — wire the `entry` field and run plugins in the sandbox; community plugin registry
-- **Bundled OAuth credentials** — ship default Google Calendar client ID
-- **Code signing** — Windows EV cert + macOS Developer ID to remove SmartScreen/Gatekeeper warnings
-- **Session memory summarisation** — work around llama3.2's 8k context limit
+- **Multi-session UI + Private Session mode** — session sidebar, in-memory private sessions
+- **Dynamic Ollama model selector** — live capability classification, cloud blocking, thinking-token stripping
+- **Skill Plugin API** — manifest validation, SHA-256 integrity, capability gating, subprocess sandbox
 
 ---
 

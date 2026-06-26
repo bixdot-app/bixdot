@@ -7,12 +7,10 @@
 
 """Tests for document chat skill."""
 
-import pytest
-from pathlib import Path
 
 
 def test_chunk_text_basic():
-    from core.skills.documents.parser import chunk_text, MAX_CHUNK_SIZE, CHUNK_OVERLAP
+    from core.skills.documents.parser import chunk_text, MAX_CHUNK_SIZE
     text = "A" * 5000
     chunks = chunk_text(text)
     assert len(chunks) > 1
@@ -20,7 +18,7 @@ def test_chunk_text_basic():
 
 
 def test_chunk_overlap():
-    from core.skills.documents.parser import chunk_text, MAX_CHUNK_SIZE, CHUNK_OVERLAP
+    from core.skills.documents.parser import chunk_text, MAX_CHUNK_SIZE
     text = "X" * (MAX_CHUNK_SIZE + 100)
     chunks = chunk_text(text)
     assert len(chunks) >= 2

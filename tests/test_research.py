@@ -14,7 +14,6 @@ from unittest.mock import AsyncMock, patch, MagicMock
 @pytest.mark.asyncio
 async def test_fetch_page_text_fallback():
     """fetch_page_text falls back to regex strip when trafilatura not available."""
-    import importlib
     import sys
 
     mock_response = MagicMock()

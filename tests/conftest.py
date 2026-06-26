@@ -12,7 +12,6 @@ Every test gets:
   - Helper functions for creating users and obtaining tokens
 """
 import pytest
-from pathlib import Path
 from fastapi.testclient import TestClient
 
 

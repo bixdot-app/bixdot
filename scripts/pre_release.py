@@ -82,7 +82,7 @@ def check_release_notes(version: str) -> list[str]:
 
 
 def check_tests() -> list[str]:
-    print(f"  Running pytest...")
+    print("  Running pytest...")
     code, output = _run([sys.executable, "-m", "pytest", "tests/", "-q", "--tb=line"])
     if code != 0:
         lines = [l for l in output.splitlines() if l.strip()][-5:]
@@ -160,7 +160,7 @@ def main():
             print(f"  {w}")
         print(f"\nTo release:\n  git tag v{version} && git push origin v{version}")
     else:
-        print(f"READY — all checks passed.")
+        print("READY — all checks passed.")
         print(f"\nTo release:\n  git tag v{version} && git push origin v{version}")
 
 

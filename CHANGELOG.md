@@ -4,6 +4,29 @@ All notable changes to BixDot are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).  
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] — 2026-06-26
+
+### Added — Multi-session UI + Private Session mode
+- **Multi-session API** — `/agent/sessions` now supports create, list (newest-first, archived filter), get detail + last 50 messages, paginated message history, rename, archive, and delete. Sessions and their chat history persist across restarts in the new `sessions` and `session_messages` tables.
+- **Private Session mode** — private sessions are held entirely in memory: their messages are never written to the database and the audit log records only the event type (`private_session_started` / `private_session_ended`), never message content or session name. The runtime suppresses message previews and redacts tool inputs for private sessions.
+- **Session sidebar** — New Chat / New Private Session, session list with model-mode badges and previews, double-click rename, archive/restore, per-item menu. Private sessions show a lock icon and a persistent banner; switching away prompts a confirmation.
+
+### Added — Dynamic Ollama model selector
+- **`/agent/models`** reads live capabilities from Ollama's `/api/tags` and classifies each model: `FULL_AGENT` (tools), `THINKING` (reasoning), `TEXT_ONLY`, `CLOUD`, or `EMBEDDING` (filtered out). Cloud models are flagged and sorted last.
+- **Cloud model blocking** — selecting a cloud model is rejected at session creation with HTTP 400 and audited as `cloud_model_blocked` (preserves the local-first guarantee).
+- **Thinking-token stripping** — `<think>`, Gemma 4 `<|channel>thought`, and generic `<|thinking|>` blocks are removed from reasoning-model output.
+- **Grouped model picker** in the new-session modal with a cloud warning banner.
+
+### Added — Skill Plugin API
+- **Manifest-driven skills** (`bixdot-skill.json`) with an allowlisted dotted capability vocabulary that maps onto the first-party `Capability` enum — one permission and audit system.
+- **SHA-256 integrity** verified at install and on every startup; tampered skills are auto-disabled and audited.
+- **Capability approval** — `/agent/skills/inspect` shows declared capabilities before install; installing grants them.
+- **Sandbox** — skills run in an isolated subprocess (JSON stdin/stdout, env stripped of all secrets, `shell=False`, 30s timeout, 1MB output cap).
+- **Agent integration** — enabled, verified skills appear as tools in FULL_AGENT sessions and dispatch to the sandbox.
+- Replaces the previous `core/plugins` loader.
+
+---
+
 ## [0.3.8] — 2026-06-25
 
 ### Fixed

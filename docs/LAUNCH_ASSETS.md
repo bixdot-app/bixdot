@@ -85,12 +85,18 @@ Public threat model maps each CVE class to specific architectural mitigations.
 - **GitHub integration** — connect via PAT; agent can list repos, read issues and PRs; token stored in OS keyring
 - **Deep Research** — 4-step pipeline: plan sub-queries → DuckDuckGo search → fetch page content via trafilatura → synthesise structured report
 
-## v0.4.0 Coming Next
-- Plugin execution (run plugin entry points in sandboxed subprocess)
-- Bundled OAuth credentials (Google Calendar client ID ships with the app)
-- Code signing (Windows EV cert + macOS Developer ID, removes SmartScreen/Gatekeeper warnings)
-- Session memory summarisation (pipeline to work around llama3.2 context limit)
-- Mobile app (iOS + Android via Tauri Mobile)
+## v0.4.0 What Shipped (Feature Release — 2026-06-26)
+- **Multi-session UI** — session sidebar with persisted sessions, rename, archive/restore, model-mode badges and previews
+- **Private Session mode** — messages held in memory only, never written to disk; audit log records event type only, never content
+- **Dynamic Ollama model selector** — live capability classification (Full Agent / Reasoning / Chat / Cloud), cloud models blocked at session creation
+- **Reasoning model support** — strips `<think>` and Gemma-4 thinking blocks before display
+- **Skill Plugin API** — install `.zip` skills with a capability-approval screen; SHA-256 verified at install and every startup; isolated subprocess sandbox (stripped env, shell=False, 30s timeout, 1MB cap)
+
+## v0.5.0 Coming Next
+- Multi-agent orchestration (primary agent spawns sub-agents for parallel tasks)
+- Persistent agent personas (named agents with their own prompt, model, skills, and memory)
+- Scheduled / background agents (cron-triggered, no active session)
+- Telegram and Slack channel integration (webhook receiver on the same JWT/audit path)
 
 ---
 

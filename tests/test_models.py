@@ -1,6 +1,5 @@
 # Copyright (c) 2026 DigiTech Business Pte. Ltd. All rights reserved.
 # Licensed under the Business Source License 1.1 (BUSL-1.1).
-import pytest
 from core.agent.model_caps import ModelMode, classify_model, strip_thinking_tokens
 
 

@@ -35,7 +35,6 @@ def test_token_delete(monkeypatch):
             raise FakeDeleteError()
         del store[key]
 
-    import keyring.errors
     monkeypatch.setattr("keyring.delete_password", fake_delete)
     monkeypatch.setattr("keyring.errors.PasswordDeleteError", FakeDeleteError)
 
@@ -46,8 +45,6 @@ def test_token_delete(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_client_list_repos():
-    import httpx
-    from unittest.mock import patch, AsyncMock
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = [

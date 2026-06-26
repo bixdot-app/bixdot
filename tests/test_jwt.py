@@ -11,7 +11,6 @@ Verifies the authentication token implementation:
 - Tampered signatures are rejected
 - Role cannot be elevated by a client
 """
-import time
 from datetime import datetime, timedelta, UTC
 
 import jwt as pyjwt

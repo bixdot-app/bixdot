@@ -7,11 +7,9 @@
 
 """Tests for commercial use detection."""
 
-import pytest
 from core.auth.license_check import (
     is_corporate_email,
     detect_commercial_use,
-    PERSONAL_DOMAINS,
 )
 
 
