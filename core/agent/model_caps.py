@@ -37,11 +37,13 @@ def classify_model(capabilities: list[str]) -> ModelMode:
     """
     caps = set(capabilities)
     if "embedding" in caps:
-        return ModelMode.EMBEDDING
+        return ModelMode.EMBEDDING      # not a chat model — filtered from picker
+    if "cloud" in caps:
+        return ModelMode.CLOUD          # cloud wins over tools — data leaves device
     if "tools" in caps:
-        return ModelMode.FULL_AGENT
+        return ModelMode.FULL_AGENT     # tool calling → two-phase agent runtime
     if "thinking" in caps:
-        return ModelMode.THINKING
+        return ModelMode.THINKING       # CoT reasoning, no tools → strip <think>
     return ModelMode.TEXT_ONLY
 
 

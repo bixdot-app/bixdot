@@ -283,40 +283,42 @@ async def revoke_permission(
 async def list_models(user=Depends(require_auth)):
     """
     Query Ollama for locally installed models, enriched with capability metadata.
-    EMBEDDING models are filtered out. Results sorted: default first, then by name.
-    Returns empty list gracefully if Ollama is not running.
+    EMBEDDING models are filtered out. Cloud models are flagged (is_cloud=True)
+    and shown last so the UI can warn that data would leave the device.
+    Sort: local before cloud, default first, then alphabetical.
+    Returns ollama_available=False (empty list) if Ollama is not running.
     """
     import httpx
     from core.config import settings as cfg
     from core.storage.db import get_setting
 
-    default_model = get_setting("local_model") or cfg.local_model
+    default_base = (get_setting("local_model") or cfg.local_model).split(":")[0]
     try:
         async with httpx.AsyncClient(base_url=cfg.ollama_url, timeout=5) as client:
             r = await client.get("/api/tags")
             r.raise_for_status()
             raw_models = r.json().get("models", [])
     except Exception:
-        return {"models": []}
+        return {"models": [], "ollama_available": False}
 
     infos: list[ModelInfo] = []
     for m in raw_models:
         caps = m.get("capabilities", [])
         mode = classify_model(caps)
         if mode == ModelMode.EMBEDDING:
-            continue  # hide embedding models from the chat picker
+            continue  # never expose embedding models in the chat picker
         infos.append(ModelInfo(
             name=m["name"],
             size_gb=round(m.get("size", 0) / 1e9, 2),
             mode=mode.value,
             supports_vision="vision" in caps,
-            is_cloud=False,
-            is_default=(m["name"] == default_model),
+            is_cloud=(mode == ModelMode.CLOUD),
+            is_default=(m["name"].split(":")[0] == default_base),
         ))
 
-    # Sort: default model first, then alphabetically
-    infos.sort(key=lambda x: (not x.is_default, x.name))
-    return {"models": [i.model_dump() for i in infos]}
+    # Sort: local before cloud, default first, then alphabetically
+    infos.sort(key=lambda x: (x.is_cloud, not x.is_default, x.name))
+    return {"models": [i.model_dump() for i in infos], "ollama_available": True}
 
 
 @router.get("/model")

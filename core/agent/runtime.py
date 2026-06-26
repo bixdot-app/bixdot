@@ -34,6 +34,7 @@ class Message(BaseModel):
     content: str
 
 class AgentSession(BaseModel):
+    model_config = {"protected_namespaces": ()}
     session_id: str
     user_id: str
     messages: list[Message] = []
