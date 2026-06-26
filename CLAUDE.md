@@ -12,7 +12,7 @@
 - **Website:** https://bixdot.app
 - **GitHub:** https://github.com/bixdot-app/bixdot
 - **License:** BUSL-1.1 (source-available, free to self-host, commercial use requires license)
-- **Version:** v0.4.1 (released 2026-06-11)
+- **Version:** v0.4.1 (released 2026-06-26)
 - **Owner:** Shanker / DigiTech Business Pte. Ltd
 
 ---

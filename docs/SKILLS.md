@@ -1,7 +1,7 @@
 # BixDot — Skills Reference
 
-> Version: 0.3.0
-> Last updated: 2026-06-11
+> Version: 0.4.1
+> Last updated: 2026-06-26
 > This document is the authoritative reference for all built-in skills, their tool definitions,
 > required permissions, security constraints, and the plugin system. Keep it in sync with
 > `core/agent/runtime.py` (BUILTIN_TOOLS), `core/agent/permissions.py` (Capability),
@@ -431,53 +431,67 @@ Defined in `core/skills/calendar/`. All extend `CalendarProvider` base class.
 
 ---
 
-## Plugin System (v0.2.0 — Foundation)
+## Skill Plugin API (v0.4.0)
 
-Community-built skills installed from `~/.bixdot/plugins/`.
-
-> **Note:** Plugin *execution* (running entry point code) is planned for v0.4.0.
-> The v0.2.0 foundation covers discovery, validation, and lifecycle management.
+Third-party skills installed from a `.zip`, verified, capability-gated, and run
+in an isolated subprocess sandbox. This replaced the v0.2.0 `core/plugins`
+foundation — skills now actually execute.
 
 ### Directory structure
 
 ```
 ~/.bixdot/plugins/
-└── com.example.myplugin/
-    ├── manifest.json       ← required
-    └── main.py             ← entry point (sandboxed execution planned for v0.4.0)
+└── com.example.my-skill/
+    ├── bixdot-skill.json   ← required manifest
+    └── skill.py            ← entry point (runs in the sandbox)
 ```
 
-### Manifest schema (v1)
+### Manifest schema (`bixdot-skill.json`)
 
 ```json
 {
-  "schema_version": 1,
-  "id": "com.example.myplugin",
-  "name": "My Plugin",
+  "id": "com.example.my-skill",
+  "name": "My Skill",
   "version": "1.0.0",
-  "description": "Does something useful",
-  "author": "Developer Name",
-  "capabilities": ["fs:read"],
-  "entry": "main.py",
-  "homepage": "https://example.com",
-  "license": "MIT"
+  "description": "What this skill does in one sentence.",
+  "author": "Author Name",
+  "license": "MIT",
+  "entry": "skill.py",
+  "capabilities": ["filesystem.read", "web.search"],
+  "trigger": "Use this skill when the user asks to ...",
+  "sha256": "<sha256 of the entry file at publish time>"
 }
 ```
 
-**ID rules:** reverse-domain style, lowercase letters/digits/dots/hyphens, 3–64 chars.
-**Capabilities:** must be a subset of the `Capability` enum values listed above. Any undeclared capability attempted at runtime = sandbox kill (v0.3.0).
+**Capabilities (dotted vocabulary, mapped onto the `Capability` enum):**
+`filesystem.read` `filesystem.write` `filesystem.list` `web.search` `web.fetch`
+`memory.read` `memory.write` `calendar.read` `calendar.write` `github.read`
+`terminal.execute` `documents.read`. Forbidden prefixes (`network.`, `shell.`,
+`database.`, `auth.`) and any non-allowlisted capability are **rejected at install**.
 
-### Plugin REST API
+**License:** MIT, BSD, or Apache 2.0 only.
+**Integrity:** the entry file's SHA-256 is verified at install **and on every
+startup** — a tampered file auto-disables the skill (audited `skill.verify_failed`).
+**Sandbox:** subprocess, JSON over stdin/stdout, env stripped of all secrets,
+`shell=False`, 30s timeout, 1MB output cap. `BIXDOT_CAPABILITIES` env var is the
+only grant vector.
+
+### Skill REST API (all under `/agent/skills`, JWT required)
 
 | Endpoint | Method | Auth | Description |
 |---|---|---|---|
-| `/plugins` | GET | required | List all installed plugins |
-| `/plugins/install` | POST | required | Install from `.zip` or directory path |
-| `/plugins/{id}` | DELETE | required | Uninstall a plugin |
-| `/plugins/{id}/enable` | POST | required | Enable a disabled plugin |
-| `/plugins/{id}/disable` | POST | required | Disable without uninstalling |
+| `/agent/skills` | GET | required | List installed skills + granted capabilities |
+| `/agent/skills/inspect` | POST | owner | Validate a `.zip` and return its manifest (capability-approval screen) |
+| `/agent/skills/install` | POST | owner | Install from an uploaded `.zip` |
+| `/agent/skills/{id}` | DELETE | owner | Uninstall |
+| `/agent/skills/{id}/toggle` | PUT | required | Enable/disable |
+| `/agent/skills/{id}/verify` | GET | required | Re-verify integrity on demand |
 
-Code: `core/plugins/routes.py`, `core/plugins/loader.py`
+Enabled, verified skills surface to the agent as tools (`skill__<id>`) in
+FULL_AGENT sessions and dispatch to the sandbox.
+
+Code: `core/skills/plugin_routes.py`, `core/skills/plugin_manager.py`,
+`core/skills/sandbox.py`, `core/skills/registry.py`
 
 ---
 
@@ -487,8 +501,8 @@ When adding a tool to `BUILTIN_TOOLS` in `core/agent/runtime.py`:
 
 1. Define the tool dict with `name`, `description`, `input_schema`
 2. Add `name → Capability` mapping to `TOOL_CAPABILITY_MAP`
-3. Add the execution branch in `_exec_tool()`
-4. Add the capability to `core/plugins/loader.py` → `VALID_CAPABILITIES` if it's new
+3. Add the execution branch in `_execute_tool()`
+4. Add the capability to the `Capability` enum in `core/agent/permissions.py` if it's new
 5. Document it in this file under the correct section
 6. Add tests in `tests/`
 

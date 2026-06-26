@@ -10,9 +10,9 @@ We build in the open and want the best contributors working on local AI.
 ### 1. Sign the CLA (required)
 
 We require a Contributor License Agreement before merging any PR.
-It's a one-time, 2-minute process.
+It's a one-time process.
 
-**Sign here: [cla.bixdot.app](https://cla.bixdot.app)**
+**To sign: email [legal@bixdot.app](mailto:legal@bixdot.app) with subject "CLA Request".**
 
 **What it means in plain English:**
 - You keep copyright of your contribution

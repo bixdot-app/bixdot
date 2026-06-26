@@ -87,9 +87,9 @@ def _build_replacements(old: str, new: str) -> list[tuple[Path, str, str, str]]:
         ),
         (
             ROOT / "CLAUDE.md",
-            f"**Version:** v{old}",
-            f"**Version:** v{new}",
-            "CLAUDE.md — version line",
+            f"**Version:** v{old} (released {_get_version_line_date()})",
+            f"**Version:** v{new} (released {today})",
+            "CLAUDE.md — version line (+ release date)",
         ),
         (
             ROOT / "CLAUDE.md",
@@ -109,7 +109,46 @@ def _build_replacements(old: str, new: str) -> list[tuple[Path, str, str, str]]:
             f"*Last updated: {today} | v{new}*",
             "CLAUDE.md — last updated footer",
         ),
+        # ── Doc headers (> Version / > Last updated) ───────────────────────────
+        (
+            ROOT / "docs" / "THREAT_MODEL.md",
+            f"> Version: {old}",
+            f"> Version: {new}",
+            "docs/THREAT_MODEL.md — version header",
+        ),
+        (
+            ROOT / "docs" / "THREAT_MODEL.md",
+            f"> Last updated: {_get_doc_date(ROOT / 'docs' / 'THREAT_MODEL.md')}",
+            f"> Last updated: {today}",
+            "docs/THREAT_MODEL.md — last updated",
+        ),
+        (
+            ROOT / "docs" / "SKILLS.md",
+            f"> Version: {old}",
+            f"> Version: {new}",
+            "docs/SKILLS.md — version header",
+        ),
+        (
+            ROOT / "docs" / "SKILLS.md",
+            f"> Last updated: {_get_doc_date(ROOT / 'docs' / 'SKILLS.md')}",
+            f"> Last updated: {today}",
+            "docs/SKILLS.md — last updated",
+        ),
     ]
+
+
+def _get_doc_date(path) -> str:
+    """Extract the current date from a doc's `> Last updated: DATE` header line."""
+    text = path.read_text(encoding="utf-8")
+    m = re.search(r"> Last updated: (\d{4}-\d{2}-\d{2})", text)
+    return m.group(1) if m else date.today().isoformat()
+
+
+def _get_version_line_date() -> str:
+    """Extract the release date from CLAUDE.md's `**Version:** vX (released DATE)` line."""
+    text = (ROOT / "CLAUDE.md").read_text(encoding="utf-8")
+    m = re.search(r"\*\*Version:\*\* v[\d.]+ \(released (\d{4}-\d{2}-\d{2})\)", text)
+    return m.group(1) if m else date.today().isoformat()
 
 
 def _get_claude_md_date() -> str:
