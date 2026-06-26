@@ -141,6 +141,30 @@ async def list_sessions(user=Depends(require_auth)):
     ]
 
 
+@router.get("/sessions/{session_id}/messages")
+async def get_session_messages(session_id: str, user=Depends(require_auth)):
+    """
+    Return the visible message history for a session so the UI can restore the
+    chat transcript after the Chat screen is unmounted/remounted on navigation.
+    Internal memory-context messages are filtered out.
+    """
+    session = load_session(session_id)
+    if not session or session.user_id != user.sub:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    visible = []
+    for m in session.messages:
+        if m.content.startswith("[MEMORY CONTEXT]"):
+            continue
+        if m.role == "assistant" and m.content == "Noted, I have that context.":
+            continue
+        visible.append({
+            "role": "user" if m.role == "user" else "agent",
+            "content": m.content,
+        })
+    return {"messages": visible}
+
+
 @router.delete("/sessions/{session_id}")
 async def end_session(session_id: str, user=Depends(require_auth)):
     """End and delete a session."""

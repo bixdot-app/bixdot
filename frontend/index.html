@@ -367,7 +367,8 @@ function PermModal({cap,onAllow,onDeny}){
 }
 
 // ── Chat ──────────────────────────────────────────────────────────────────────
-function Chat({token}){
+function Chat({token,model}){
+  const mdl=model||'local';
   const[msgs,setMsgs]=useState([]);
   const[input,setInput]=useState('');
   const[loading,setLoading]=useState(false);
@@ -385,22 +386,27 @@ function Chat({token}){
     try{
       const d=await api('/agent/sessions',{method:'POST',body:JSON.stringify({llm_backend:'ollama'})},token);
       setSid(d.session_id);
-      setStatus('Ready · llama3.2 · local');
+      setStatus('Ready · '+mdl+' · local');
       return d.session_id;
     }catch(e){
       setStatus('Error: '+e.message);
       addMsg('err','Could not start session: '+e.message+'. Try refreshing the page.');
       return null;
     }
-  },[token]);
+  },[token,mdl]);
 
   useEffect(()=>{
     setStatus('Connecting...');
     api('/agent/sessions',{},token)
       .then(sessions=>{
         if(sessions&&Array.isArray(sessions)&&sessions.length>0){
-          setSid(sessions[0].session_id);
-          setStatus('Ready · local');
+          const id=sessions[0].session_id;
+          setSid(id);
+          setStatus('Ready · '+mdl+' · local');
+          // Restore the visible transcript from the persisted session
+          api('/agent/sessions/'+id+'/messages',{},token)
+            .then(r=>{ if(r&&Array.isArray(r.messages)) setMsgs(r.messages.map(m=>({role:m.role,text:m.content}))); })
+            .catch(()=>{});
         } else {
           newSession();
         }
@@ -438,7 +444,7 @@ function Chat({token}){
       }
     }
     setLoading(false);
-    setStatus(sid?'Ready · llama3.2 · local':'Disconnected');
+    setStatus(sid?('Ready · '+mdl+' · local'):'Disconnected');
   };
 
   const allowPerm=async()=>{
@@ -1133,7 +1139,7 @@ function App(){
         el('span',{className:'topbar-title'},nav.find(n=>n.id===screen)?.label),
         el('span',{className:'chain-ok'},'✓ Chain verified · Local')
       ),
-      screen==='chat'&&el(Chat,{token}),
+      screen==='chat'&&el(Chat,{token,model:activeModel}),
       screen==='calendar'&&el(Calendar,{token}),
       screen==='terminal'&&el(Terminal,{token}),
       screen==='audit'&&el(Audit,{token}),
