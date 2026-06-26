@@ -286,6 +286,46 @@ TOOL_CAPABILITY_MAP = {
     "deep_research":      Capability.NET_FETCH,
 }
 
+# ─── Third-party skill tools ───────────────────────────────────────────────────
+
+def _skill_tool_name(skill_id: str) -> str:
+    """Tool names can't contain dots — sanitise the skill id."""
+    return "skill__" + skill_id.replace(".", "_").replace("-", "_")
+
+
+def third_party_tools() -> tuple[list[dict], dict[str, dict]]:
+    """
+    Discover enabled, integrity-verified third-party skills and expose each as a
+    tool definition. Returns (tool_defs, {tool_name: skill_record}).
+    """
+    from core.skills.plugin_manager import load_enabled_skills
+
+    tool_defs: list[dict] = []
+    tool_map: dict[str, dict] = {}
+    for skill in load_enabled_skills():
+        name = _skill_tool_name(skill["skill_id"])
+        tool_defs.append({
+            "name": name,
+            "description": skill["trigger"],
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string",
+                              "description": "What to ask the skill to do."}
+                },
+                "required": ["query"],
+            },
+        })
+        tool_map[name] = skill
+    return tool_defs, tool_map
+
+
+def get_available_tools(session: "AgentSession") -> list[dict]:
+    """First-party tools plus verified enabled third-party skills."""
+    skill_tools, _ = third_party_tools()
+    return BUILTIN_TOOLS + skill_tools
+
+
 def get_system_prompt() -> str:
     """Build system prompt with actual filesystem context."""
     ctx = get_system_context()
@@ -403,6 +443,9 @@ class AgentRuntime:
         collected_results    = []   # gather tool results before synthesis
         rounds = 0
 
+        # Discover enabled, verified third-party skills (exposed as tools).
+        skill_tools, skill_tool_map = third_party_tools()
+
         # ── Memory injection: prepend relevant memories before Phase 1 ───────
         try:
             from core.skills.memory.store import search_memories
@@ -430,7 +473,7 @@ class AgentRuntime:
             # Only give the model tools if the message actually needs them.
             # Passing tools to llama3.2 for conversational messages causes it
             # to call tools inappropriately — stripping them forces plain text.
-            active_tools = BUILTIN_TOOLS if _needs_tools(user_message) else None
+            active_tools = (BUILTIN_TOOLS + skill_tools) if _needs_tools(user_message) else None
             response = await llm.chat(
                 messages=messages,
                 system=get_system_prompt(),
@@ -484,6 +527,18 @@ class AgentRuntime:
                      "input": "[redacted — private session]" if session.is_private else tool_input},
                     user_id=session.user_id,
                 )
+
+                # Third-party skill tool → dispatch to the sandbox. The user
+                # approved every capability at install time, so no runtime prompt.
+                if tool_name in skill_tool_map:
+                    result = await self._dispatch_skill(
+                        skill_tool_map[tool_name],
+                        tool_input.get("query", ""),
+                        session.user_id,
+                    )
+                    tool_calls_made.append(tool_name)
+                    collected_results.append({"tool": tool_name, "result": result})
+                    continue
 
                 required_cap = TOOL_CAPABILITY_MAP.get(tool_name)
                 if required_cap and not self.permissions.check("builtin", required_cap):
@@ -569,6 +624,38 @@ class AgentRuntime:
             _text(b) for b in response["content"] if _type(b) == "text"
         ).strip()
         return text or context[:500]  # Fallback: return raw result
+
+    # ── Third-party skill dispatch ──────────────────────────────────────────────
+
+    async def _dispatch_skill(self, skill: dict, query: str, user_id: str) -> str:
+        """
+        Run a third-party skill in the sandbox. Re-verifies integrity immediately
+        before execution (defence-in-depth beyond the startup sweep) and passes
+        only the capabilities the user approved at install time.
+        """
+        from core.skills.plugin_manager import verify_skill_integrity
+        from core.skills.registry import get_skill_grants
+        from core.skills.sandbox import run_skill
+
+        skill_id = skill["skill_id"]
+        if not verify_skill_integrity(skill_id):
+            self.audit.log(AuditEvent.SKILL_BLOCKED,
+                           {"skill_id": skill_id, "reason": "integrity check failed"},
+                           user_id=user_id, skill_id=skill_id)
+            return f"Skill '{skill['name']}' failed its integrity check and was disabled."
+
+        grants = get_skill_grants(skill_id)
+        self.audit.log(AuditEvent.SKILL_EXECUTED,
+                       {"skill_id": skill_id, "capabilities": grants},
+                       user_id=user_id, skill_id=skill_id)
+        try:
+            out = run_skill(skill["entry_file"], grants, {"query": query})
+        except Exception as e:  # pragma: no cover - sandbox already guards
+            return f"Skill error: {e}"
+
+        if out.get("success"):
+            return str(out.get("output", ""))
+        return f"Skill '{skill['name']}' error: {out.get('error', 'unknown error')}"
 
     # ── Tool execution ────────────────────────────────────────────────────────
 

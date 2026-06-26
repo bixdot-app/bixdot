@@ -223,6 +223,43 @@ def test_skills_install_and_list_via_api(client, auth_headers, tmp_path):
     assert "com.example.api" in [s["skill_id"] for s in listed]
 
 
+# ─── Runtime dispatch (C7) ─────────────────────────────────────────────────────
+
+def test_third_party_tools_lists_enabled_skill(tmp_path):
+    from core.agent.runtime import third_party_tools
+    pm.install_skill(_make_skill_zip(tmp_path, skill_id="com.example.tool"),
+                     approved_by="user-1")
+    tool_defs, tool_map = third_party_tools()
+    names = [t["name"] for t in tool_defs]
+    assert any("com_example_tool" in n for n in names)
+    # The map points back to the skill record
+    skill = list(tool_map.values())[0]
+    assert skill["skill_id"] == "com.example.tool"
+
+
+def test_dispatch_skill_runs_in_sandbox(tmp_path):
+    import asyncio
+    from core.agent.runtime import AgentRuntime, third_party_tools
+    pm.install_skill(_make_skill_zip(tmp_path, skill_id="com.example.run"),
+                     approved_by="user-1")
+    _, tool_map = third_party_tools()
+    skill = list(tool_map.values())[0]
+    result = asyncio.run(AgentRuntime()._dispatch_skill(skill, "hello", "user-1"))
+    assert "hello" in result
+
+
+def test_dispatch_tampered_skill_blocked(tmp_path):
+    import asyncio
+    from core.agent.runtime import AgentRuntime, third_party_tools
+    pm.install_skill(_make_skill_zip(tmp_path, skill_id="com.example.evil"),
+                     approved_by="user-1")
+    _, tool_map = third_party_tools()
+    skill = list(tool_map.values())[0]
+    Path(skill["entry_file"]).write_text("print('evil')\n", encoding="utf-8")
+    result = asyncio.run(AgentRuntime()._dispatch_skill(skill, "x", "user-1"))
+    assert "integrity check" in result.lower()
+
+
 def test_skills_install_rejects_bad_license_via_api(client, auth_headers, tmp_path):
     zip_path = _make_skill_zip(tmp_path, skill_id="com.example.gpl", license="GPL-3.0")
     with open(zip_path, "rb") as f:
