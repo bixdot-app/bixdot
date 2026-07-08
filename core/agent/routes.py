@@ -499,7 +499,10 @@ async def pull_model(request: SetModelRequest, user=Depends(require_auth)):
 
     async def _stream():
         try:
-            async with httpx.AsyncClient(base_url=cfg.ollama_url, timeout=None) as client:
+            # Model downloads are multi-GB: bounded connect, unbounded read —
+            # Ollama emits progress lines continuously, keeping the stream live.
+            pull_timeout = httpx.Timeout(connect=10, read=None, write=30, pool=10)
+            async with httpx.AsyncClient(base_url=cfg.ollama_url, timeout=pull_timeout) as client:
                 async with client.stream(
                     "POST", "/api/pull", json={"model": model, "stream": True}
                 ) as resp:

@@ -92,11 +92,20 @@ Public threat model maps each CVE class to specific architectural mitigations.
 - **Reasoning model support** — strips `<think>` and Gemma-4 thinking blocks before display
 - **Skill Plugin API** — install `.zip` skills with a capability-approval screen; SHA-256 verified at install and every startup; isolated subprocess sandbox (stripped env, shell=False, 30s timeout, 1MB cap)
 
-## v0.5.0 Coming Next
-- Multi-agent orchestration (primary agent spawns sub-agents for parallel tasks)
-- Persistent agent personas (named agents with their own prompt, model, skills, and memory)
-- Scheduled / background agents (cron-triggered, no active session)
-- Telegram and Slack channel integration (webhook receiver on the same JWT/audit path)
+## v0.5.0 What Shipped (Feature Release — 2026-07-08) — "The Daily Companion"
+- **Routines** — scheduled background agents with one-click templates (Morning Briefing, Evening News, Week Ahead); plain-language capability approval up front; results in chat, toasts, and Telegram
+- **Personas** — five ready-made helpers + custom; own prompt/model/tools, one shared memory
+- **Multi-agent orchestration** — parallel helper agents, permission-bound, depth-capped
+- **Telegram bridge** — chat with your agent from any phone; outbound long-polling only, backend stays on 127.0.0.1, keyring-stored token, 6-digit pairing
+- **Auto-updater** — self-updating desktop app (signed releases)
+- **Zero-setup onboarding** — in-app model download with progress bar; no terminal
+- **Plain-language permissions** — human prompts instead of capability codes
+
+## v0.6.0 Coming Next
+- Native mobile app (Android first via Tauri 2 Mobile)
+- Native OS notifications when the app is closed to tray
+- Slack channel integration (same outbound-only pattern as Telegram)
+- Voice input exploration (local STT)
 
 ---
 

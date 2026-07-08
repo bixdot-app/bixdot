@@ -1,7 +1,7 @@
 # BixDot — Skills Reference
 
-> Version: 0.4.1
-> Last updated: 2026-06-26
+> Version: 0.5.0
+> Last updated: 2026-07-08
 > This document is the authoritative reference for all built-in skills, their tool definitions,
 > required permissions, security constraints, and the plugin system. Keep it in sync with
 > `core/agent/runtime.py` (BUILTIN_TOOLS), `core/agent/permissions.py` (Capability),
@@ -428,6 +428,33 @@ Defined in `core/skills/calendar/`. All extend `CalendarProvider` base class.
 **iCal setup:**
 - Provide path to a local `.ics` file or a webcal URL
 - Read-only (no `create_event` support on `.ics`)
+
+---
+
+## v0.5.0 Additions
+
+### delegate_tasks (built-in tool — multi-agent orchestration)
+Splits a complex request into 2–4 independent subtasks and runs them in
+parallel helper agents. **No capability of its own** — each sub-agent shares
+the parent session's permission store, so nothing runs that the user hasn't
+already granted. Depth cap 1 (sub-agents are never offered `delegate_tasks`),
+subtask cap 4, ephemeral sub-sessions, audited as `agent.subagent`.
+Code: `core/agent/runtime.py → _run_subagents()`
+
+### Personas
+A persona restricts which tools the agent is **offered** (`allowed_tools` in
+`core/agent/personas.py`) — it is a UX shaping layer, not a security boundary;
+the permission system still gates every execution. Five built-ins ship by
+default (BixDot, Day Planner, Researcher, Writer, File Helper).
+
+### Routines (scheduled agents)
+Headless runs pre-approve capabilities at creation (plain-language approval
+screen); each run grants exactly those with a 10-minute TTL.
+Code: `core/agent/scheduler.py`
+
+### Telegram bridge
+Not a skill — a channel. Outbound long-polling only; paired chats route to a
+persona. Code: `core/channels/telegram.py`
 
 ---
 

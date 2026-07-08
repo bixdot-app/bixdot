@@ -4,6 +4,34 @@ All notable changes to BixDot are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).  
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] — 2026-07-08
+
+The **Daily Companion** release — built for non-technical users' daily life.
+
+### Added — Personas
+- **Five ready-made personas** (BixDot, Day Planner, Researcher, Writer, File Helper) with their own instructions, default model, and tool set — editable, zero setup. Custom personas can be created in Settings. Memory is deliberately shared across personas: one assistant that knows you everywhere.
+- Sessions bind a persona (picker in the new-session modal, icons in the sidebar/header); the runtime applies the persona prompt and only OFFERS its allowed tools — the permission system still gates every execution.
+
+### Added — Routines (scheduled background agents)
+- **New Routines screen** with one-click templates: 🌅 Morning Briefing, 📰 Evening News, 🗓 Week Ahead. Schedules are consumer-friendly (hourly/daily/weekdays/weekly at a local time) — no cron strings.
+- Headless runs can't show permission prompts, so capabilities are **approved up front** in plain language at creation and granted per-run with a 10-minute TTL — zero-default-permissions preserved.
+- Results appear in a dedicated "⏰" chat session, as in-app toasts, and optionally on your phone via Telegram. Run-now button for instant testing.
+
+### Added — Multi-agent orchestration
+- `delegate_tasks`: the agent splits a complex request into 2–4 independent subtasks and runs them in **parallel helper agents**. Sub-agents share the parent's permission store (no escalation), use ephemeral sessions (never persisted), are depth-capped (can't delegate further), and every sub-run is audited.
+
+### Added — Telegram bridge (your agent, on any phone)
+- Connect a bot from @BotFather and chat with your BixDot from any phone. **Outbound long-polling only** — no webhook, no inbound port, the backend stays on 127.0.0.1. Token lives in the OS keyring, never the DB.
+- Pairing requires a 6-digit code shown inside the app (5-minute TTL); unpaired chats are rejected and audited. Scheduled briefings can push to paired chats.
+
+### Added — Ease & reliability
+- **Zero-setup onboarding** — the wizard now downloads llama3.2 with a real progress bar (streams Ollama pull progress). No terminal, ever.
+- **Auto-updater** — the desktop app checks GitHub releases at launch and silently installs updates (Tauri updater; activates once release signing keys are configured; degrades gracefully without them).
+- **Plain-language permissions** — every prompt now says what it means: "Allow BixDot to search the web?" with an icon and one-line explanation, instead of `net:fetch`.
+- **In-app notifications** — routine results pop up as toasts inside the app.
+
+---
+
 ## [0.4.1] — 2026-06-26
 
 ### Fixed

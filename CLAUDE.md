@@ -12,7 +12,7 @@
 - **Website:** https://bixdot.app
 - **GitHub:** https://github.com/bixdot-app/bixdot
 - **License:** BUSL-1.1 (source-available, free to self-host, commercial use requires license)
-- **Version:** v0.4.1 (released 2026-06-26)
+- **Version:** v0.5.0 (released 2026-07-08)
 - **Owner:** Shanker / DigiTech Business Pte. Ltd
 
 ---
@@ -70,12 +70,19 @@ bixdot/
 │   │   ├── license_check.py       # Commercial use detection (corporate email + domain-joined Windows)
 │   │   └── models.py              # Pydantic models
 │   ├── agent/
-│   │   ├── routes.py              # /agent/chat, /sessions, /permissions
-│   │   ├── runtime.py             # AgentRuntime — two-phase tool loop
+│   │   ├── routes.py              # /agent/chat, /sessions, /models, /permissions
+│   │   ├── runtime.py             # AgentRuntime — two-phase loop + sub-agents
 │   │   ├── llm.py                 # LLMAdapter (Ollama + Cloud)
 │   │   ├── permissions.py         # Capability enum, PermissionStore
-│   │   ├── session_store.py       # SQLite session persistence
+│   │   ├── session_store.py       # SQLite session persistence (private = memory)
+│   │   ├── personas.py            # Persona store + 5 built-ins (v0.5)
+│   │   ├── persona_routes.py      # /agent/personas CRUD (v0.5)
+│   │   ├── scheduler.py           # Scheduled agents + notifications (v0.5)
+│   │   ├── schedule_routes.py     # /agent/schedules, /agent/notifications (v0.5)
 │   │   └── paths.py               # Cross-platform path resolution
+│   ├── channels/
+│   │   ├── telegram.py            # Telegram bridge — outbound long-poll (v0.5)
+│   │   └── telegram_routes.py     # /agent/telegram — connect, pair, unpair (v0.5)
 │   ├── skills/
 │   │   ├── filesystem/            # read_file, write_file, list_directory, search_files
 │   │   ├── websearch/             # DuckDuckGo search (ddgs, no API key)
@@ -119,7 +126,7 @@ bixdot/
 │   ├── RELEASE_NOTES_v0.1.0.md
 │   ├── RELEASE_NOTES_v0.1.1.md
 │   ├── RELEASE_NOTES_v0.2.1.md
-│   └── RELEASE_NOTES_v0.4.1.md
+│   └── RELEASE_NOTES_v0.5.0.md
 ├── .claude/
 │   └── settings.json              # PostToolUse hooks: ruff auto-fix, pip-audit on requirements
 ├── requirements.txt               # Python 3.11+ dependencies
@@ -223,9 +230,49 @@ for private sessions.
   sessions and dispatch to the sandbox after user approval at install time.
 - Routes under `/agent/skills`. Replaces the retired `core/plugins` loader.
 
+### 9. Personas (v0.5.0)
+
+`core/agent/personas.py` — five built-ins seeded idempotently (editable, not
+deletable) + custom. A persona = system prompt + default model + offered-tool
+allowlist. **Personas shape what the model is OFFERED — the permission system
+still gates every execution.** Memory is deliberately shared across personas.
+Sessions bind via `persona_id` (sessions table + AgentSession).
+
+### 10. Routines / Scheduled Agents (v0.5.0)
+
+`core/agent/scheduler.py` — zero-dep asyncio loop (30s tick in the lifespan).
+Consumer schedules: hourly/daily/weekdays/weekly at local HH:MM, slot semantics
+prevent double-runs. **Headless runs can't prompt, so capabilities are
+pre-approved at creation** (`schedule_capability_grants`) and granted per-run
+with a 10-min TTL. Results go to a visible "⏰ <name>" session + the
+`notifications` queue (frontend polls `/agent/notifications/pending`).
+
+### 11. Multi-Agent Orchestration (v0.5.0)
+
+`delegate_tasks` tool → `AgentRuntime._run_subagents()`: 2–4 subtasks in
+parallel (asyncio.gather), ephemeral sub-sessions, SAME permission store (no
+escalation), depth cap 1 (sub-agents never get delegate_tasks), audited as
+`agent.subagent` with private-session preview redaction.
+
+### 12. Telegram Bridge (v0.5.0)
+
+`core/channels/telegram.py` — **outbound long-polling only** (httpx getUpdates;
+no webhook, no inbound port; 127.0.0.1 invariant untouched). Token in OS
+keyring. Pairing = 6-digit in-app code, 5-min TTL → `telegram_pairings`
+allowlist; unpaired chats rejected + audited. Poller starts in the lifespan
+when configured. Never use python-telegram-bot (LGPL — license policy).
+
+### 13. Auto-Updater (v0.5.0)
+
+`src-tauri/main.rs` — plugin registers ONLY when `plugins.updater.pubkey` is
+non-empty; silent check+install at launch. CI produces signed updater
+artifacts + latest.json ONLY when `TAURI_SIGNING_PRIVATE_KEY` secret exists.
+One-time activation: `cargo tauri signer generate`, pubkey → tauri.conf.json,
+private key + password → repo secrets.
+
 ---
 
-## Current Status — v0.4.1 ✅ SHIPPED
+## Current Status — v0.5.0 ✅ SHIPPED
 
 | Feature | Status |
 |---|---|
@@ -260,20 +307,27 @@ for private sessions.
 | Thinking model support (strip tokens) | ✅ v0.4.0 |
 | Cloud model blocking at session creation | ✅ v0.4.0 |
 | Skill Plugin API (verify + sandbox + capability gate) | ✅ v0.4.0 |
+| Personas (5 built-in + custom) | ✅ v0.5.0 |
+| Routines (scheduled background agents) | ✅ v0.5.0 |
+| Multi-agent orchestration (delegate_tasks) | ✅ v0.5.0 |
+| Telegram bridge (outbound long-poll, pairing) | ✅ v0.5.0 |
+| Auto-updater (activates with signing keys) | ✅ v0.5.0 |
+| Zero-setup onboarding (in-app model download) | ✅ v0.5.0 |
+| Plain-language permissions | ✅ v0.5.0 |
 
 ---
 
-## v0.5.0 Roadmap — Next Sprint
+## v0.6.0 Roadmap — Next Sprint
 
 Priority order:
 
-1. **Multi-agent orchestration** — a primary agent spawns sub-agents for parallel tasks.
+1. **Native mobile app** — Android first via Tauri 2 Mobile (iOS needs a Mac + Apple Developer account).
 
-2. **Persistent agent personas** — named agents with their own system prompt, model, skills, and memory.
+2. **Native OS notifications** — toasts when the window is closed to tray (needs Tauri remote-URL capability work).
 
-3. **Scheduled / background agents** — cron-triggered, no active user session.
+3. **Slack channel integration** — same outbound-only pattern as Telegram.
 
-4. **Telegram and Slack channel integration** — webhook receiver on the same JWT/audit path.
+4. **Voice input exploration** — Web Speech API is unavailable in WebView2; needs a local STT approach.
 
 ---
 
@@ -284,6 +338,10 @@ Priority order:
 - Session memory limited by llama3.2 context window (~8k tokens)
 - No code signing certificate yet — SmartScreen warning on Windows, Gatekeeper on macOS
 - License enforcement is legal-only (BUSL-1.1) — no technical key enforcement yet
+- Auto-updater dormant until the one-time signing-key setup (see RELEASE_NOTES_v0.5.0 → "For maintainers")
+- Notifications are in-app toasts + Telegram only — native OS toasts need Tauri
+  remote-URL capability work (frontend is served over http, no IPC bridge) — v0.6.0
+- Scheduled runs only fire while the app is running (backend process alive in tray)
 
 ---
 
@@ -423,5 +481,5 @@ Every release follows this exact sequence — no manual checks needed:
 
 ---
 
-*Last updated: 2026-06-26 | v0.4.1*
+*Last updated: 2026-07-08 | v0.5.0*
 *© 2026 DigiTech Business Pte. Ltd.*

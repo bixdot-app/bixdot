@@ -39,9 +39,9 @@ which model a chat is using.
 
 ---
 
-## What's Next — v0.5.0
+## What's Next — v0.5.0 ✅ Shipped
 
-- Multi-agent orchestration · persistent agent personas · scheduled/background agents · Telegram & Slack channels
+- Personas · Routines (scheduled agents) · multi-agent orchestration · Telegram bridge · auto-updater · zero-setup onboarding · plain-language permissions
 
 ---
 

@@ -6,7 +6,7 @@
   [![CI](https://github.com/bixdot-app/bixdot/actions/workflows/ci.yml/badge.svg)](https://github.com/bixdot-app/bixdot/actions/workflows/ci.yml)
   [![Release](https://github.com/bixdot-app/bixdot/actions/workflows/release.yml/badge.svg)](https://github.com/bixdot-app/bixdot/actions/workflows/release.yml)
   [![License: BUSL-1.1](https://img.shields.io/badge/License-BUSL--1.1-blue.svg)](LICENSE)
-  [![Version](https://img.shields.io/badge/version-0.4.1-green.svg)](https://github.com/bixdot-app/bixdot/releases/tag/v0.4.1)
+  [![Version](https://img.shields.io/badge/version-0.5.0-green.svg)](https://github.com/bixdot-app/bixdot/releases/tag/v0.5.0)
 
   [Download](https://github.com/bixdot-app/bixdot/releases/latest) · [Docs](docs/) · [Security](mailto:security@bixdot.app)
 </div>
@@ -25,7 +25,7 @@ It's also the most secure AI agent available. We built it after studying every k
 
 ## Download
 
-**[→ Download BixDot v0.4.1](https://github.com/bixdot-app/bixdot/releases/latest)**
+**[→ Download BixDot v0.5.0](https://github.com/bixdot-app/bixdot/releases/latest)**
 
 | Platform | Installer |
 |---|---|
@@ -41,6 +41,12 @@ It's also the most secure AI agent available. We built it after studying every k
 ## Features
 
 - **Chat** — talk to any Ollama model locally; model selector persists your choice
+- **Routines** — scheduled background agents: a Morning Briefing at 7:00, an evening news digest, a Week Ahead summary — set once, runs on its own
+- **Personas** — five ready-made helpers (Day Planner, Researcher, Writer, File Helper…) plus your own custom ones; all share one memory
+- **Telegram bridge** — chat with your agent from any phone; outbound-only connection, your agent never leaves your computer
+- **Helper agents** — complex requests split across parallel sub-agents, capped and permission-bound
+- **Auto-updates** — the desktop app keeps itself current from official releases
+- **Zero-setup onboarding** — first run downloads the AI model with a progress bar; no terminal, ever
 - **Persistent Memory** — agent remembers facts and preferences across sessions (SQLite FTS5, fully local)
 - **Document Chat** — upload PDF, DOCX, PPTX, XLSX, TXT, MD, CSV; ask questions against your documents
 - **GitHub integration** — connect via PAT; list repos, read issues and PRs from the agent
@@ -110,6 +116,12 @@ Full threat model: [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md)
 | Dynamic Ollama model selector | ✅ v0.4.0 |
 | Thinking model support (strip tokens) | ✅ v0.4.0 |
 | Skill Plugin API | ✅ v0.4.0 |
+| Personas (built-in + custom) | ✅ v0.5.0 |
+| Routines (scheduled agents) | ✅ v0.5.0 |
+| Multi-agent orchestration | ✅ v0.5.0 |
+| Telegram bridge (phone access) | ✅ v0.5.0 |
+| Auto-updater | ✅ v0.5.0 |
+| Zero-setup onboarding | ✅ v0.5.0 |
 | Mobile (iOS + Android) | 📅 Phase 2 |
 | Skill marketplace | 📅 Phase 2 |
 
@@ -150,10 +162,13 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) for full guidelines.
 
 ## Roadmap
 
-**v0.5.0 — Coming next**
-Multi-agent orchestration (primary agent spawns sub-agents for parallel tasks), persistent agent personas (named agents with their own prompt, model, skills, and memory), scheduled/background agents (cron-triggered, no active session), Telegram and Slack channel integration (webhook receiver on the same JWT/audit path)
+**v0.6.0 — Coming next**
+Native mobile app (Android first via Tauri 2 Mobile), native OS notifications when closed to tray, Slack channel integration (same outbound-only pattern as Telegram), voice input exploration
 
 ---
+
+**v0.5.0 — Released 8 July 2026**
+The Daily Companion release: Routines (scheduled background agents with plain-language capability approval), five built-in Personas + custom, multi-agent orchestration (parallel helper agents, no permission escalation), Telegram bridge (outbound long-polling — agent reachable from any phone while staying on 127.0.0.1), auto-updater, zero-setup onboarding (in-app model download with progress), plain-language permission prompts, in-app notification toasts.
 
 **v0.4.0 — Released 26 June 2026**
 Multi-session UI with a session sidebar (SQLite-persisted), Private Session mode (in-memory only, no DB writes, audit log records no message content), dynamic Ollama model selector with capability classification (Full Agent / Reasoning / Chat / Cloud), thinking-token stripping for reasoning models, cloud model blocking at session creation, and the Skill Plugin API (manifest validation, SHA-256 integrity, capability gating, subprocess sandbox).

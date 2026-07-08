@@ -175,9 +175,10 @@ def fetch_pending_notifications(user_id: str) -> list[dict]:
         ).fetchall()
         if rows:
             ids = [r["id"] for r in rows]
+            placeholders = ",".join("?" * len(ids))
+            # Interpolation is placeholders only; all values parameterized.
             conn.execute(
-                f"UPDATE notifications SET delivered = 1 "
-                f"WHERE id IN ({','.join('?' * len(ids))})",  # noqa: S608  # nosec B608 — placeholders only
+                f"UPDATE notifications SET delivered = 1 WHERE id IN ({placeholders})",  # noqa: S608  # nosec B608
                 ids,
             )
     return [{"id": r["id"], "title": r["title"], "body": r["body"],

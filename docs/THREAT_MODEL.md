@@ -1,7 +1,7 @@
 # BixDot — Threat Model
 
-> Version: 0.4.1  
-> Last updated: 2026-06-26  
+> Version: 0.5.0  
+> Last updated: 2026-07-08  
 > Status: Living document — updated with every release
 
 ---
@@ -202,6 +202,58 @@ Every known BixDot vulnerability class is addressed by a specific architectural 
 - No cookies stored, no authentication forwarded to fetched pages
 - Result capped at 3000 characters per source page
 - Research jobs are fire-and-forget BackgroundTasks — failure is contained per job
+
+---
+
+### v0.5.0 Threat Surface — Daily Companion (2026-07-08)
+
+#### Telegram Bridge
+**Surface:** Agent reachable from any phone via a Telegram bot; messages traverse Telegram's servers.
+
+**Mitigations:**
+- **Outbound-only transport** — long-polling `getUpdates` via httpx; no webhook, no inbound port. The backend stays bound to 127.0.0.1 (the localhost-only invariant is untouched).
+- Bot token stored in the OS keyring — never in SQLite, config files, or the audit log.
+- **Pairing allowlist** — only chats that submitted the 6-digit code displayed inside the app (5-minute TTL) may talk to the agent; possession of the app is required, not just the bot handle. Unpaired messages are rejected and audited (`telegram.rejected`, chat id only).
+- Owner role required to connect/disconnect the bot; disconnect wipes all pairings.
+- **Accepted residual risk (explicit opt-in):** message content transits Telegram's infrastructure. The bridge is off by default; enabling it is a per-user decision, audited as `telegram.enabled`.
+
+**Code:** `core/channels/telegram.py`
+
+---
+
+#### Scheduled Agents (headless runs)
+**Surface:** Agent runs without a user present — no interactive permission prompts possible.
+
+**Mitigations:**
+- Capabilities are pre-approved by the user **at schedule creation** (`schedule_capability_grants`) and shown in plain language; each run grants exactly those with a 10-minute TTL. Zero-default-permissions preserved — a schedule can never exceed what was approved.
+- An ungranted capability aborts that action and reports "permission required" into the visible result — never silently escalates.
+- Every run audited (`schedule.run` / `schedule.run_failed`); creation audits the approved capability list.
+
+**Code:** `core/agent/scheduler.py`
+
+---
+
+#### Multi-Agent Orchestration
+**Surface:** The model can spawn helper agents.
+
+**Mitigations:**
+- Sub-agents share the parent's permission store — **no escalation path**; ungranted capabilities are reported, not prompted.
+- Depth cap 1: sub-agents are never offered `delegate_tasks` (no recursive spawning); subtask count capped at 4.
+- Sub-agent sessions are ephemeral (never persisted); every sub-run audited (`agent.subagent`), previews redacted for private sessions.
+
+**Code:** `core/agent/runtime.py → _run_subagents()`
+
+---
+
+#### Auto-Updater
+**Surface:** The app downloads and executes new versions.
+
+**Mitigations:**
+- Updates are minisign-verified against a public key compiled into the app (Tauri updater); unsigned or tampered artifacts are rejected.
+- Manifest and artifacts served only from the official GitHub Releases endpoint over HTTPS.
+- The updater plugin is not even registered when no public key is configured — no unsigned-update path exists.
+
+**Code:** `src-tauri/src/main.rs`, `.github/workflows/release.yml`
 
 ---
 
