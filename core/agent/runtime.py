@@ -252,6 +252,26 @@ BUILTIN_TOOLS = [
         }
     },
     {
+        "name": "delegate_tasks",
+        "description": (
+            "Split a complex request into 2-4 INDEPENDENT subtasks and run them in "
+            "parallel with helper agents, then combine the results. Only use when the "
+            "user's request clearly contains multiple separable parts (e.g. 'check my "
+            "calendar AND search the web for X'). Never use for simple questions."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "subtasks": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "2-4 self-contained subtask instructions",
+                }
+            },
+            "required": ["subtasks"]
+        }
+    },
+    {
         "name": "deep_research",
         "description": (
             "Perform deep research on a topic: plans sub-queries, searches the web, "
@@ -422,10 +442,13 @@ def _needs_tools(message: str) -> bool:
 
 class AgentRuntime:
     MAX_TOOL_ROUNDS = 5
+    MAX_SUBTASKS = 4
 
-    def __init__(self, permission_store=None, audit_logger=None):
+    def __init__(self, permission_store=None, audit_logger=None, is_subagent=False):
         self.permissions = permission_store or get_permission_store()
         self.audit       = audit_logger       or get_audit_logger()
+        # Depth cap: sub-agents are never offered delegate_tasks (no recursion).
+        self._is_subagent = is_subagent
 
     async def run(self, session: AgentSession, user_message: str) -> AgentResponse:
         session.messages.append(Message(role="user", content=user_message))
@@ -471,6 +494,8 @@ class AgentRuntime:
         if persona and persona.get("allowed_tools"):
             allowed = set(persona["allowed_tools"])
             all_tools = [t for t in all_tools if t["name"] in allowed]
+        if self._is_subagent:
+            all_tools = [t for t in all_tools if t["name"] != "delegate_tasks"]
 
         # ── Memory injection: prepend relevant memories before Phase 1 ───────
         try:
@@ -553,6 +578,17 @@ class AgentRuntime:
                      "input": "[redacted — private session]" if session.is_private else tool_input},
                     user_id=session.user_id,
                 )
+
+                # Multi-agent orchestration: run subtasks with parallel helper
+                # agents. Sub-agents share this permission store (no escalation)
+                # and are never offered delegate_tasks themselves (depth cap 1).
+                if tool_name == "delegate_tasks" and not self._is_subagent:
+                    result = await self._run_subagents(
+                        session, tool_input.get("subtasks", [])
+                    )
+                    tool_calls_made.append(tool_name)
+                    collected_results.append({"tool": tool_name, "result": result})
+                    continue
 
                 # Third-party skill tool → dispatch to the sandbox. The user
                 # approved every capability at install time, so no runtime prompt.
@@ -650,6 +686,63 @@ class AgentRuntime:
             _text(b) for b in response["content"] if _type(b) == "text"
         ).strip()
         return text or context[:500]  # Fallback: return raw result
+
+    # ── Multi-agent orchestration (v0.5) ────────────────────────────────────────
+
+    async def _run_subagents(self, session: AgentSession, subtasks: list) -> str:
+        """
+        Run up to MAX_SUBTASKS subtasks in parallel with helper agents.
+
+        Each sub-agent gets an EPHEMERAL session (never persisted), the parent
+        session's model and user, and shares the parent's permission store —
+        sub-agents cannot escalate beyond what the user has already granted.
+        If a subtask needs an ungranted capability, that is reported back in
+        its result rather than prompting (prompts belong to the parent flow).
+        """
+        import asyncio
+
+        tasks = [s.strip() for s in subtasks
+                 if isinstance(s, str) and s.strip()][: self.MAX_SUBTASKS]
+        if len(tasks) < 2:
+            return ("delegate_tasks needs 2-4 independent subtasks. "
+                    "Answer directly instead.")
+
+        sub_runtime = AgentRuntime(
+            permission_store=self.permissions,
+            audit_logger=self.audit,
+            is_subagent=True,
+        )
+
+        async def _one(index: int, task: str) -> str:
+            self.audit.log(
+                AuditEvent.AGENT_SUBAGENT,
+                {"parent_session": session.session_id, "index": index,
+                 "preview": "[redacted — private session]" if session.is_private
+                            else task[:100]},
+                user_id=session.user_id,
+            )
+            sub_session = AgentSession(
+                session_id=f"{session.session_id}:sub{index}",
+                user_id=session.user_id,
+                llm_backend=session.llm_backend,
+                model=session.model,
+                model_mode=session.model_mode,
+                is_private=session.is_private,
+            )
+            try:
+                resp = await sub_runtime.run(sub_session, task)
+                if resp.permissions_requested:
+                    return (f"Could not finish — needs permission: "
+                            f"{', '.join(resp.permissions_requested)}")
+                return resp.message
+            except Exception as e:
+                return f"Subtask failed: {e}"
+
+        results = await asyncio.gather(*[_one(i + 1, t) for i, t in enumerate(tasks)])
+        return "\n\n".join(
+            f"[Subtask {i + 1}: {t}]\n{r}"
+            for i, (t, r) in enumerate(zip(tasks, results))
+        )
 
     # ── Third-party skill dispatch ──────────────────────────────────────────────
 
