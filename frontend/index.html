@@ -213,6 +213,37 @@
   .mp-warn{background:var(--warn-dim);border:1px solid rgba(245,166,35,.3);color:var(--warn);font-size:11px;border-radius:7px;padding:8px 10px;margin-bottom:8px;line-height:1.5;}
   /* Skill cards */
   .skill-cap{font-size:10px;font-family:var(--mono);background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:4px;padding:1px 5px;color:var(--blue);}
+
+  /* v0.5 — Persona chips */
+  .pchips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;}
+  .pchip{display:flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--card);border-radius:18px;padding:6px 12px;font-size:12px;cursor:pointer;color:var(--text);transition:all .15s;}
+  .pchip:hover{border-color:var(--accent);}
+  .pchip.sel{border-color:var(--accent);background:var(--accent-dim);color:var(--accent);}
+  /* v0.5 — Toasts (in-app notifications) */
+  .toasts{position:fixed;bottom:18px;right:18px;z-index:200;display:flex;flex-direction:column;gap:8px;max-width:340px;}
+  .toast{background:var(--surface);border:1px solid var(--accent-mid);border-radius:12px;padding:12px 14px;box-shadow:0 8px 30px rgba(0,0,0,.5);animation:slidein .25s ease;}
+  .toast-title{font-size:13px;font-weight:600;margin-bottom:3px;display:flex;align-items:center;gap:6px;}
+  .toast-body{font-size:12px;color:var(--muted);line-height:1.5;max-height:80px;overflow:hidden;}
+  @keyframes slidein{from{transform:translateX(30px);opacity:0}to{transform:translateX(0);opacity:1}}
+  /* v0.5 — Routines */
+  .routines-body{flex:1;overflow-y:auto;padding:18px;max-width:620px;}
+  .routine-card{background:var(--card);border:1px solid var(--border);border-radius:11px;padding:13px 15px;margin-bottom:10px;}
+  .routine-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;}
+  .routine-name{font-size:14px;font-weight:600;}
+  .routine-meta{font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:8px;}
+  .routine-actions{display:flex;gap:8px;align-items:center;}
+  .tmpl-chip{border:1px dashed var(--accent-mid);background:var(--accent-dim);color:var(--accent);border-radius:9px;padding:8px 12px;font-size:12px;cursor:pointer;}
+  /* v0.5 — Friendly permission rows */
+  .cap-row{display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:9px;margin-bottom:6px;cursor:pointer;background:var(--card);}
+  .cap-row.sel{border-color:var(--accent);background:var(--accent-dim);}
+  .cap-ic{font-size:17px;flex-shrink:0;}
+  .cap-t{font-size:12.5px;font-weight:500;}
+  .cap-d{font-size:11px;color:var(--muted);}
+  /* v0.5 — Download progress */
+  .dlbar{height:8px;background:var(--card);border:1px solid var(--border);border-radius:6px;overflow:hidden;margin:8px 0 4px;}
+  .dlbar>div{height:100%;background:var(--accent);transition:width .3s;}
+  /* v0.5 — Pairing code */
+  .paircode{font-family:var(--mono);font-size:28px;letter-spacing:.35em;color:var(--accent);background:var(--accent-dim);border:1px solid var(--accent-mid);border-radius:10px;padding:10px 16px;text-align:center;margin:10px 0;}
 </style>
 </head>
 <body>
@@ -255,6 +286,7 @@ const SETTINGS_ICON='M12 15a3 3 0 100-6 3 3 0 000 6z M19.4 15a1.65 1.65 0 00.33 
 const SEND_ICON='M22 2L11 13 M22 2L15 22 8 13 2 9z';
 const CAL_ICON='M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z';
 const TERM_ICON='M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z';
+const ROUTINE_ICON='M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z';
 
 // ── Login ─────────────────────────────────────────────────────────────────────
 function Login({onLogin}){
@@ -302,9 +334,44 @@ function Login({onLogin}){
 }
 
 // ── Onboarding Wizard ─────────────────────────────────────────────────────────
-function OnboardingWizard({onDismiss}){
+function OnboardingWizard({onDismiss,token}){
   const[status,setStatus]=useState(null);
   const[checking,setChecking]=useState(false);
+  const[dl,setDl]=useState(null); // {pct,status,err,busy}
+
+  const download=async()=>{
+    const model=(status&&status.suggested_model)||'llama3.2';
+    setDl({pct:0,status:'Starting download…',busy:true});
+    try{
+      const r=await fetch('http://localhost:8747/agent/models/pull',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+        body:JSON.stringify({model}),
+      });
+      if(!r.ok||!r.body) throw new Error('Could not start the download.');
+      const reader=r.body.getReader(); const dec=new TextDecoder(); let buf='';
+      while(true){
+        const{done,value}=await reader.read();
+        if(done) break;
+        buf+=dec.decode(value,{stream:true});
+        const lines=buf.split('\n'); buf=lines.pop();
+        for(const ln of lines){
+          if(!ln.trim()) continue;
+          try{
+            const j=JSON.parse(ln);
+            if(j.error){ setDl({pct:0,status:j.error,err:true}); return; }
+            if(j.total&&j.completed!=null){
+              setDl({pct:Math.min(100,Math.round(j.completed/j.total*100)),status:'Downloading…',busy:true});
+            } else if(j.status){
+              setDl(d=>({pct:(d&&d.pct)||0,status:j.status,busy:true}));
+            }
+          }catch(e){}
+        }
+      }
+      setDl({pct:100,status:'Done! Starting BixDot…',busy:false});
+      check();
+    }catch(e){ setDl({pct:0,status:'Download failed: '+e.message,err:true}); }
+  };
 
   const check=async()=>{
     setChecking(true);
@@ -331,12 +398,21 @@ function OnboardingWizard({onDismiss}){
     },
     {
       id:'model',
-      label:'A model is installed',
+      label:'An AI model is installed',
       done: status&&status.has_models,
-      desc: el('span',null,
-        'In your terminal, run: ',
-        el('code',{style:{fontFamily:'var(--mono)',background:'var(--card)',padding:'1px 6px',borderRadius:4,color:'var(--accent)'}},
-          'ollama pull '+(status?.suggested_model||'llama3.2'))
+      desc: el('div',null,
+        el('div',{style:{marginBottom:6}},'BixDot needs one AI model (~2 GB, one-time download). It runs entirely on this computer.'),
+        dl&&el('div',null,
+          el('div',{className:'dlbar'},el('div',{style:{width:(dl.pct||0)+'%'}})),
+          el('div',{style:{fontSize:11,color:dl.err?'var(--red)':'var(--muted)'}},
+            (dl.pct?dl.pct+'% · ':'')+dl.status)
+        ),
+        (!dl||dl.err)&&el('button',{
+          className:'connect-btn',style:{marginTop:6},
+          disabled:!(status&&status.ollama_running),
+          onClick:download,
+        },dl&&dl.err?'Try again':'⬇ Download '+(status?.suggested_model||'llama3.2')),
+        !(status&&status.ollama_running)&&el('div',{style:{fontSize:11,color:'var(--muted)',marginTop:4}},'Finish step 1 first.')
       ),
     },
   ];
@@ -383,19 +459,43 @@ function OnboardingWizard({onDismiss}){
   );
 }
 
+// ── Plain-language permissions (v0.5) ─────────────────────────────────────────
+const CAP_FRIENDLY={
+  'fs:read':      {icon:'📂',title:'Read your files',        desc:'Open and read files in your home folder'},
+  'fs:write':     {icon:'💾',title:'Save files',             desc:'Create or change files in your home folder'},
+  'fs:delete':    {icon:'🗑️',title:'Delete files',           desc:'Remove files — always asked separately'},
+  'net:fetch':    {icon:'🌐',title:'Search the web',         desc:'Look things up online (read-only)'},
+  'net:outbound': {icon:'🌐',title:'Access the internet',    desc:'Send requests to websites'},
+  'exec:shell':   {icon:'⌨️',title:'Run commands',           desc:'Run safe, pre-approved commands on this computer'},
+  'exec:python':  {icon:'🐍',title:'Run Python code',        desc:'Run Python in a protected sandbox'},
+  'calendar:read':{icon:'📅',title:'See your calendar',      desc:'Read your upcoming events'},
+  'calendar:write':{icon:'🗓️',title:'Add calendar events',   desc:'Create or change events for you'},
+  'memory:read':  {icon:'🧠',title:'Recall memories',        desc:'Read notes you asked BixDot to remember'},
+  'memory:write': {icon:'💭',title:'Remember things',        desc:'Save notes and preferences you share'},
+  'docs:read':    {icon:'📄',title:'Read your documents',    desc:'Search documents you uploaded to BixDot'},
+  'github:read':  {icon:'🐙',title:'Read your GitHub',       desc:'List your repositories and issues'},
+  'github:write': {icon:'🐙',title:'Change your GitHub',     desc:'Create issues or pull requests'},
+  'cred:read':    {icon:'🔑',title:'Use saved logins',       desc:'Use credentials you stored securely'},
+  'cred:write':   {icon:'🔑',title:'Save logins',            desc:'Store credentials in your secure keyring'},
+  'llm:cloud':    {icon:'☁️',title:'Use a cloud AI',         desc:'Send text to a cloud AI (data leaves this device)'},
+  'llm:local':    {icon:'🖥️',title:'Use the local AI',       desc:'Run the AI on this computer (nothing leaves it)'},
+};
+const capInfo=c=>CAP_FRIENDLY[c]||{icon:'🔐',title:c,desc:'Allow "'+c+'"'};
+
 // ── Permission Modal ──────────────────────────────────────────────────────────
 function PermModal({cap,onAllow,onDeny}){
+  const info=capInfo(cap);
   return el('div',{className:'modal-bg'},
     el('div',{className:'modal'},
       el('div',{className:'modal-h'},
-        el('div',{className:'modal-icon'},'📁'),
+        el('div',{className:'modal-icon'},info.icon),
         el('div',null,
-          el('p',{style:{fontSize:14,fontWeight:500,marginBottom:2}},'Allow "'+cap+'"?'),
-          el('p',{style:{fontSize:11,color:'var(--muted)'}},'BixDot · Built-in skill')
+          el('p',{style:{fontSize:14,fontWeight:500,marginBottom:2}},'Allow BixDot to '+info.title.toLowerCase()+'?'),
+          el('p',{style:{fontSize:11,color:'var(--muted)'}},info.desc)
         )
       ),
       el('div',{className:'modal-body'},
-        el('p',{style:{fontSize:12,color:'var(--muted)'}},'BixDot needs this to complete your request.'),
+        el('p',{style:{fontSize:12,color:'var(--muted)'}},'BixDot needs this to finish what you asked. Nothing happens without your OK.'),
         el('div',{className:'checks'},
           el('div',{className:'check-item'},el('span',{style:{color:'var(--accent)'}},'>'),el('span',null,'Your data stays on this device')),
           el('div',{className:'check-item'},el('span',{style:{color:'var(--accent)'}},'>'),el('span',null,'Every access logged in audit log')),
@@ -426,6 +526,8 @@ function ModeBadge({mode}){
 function CreateSessionModal({token,onClose,onCreate}){
   const[name,setName]=useState('New Chat');
   const[models,setModels]=useState([]);
+  const[personas,setPersonas]=useState([]);
+  const[personaId,setPersonaId]=useState('bixdot');
   const[ollamaUp,setOllamaUp]=useState(true);
   const[sel,setSel]=useState('');
   const[priv,setPriv]=useState(false);
@@ -438,7 +540,14 @@ function CreateSessionModal({token,onClose,onCreate}){
       const def=(r.models||[]).find(m=>m.is_default)||(r.models||[])[0];
       if(def) setSel(def.name);
     }).catch(()=>setOllamaUp(false));
+    api('/agent/personas',{},token).then(setPersonas).catch(()=>{});
   },[token]);
+
+  const pickPersona=(p)=>{
+    setPersonaId(p.persona_id);
+    if(p.model){ const m=models.find(x=>x.name===p.model); if(m&&!m.is_cloud) setSel(p.model); }
+  };
+  const activePersona=personas.find(p=>p.persona_id===personaId);
 
   const groups=[
     ['FULL_AGENT','✅ Full Agent','All skills available'],
@@ -451,7 +560,7 @@ function CreateSessionModal({token,onClose,onCreate}){
     setBusy(true); setErr('');
     try{
       const meta=await api('/agent/sessions',{method:'POST',
-        body:JSON.stringify({name:name||'New Chat',model:sel,is_private:priv})},token);
+        body:JSON.stringify({name:name||'New Chat',model:sel,is_private:priv,persona_id:personaId})},token);
       onCreate(meta);
     }catch(e){ setErr(e.message); setBusy(false); }
   };
@@ -470,6 +579,16 @@ function CreateSessionModal({token,onClose,onCreate}){
           el('label',null,'Name'),
           el('input',{value:name,autoFocus:true,onChange:e=>setName(e.target.value),
             onKeyDown:e=>e.key==='Enter'&&create()})
+        ),
+        personas.length>0&&el('div',null,
+          el('div',{style:{margin:'6px 0',fontSize:10,color:'var(--muted)',fontFamily:'var(--mono)',textTransform:'uppercase',letterSpacing:'.08em'}},'Who answers'),
+          el('div',{className:'pchips'},
+            personas.map(p=>el('button',{key:p.persona_id,
+              className:'pchip'+(personaId===p.persona_id?' sel':''),
+              title:p.description,
+              onClick:()=>pickPersona(p)},p.icon+' '+p.name))
+          ),
+          activePersona&&activePersona.description&&el('div',{style:{fontSize:11,color:'var(--muted)',marginTop:-6,marginBottom:8}},activePersona.description)
         ),
         el('div',{style:{margin:'10px 0 6px',fontSize:10,color:'var(--muted)',fontFamily:'var(--mono)',textTransform:'uppercase',letterSpacing:'.08em'}},'Model'),
         !ollamaUp&&el('div',{className:'mp-warn'},'Ollama is not running. Start Ollama to see available models.'),
@@ -523,8 +642,16 @@ function Chat({token,model}){
   const[menuId,setMenuId]=useState(null);
   const[renameId,setRenameId]=useState(null);
   const[renameVal,setRenameVal]=useState('');
+  const[personaMap,setPersonaMap]=useState({});
   const bottom=useRef(null);
   const addMsg=(role,text)=>setMsgs(m=>[...m,{role,text}]);
+
+  useEffect(()=>{
+    api('/agent/personas',{},token).then(ps=>{
+      const m={}; (ps||[]).forEach(p=>{m[p.persona_id]=p;}); setPersonaMap(m);
+    }).catch(()=>{});
+  },[token]);
+  const pIcon=(s)=>s.persona_id&&personaMap[s.persona_id]?personaMap[s.persona_id].icon:null;
 
   const loadSessions=useCallback(async()=>{
     try{
@@ -616,6 +743,7 @@ function Chat({token,model}){
       onClick:()=>renameId!==s.session_id&&selectSession(s)},
     el('div',{className:'sitem-top'},
       s.is_private&&el('span',{title:'Private'},'🔒'),
+      !s.is_private&&pIcon(s)&&el('span',{title:(personaMap[s.persona_id]||{}).name},pIcon(s)),
       renameId===s.session_id
         ? el('input',{className:'sitem-rename',value:renameVal,autoFocus:true,
             onClick:e=>e.stopPropagation(),
@@ -653,7 +781,8 @@ function Chat({token,model}){
     el('div',{className:'chat-pane'},
       active&&el('div',{className:'chat-header'},
         el('span',{className:'chat-header-name',title:'Click to rename',
-          onClick:()=>{setRenameId(active.session_id);setRenameVal(active.name);}},active.name),
+          onClick:()=>{setRenameId(active.session_id);setRenameVal(active.name);}},
+          (pIcon(active)?pIcon(active)+' ':'')+active.name),
         el('div',{style:{display:'flex',alignItems:'center',gap:8}},
           active.model&&el('span',{style:{fontSize:11,fontFamily:'var(--mono)',color:'var(--muted)'}},active.model),
           el(ModeBadge,{mode:active.model_mode})
@@ -999,6 +1128,127 @@ function ModelSelector({token, onModelChange}){
   );
 }
 
+// ── Telegram Settings (v0.5) ──────────────────────────────────────────────────
+function TelegramSettings({token}){
+  const[st,setSt]=useState(null);
+  const[tok,setTok]=useState('');
+  const[busy,setBusy]=useState(false);
+  const[msg,setMsg]=useState('');
+  const[code,setCode]=useState(null);
+
+  const load=()=>{api('/agent/telegram/status',{},token).then(setSt).catch(()=>{});};
+  useEffect(()=>{load();},[token]);
+
+  const connect=async()=>{
+    if(!tok.trim())return;
+    setBusy(true); setMsg('');
+    try{
+      const r=await api('/agent/telegram/connect',{method:'POST',body:JSON.stringify({token:tok})},token);
+      setMsg('✓ Connected to @'+r.bot_username); setTok(''); load();
+    }catch(e){ setMsg('Error: '+e.message); }
+    setBusy(false);
+  };
+  const disconnect=async()=>{
+    if(!confirm('Disconnect Telegram? All paired phones lose access.'))return;
+    await api('/agent/telegram/disconnect',{method:'POST'},token).catch(()=>{});
+    setCode(null); load();
+  };
+  const pair=async()=>{
+    setMsg('');
+    try{ setCode(await api('/agent/telegram/pair',{method:'POST',body:JSON.stringify({})},token)); }
+    catch(e){ setMsg('Error: '+e.message); }
+  };
+  const unpair=async(chatId)=>{ await api('/agent/telegram/pairings/'+chatId,{method:'DELETE'},token).catch(()=>{}); load(); };
+
+  if(!st) return el('div',{className:'s-card'},el('div',{className:'s-row'},el('span',{style:{fontSize:12,color:'var(--muted)'}},'Loading…')));
+
+  return el('div',{className:'s-card'},
+    !st.enabled&&el('div',{className:'setup-form',style:{borderTop:'none'}},
+      el('div',{style:{fontSize:12,color:'var(--text)',marginBottom:4,fontWeight:500}},'Chat with BixDot from your phone'),
+      el('div',{style:{fontSize:11,color:'var(--muted)',marginBottom:8,lineHeight:1.6}},
+        '1. On Telegram, message ',el('code',{style:{color:'var(--accent)'}},'@BotFather'),' and send ',el('code',{style:{color:'var(--accent)'}},'/newbot'),el('br'),
+        '2. Paste the token BotFather gives you below.',el('br'),
+        'Your agent keeps running on THIS computer — nothing is exposed.'),
+      el('input',{className:'setup-input',placeholder:'123456789:ABCdef…',value:tok,onChange:e=>setTok(e.target.value),type:'password'}),
+      el('button',{className:'connect-btn',onClick:connect,disabled:busy||!tok.trim()},busy?'Connecting…':'Connect bot')
+    ),
+    st.enabled&&el('div',null,
+      el('div',{className:'s-row'},
+        el('div',{className:'s-info'},
+          el('p',null,'Connected to @'+st.bot_username),
+          el('span',null,(st.pairings||[]).length+' paired device(s)')
+        ),
+        el('button',{className:'revoke-btn',onClick:disconnect},'Disconnect')
+      ),
+      el('div',{className:'setup-form'},
+        el('div',{style:{fontSize:11,color:'var(--muted)',marginBottom:6}},'To pair your phone: get a code, then send it to @'+st.bot_username+' on Telegram within 5 minutes.'),
+        code&&el('div',{className:'paircode'},code.code),
+        el('button',{className:'connect-btn',onClick:pair},code?'New code':'Get pairing code')
+      ),
+      (st.pairings||[]).map(p=>el('div',{key:p.chat_id,className:'s-row'},
+        el('div',{className:'s-info'},el('p',null,'Chat '+p.chat_id),el('span',null,'Paired '+new Date(p.paired_at).toLocaleDateString())),
+        el('button',{className:'revoke-btn',onClick:()=>unpair(p.chat_id)},'Unpair')
+      ))
+    ),
+    msg&&el('div',{style:{padding:'8px 14px',fontSize:12,color:'var(--accent)',background:'var(--accent-dim)',borderTop:'1px solid var(--border)'}},msg)
+  );
+}
+
+// ── Personas Panel (v0.5) ─────────────────────────────────────────────────────
+function PersonasPanel({token}){
+  const[personas,setPersonas]=useState([]);
+  const[editId,setEditId]=useState(null);
+  const[form,setForm]=useState({});
+  const[msg,setMsg]=useState('');
+
+  const load=()=>{api('/agent/personas',{},token).then(setPersonas).catch(()=>{});};
+  useEffect(()=>{load();},[token]);
+
+  const startEdit=(p)=>{ setEditId(p?p.persona_id:'__new'); setForm(p?{name:p.name,icon:p.icon,description:p.description,system_prompt:p.system_prompt}:{name:'',icon:'🤖',description:'',system_prompt:''}); };
+  const save=async()=>{
+    setMsg('');
+    try{
+      if(editId==='__new'){ await api('/agent/personas',{method:'POST',body:JSON.stringify(form)},token); }
+      else{ await api('/agent/personas/'+editId,{method:'PUT',body:JSON.stringify(form)},token); }
+      setEditId(null); load();
+    }catch(e){ setMsg('Error: '+e.message); }
+  };
+  const del=async(p)=>{
+    if(!confirm('Delete persona "'+p.name+'"?'))return;
+    try{ await api('/agent/personas/'+p.persona_id,{method:'DELETE'},token); load(); }
+    catch(e){ setMsg('Error: '+e.message); }
+  };
+
+  return el('div',{className:'s-card'},
+    personas.map(p=>el('div',{key:p.persona_id,className:'s-row',style:{flexWrap:'wrap'}},
+      el('div',{className:'s-info',style:{flex:1}},
+        el('p',null,p.icon+' '+p.name+' ',p.is_builtin&&el('span',{style:{fontSize:9,color:'var(--muted)',fontFamily:'var(--mono)'}},'BUILT-IN')),
+        el('span',null,p.description)
+      ),
+      el('div',{style:{display:'flex',gap:6}},
+        el('button',{className:'cal-btn-sec',style:{padding:'4px 10px',fontSize:11},onClick:()=>startEdit(p)},'Edit'),
+        !p.is_builtin&&el('button',{className:'revoke-btn',onClick:()=>del(p)},'Delete')
+      )
+    )),
+    el('div',{className:'s-row',style:{borderTop:'1px solid var(--border)'}},
+      el('button',{className:'connect-btn',style:{fontSize:11},onClick:()=>startEdit(null)},'+ New persona')
+    ),
+    editId&&el('div',{className:'setup-form'},
+      el('div',{style:{display:'flex',gap:8,marginBottom:6}},
+        el('input',{className:'setup-input',style:{width:60,marginBottom:0},placeholder:'🤖',value:form.icon||'',onChange:e=>setForm(f=>({...f,icon:e.target.value}))}),
+        el('input',{className:'setup-input',style:{marginBottom:0},placeholder:'Name',value:form.name||'',onChange:e=>setForm(f=>({...f,name:e.target.value}))})
+      ),
+      el('input',{className:'setup-input',placeholder:'Short description',value:form.description||'',onChange:e=>setForm(f=>({...f,description:e.target.value}))}),
+      el('textarea',{className:'setup-input',rows:3,style:{resize:'vertical',fontFamily:'inherit'},placeholder:'Instructions — how should this persona behave?',value:form.system_prompt||'',onChange:e=>setForm(f=>({...f,system_prompt:e.target.value}))}),
+      el('div',{style:{display:'flex',gap:8}},
+        el('button',{className:'connect-btn',onClick:save},'Save'),
+        el('button',{className:'cal-btn-sec',style:{padding:'5px 12px',fontSize:12},onClick:()=>setEditId(null)},'Cancel')
+      )
+    ),
+    msg&&el('div',{style:{padding:'8px 14px',fontSize:12,color:'var(--red)',background:'var(--red-dim)',borderTop:'1px solid var(--border)'}},msg)
+  );
+}
+
 // ── Settings ──────────────────────────────────────────────────────────────────
 function Settings({token, onModelChange}){
   const[cloud,setCloud]=useState(false);
@@ -1020,6 +1270,14 @@ function Settings({token, onModelChange}){
       )
     ),
     el('div',{className:'s-section'},
+      el('div',{className:'s-label'},'Personas'),
+      el(PersonasPanel,{token})
+    ),
+    el('div',{className:'s-section'},
+      el('div',{className:'s-label'},'Telegram (phone access)'),
+      el(TelegramSettings,{token})
+    ),
+    el('div',{className:'s-section'},
       el('div',{className:'s-label'},'Privacy'),
       el('div',{className:'s-card'},
         el('div',{className:'s-row'},el('div',{className:'s-info'},el('p',null,'Data storage'),el('span',null,'~/.bixdot/ · your device only')),el('span',{style:{color:'var(--muted)',fontSize:13}},'🔒')),
@@ -1039,7 +1297,9 @@ function Settings({token, onModelChange}){
       el('div',{className:'s-card'},
         perms.length===0&&el('div',{className:'s-row'},el('span',{style:{fontSize:13,color:'var(--muted)'}},'No active permissions')),
         perms.map((p,i)=>el('div',{key:i,className:'s-row'},
-          el('div',{className:'s-info'},el('p',null,p.capability),el('span',null,'Granted '+new Date(p.granted_at).toLocaleTimeString())),
+          el('div',{className:'s-info'},
+            el('p',null,capInfo(p.capability).icon+' '+capInfo(p.capability).title),
+            el('span',null,capInfo(p.capability).desc+' · granted '+new Date(p.granted_at).toLocaleTimeString())),
           el('button',{className:'revoke-btn',onClick:()=>revoke(p.capability)},'Revoke')
         ))
       )
@@ -1173,6 +1433,145 @@ function Calendar({token}){
 }
 
 
+// ── Routines (scheduled agents, v0.5) ─────────────────────────────────────────
+const FREQ_LABEL={hourly:'Every hour',daily:'Every day',weekdays:'Weekdays (Mon–Fri)',weekly:'Every week'};
+const WEEKDAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+const ROUTINE_CAPS=['calendar:read','net:fetch','fs:read','memory:read','memory:write','docs:read','github:read'];
+const ROUTINE_TEMPLATES=[
+  {label:'🌅 Morning Briefing',name:'Morning Briefing',
+   prompt:'Give me a short morning briefing: summarise my calendar for today, then search the web for the top 3 news headlines with one-line summaries.',
+   frequency:'daily',at_time:'07:00',caps:['calendar:read','net:fetch']},
+  {label:'📰 Evening News',name:'Evening News',
+   prompt:'Search the web for the most important news of today and give me a 5-bullet digest.',
+   frequency:'daily',at_time:'18:00',caps:['net:fetch']},
+  {label:'🗓 Week Ahead',name:'Week Ahead',
+   prompt:'Summarise my calendar for the coming week: busiest day, free gaps, and anything I should prepare for.',
+   frequency:'weekly',at_time:'08:00',weekday:0,caps:['calendar:read']},
+];
+
+function Routines({token}){
+  const[schedules,setSchedules]=useState([]);
+  const[personas,setPersonas]=useState([]);
+  const[showForm,setShowForm]=useState(false);
+  const[msg,setMsg]=useState('');
+  const[busyId,setBusyId]=useState(null);
+  // form
+  const[fName,setFName]=useState('');
+  const[fPrompt,setFPrompt]=useState('');
+  const[fPersona,setFPersona]=useState('bixdot');
+  const[fFreq,setFFreq]=useState('daily');
+  const[fTime,setFTime]=useState('07:00');
+  const[fWeekday,setFWeekday]=useState(0);
+  const[fCaps,setFCaps]=useState(['net:fetch']);
+  const[fTg,setFTg]=useState(false);
+  const[creating,setCreating]=useState(false);
+
+  const load=()=>{
+    api('/agent/schedules',{},token).then(setSchedules).catch(()=>{});
+    api('/agent/personas',{},token).then(setPersonas).catch(()=>{});
+  };
+  useEffect(()=>{load();},[token]);
+
+  const applyTemplate=(t)=>{
+    setShowForm(true); setFName(t.name); setFPrompt(t.prompt);
+    setFFreq(t.frequency); setFTime(t.at_time);
+    if(t.weekday!=null) setFWeekday(t.weekday);
+    setFCaps(t.caps.slice());
+  };
+  const toggleCap=(c)=>setFCaps(cs=>cs.includes(c)?cs.filter(x=>x!==c):[...cs,c]);
+
+  const create=async()=>{
+    if(!fName.trim()||!fPrompt.trim()){ setMsg('Give your routine a name and tell it what to do.'); return; }
+    setCreating(true); setMsg('');
+    try{
+      await api('/agent/schedules',{method:'POST',body:JSON.stringify({
+        name:fName,prompt:fPrompt,persona_id:fPersona,frequency:fFreq,
+        at_time:fTime,weekday:fFreq==='weekly'?fWeekday:null,
+        notify_desktop:true,notify_telegram:fTg,capabilities:fCaps,
+      })},token);
+      setShowForm(false); setFName(''); setFPrompt(''); setMsg('✓ Routine created — it will run on schedule. Use ▶ to test it now.');
+      load();
+    }catch(e){ setMsg('Error: '+e.message); }
+    setCreating(false);
+  };
+
+  const runNow=async(s)=>{
+    setBusyId(s.schedule_id); setMsg('');
+    try{
+      await api('/agent/schedules/'+s.schedule_id+'/run-now',{method:'POST'},token);
+      setMsg('✓ "'+s.name+'" ran — see the ⏰ session in Chat for the result.');
+    }catch(e){ setMsg('Error: '+e.message); }
+    setBusyId(null); load();
+  };
+  const toggle=async(s)=>{ await api('/agent/schedules/'+s.schedule_id,{method:'PUT',body:JSON.stringify({is_enabled:!s.is_enabled})},token).catch(()=>{}); load(); };
+  const del=async(s)=>{ if(!confirm('Delete routine "'+s.name+'"?'))return; await api('/agent/schedules/'+s.schedule_id,{method:'DELETE'},token).catch(()=>{}); load(); };
+
+  const when=(s)=>FREQ_LABEL[s.frequency]+(s.frequency==='weekly'?' ('+WEEKDAYS[s.weekday||0]+')':'')+(s.frequency==='hourly'?' at :'+s.at_time.split(':')[1]:' at '+s.at_time);
+
+  return el('div',{className:'routines-body'},
+    el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}},
+      el('div',null,
+        el('div',{style:{fontSize:14,fontWeight:600}},'Routines'),
+        el('div',{style:{fontSize:12,color:'var(--muted)'}},'BixDot works for you on a schedule — even while you do something else.')
+      ),
+      el('button',{className:'cal-btn',onClick:()=>setShowForm(f=>!f)},showForm?'Close':'+ New Routine')
+    ),
+    schedules.length===0&&!showForm&&el('div',{style:{display:'flex',flexWrap:'wrap',gap:8,marginBottom:14}},
+      ROUTINE_TEMPLATES.map(t=>el('button',{key:t.label,className:'tmpl-chip',onClick:()=>applyTemplate(t)},t.label))
+    ),
+    showForm&&el('div',{className:'routine-card'},
+      el('div',{style:{display:'flex',flexWrap:'wrap',gap:8,marginBottom:10}},
+        ROUTINE_TEMPLATES.map(t=>el('button',{key:t.label,className:'tmpl-chip',onClick:()=>applyTemplate(t)},t.label))
+      ),
+      el('div',{className:'form-field',style:{marginBottom:8}},el('span',{className:'form-label'},'NAME'),
+        el('input',{className:'form-input',value:fName,onChange:e=>setFName(e.target.value),placeholder:'Morning Briefing'})),
+      el('div',{className:'form-field',style:{marginBottom:8}},el('span',{className:'form-label'},'WHAT SHOULD BIXDOT DO?'),
+        el('textarea',{className:'form-input',rows:3,style:{resize:'vertical',fontFamily:'inherit'},value:fPrompt,onChange:e=>setFPrompt(e.target.value),placeholder:'Summarise my calendar and the news…'})),
+      el('div',{style:{display:'flex',gap:8,marginBottom:8,flexWrap:'wrap'}},
+        el('div',{className:'form-field',style:{flex:1,minWidth:120}},el('span',{className:'form-label'},'WHO'),
+          el('select',{className:'form-input',value:fPersona,onChange:e=>setFPersona(e.target.value)},
+            personas.map(p=>el('option',{key:p.persona_id,value:p.persona_id},p.icon+' '+p.name)))),
+        el('div',{className:'form-field',style:{flex:1,minWidth:120}},el('span',{className:'form-label'},'HOW OFTEN'),
+          el('select',{className:'form-input',value:fFreq,onChange:e=>setFFreq(e.target.value)},
+            Object.entries(FREQ_LABEL).map(([v,l])=>el('option',{key:v,value:v},l)))),
+        fFreq==='weekly'&&el('div',{className:'form-field',style:{flex:1,minWidth:110}},el('span',{className:'form-label'},'DAY'),
+          el('select',{className:'form-input',value:fWeekday,onChange:e=>setFWeekday(parseInt(e.target.value))},
+            WEEKDAYS.map((d,i)=>el('option',{key:d,value:i},d)))),
+        el('div',{className:'form-field',style:{flex:1,minWidth:100}},el('span',{className:'form-label'},'AT'),
+          el('input',{className:'form-input',type:'time',value:fTime,onChange:e=>setFTime(e.target.value)}))
+      ),
+      el('div',{className:'form-label',style:{marginBottom:6}},'WHAT IT MAY ACCESS (approved now, so it can run without you)'),
+      ROUTINE_CAPS.map(c=>{const i=capInfo(c);return el('div',{key:c,className:'cap-row'+(fCaps.includes(c)?' sel':''),onClick:()=>toggleCap(c)},
+        el('span',{className:'cap-ic'},i.icon),
+        el('div',null,el('div',{className:'cap-t'},i.title),el('div',{className:'cap-d'},i.desc))
+      );}),
+      el('div',{className:'s-row',style:{border:'none',padding:'8px 0 4px'}},
+        el('div',{className:'s-info'},el('p',{style:{margin:0}},'Also send to Telegram'),el('span',null,'Needs the Telegram bridge (Settings → Telegram)')),
+        el('button',{className:'toggle'+(fTg?' on':''),onClick:()=>setFTg(t=>!t)})
+      ),
+      el('button',{className:'cal-btn',style:{marginTop:6},onClick:create,disabled:creating},creating?'Creating…':'Create routine')
+    ),
+    msg&&el('div',{style:{fontSize:12,color:'var(--accent)',background:'var(--accent-dim)',borderRadius:8,padding:'8px 12px',marginBottom:10}},msg),
+    schedules.map(s=>el('div',{key:s.schedule_id,className:'routine-card',style:{opacity:s.is_enabled?1:.55}},
+      el('div',{className:'routine-top'},
+        el('span',{className:'routine-name'},'⏰ '+s.name),
+        el('div',{className:'routine-actions'},
+          el('button',{className:'cal-btn-sec',title:'Run now',disabled:busyId===s.schedule_id,onClick:()=>runNow(s)},busyId===s.schedule_id?'…':'▶ Run now'),
+          el('button',{className:'toggle'+(s.is_enabled?' on':''),title:s.is_enabled?'Pause':'Resume',onClick:()=>toggle(s)}),
+          el('button',{className:'revoke-btn',onClick:()=>del(s)},'Delete')
+        )
+      ),
+      el('div',{className:'routine-meta'},when(s)+(s.last_run_at?' · last ran '+new Date(s.last_run_at).toLocaleString():' · not run yet')),
+      el('div',{style:{fontSize:12,color:'var(--muted)',marginBottom:6}},s.prompt.slice(0,140)+(s.prompt.length>140?'…':'')),
+      el('div',{style:{display:'flex',flexWrap:'wrap',gap:4}},
+        (s.capabilities||[]).map(c=>el('span',{key:c,className:'skill-cap',title:capInfo(c).desc},capInfo(c).icon+' '+capInfo(c).title))
+      )
+    )),
+    schedules.length===0&&!showForm&&el('div',{className:'empty',style:{padding:'30px 10px'}},
+      el('p',null,'No routines yet. Try a template above — like a Morning Briefing that greets you at 7:00 with your day and the news.'))
+  );
+}
+
 // ── Terminal ──────────────────────────────────────────────────────────────────
 function Terminal({token}){
   const[lines,setLines]=useState([{type:'sys',text:'BixDot Terminal — sandboxed, allowlisted commands only.'},
@@ -1271,6 +1670,22 @@ function App(){
   const[activeModel,setActiveModel]=useState('llama3.2');
   const[showOnboarding,setShowOnboarding]=useState(false);
   const[licenseBanner,setLicenseBanner]=useState(null); // null = no banner
+  const[toasts,setToasts]=useState([]);
+
+  // In-app notifications: poll the queue (routines etc.) and show toasts.
+  useEffect(()=>{
+    if(!token) return;
+    const poll=()=>api('/agent/notifications/pending',{},token).then(r=>{
+      const items=(r&&r.notifications)||[];
+      if(items.length){
+        setToasts(t=>[...t,...items]);
+        items.forEach(n=>setTimeout(()=>setToasts(t=>t.filter(x=>x.id!==n.id)),9000));
+      }
+    }).catch(()=>{});
+    poll();
+    const iv=setInterval(poll,20000);
+    return()=>clearInterval(iv);
+  },[token]);
 
   const login=(t,u,licenseRequired,licenseMessage)=>{
     setToken(t); setUsername(u);
@@ -1296,6 +1711,7 @@ function App(){
 
   const nav=[
     {id:'chat',label:'Chat',icon:CHAT_ICON},
+    {id:'routines',label:'Routines',icon:ROUTINE_ICON},
     {id:'calendar',label:'Calendar',icon:CAL_ICON},
     {id:'terminal',label:'Terminal',icon:TERM_ICON},
     {id:'audit',label:'Audit log',icon:AUDIT_ICON},
@@ -1334,11 +1750,18 @@ function App(){
         el('span',{className:'chain-ok'},'✓ Chain verified · Local')
       ),
       screen==='chat'&&el(Chat,{token,model:activeModel}),
+      screen==='routines'&&el(Routines,{token}),
       screen==='calendar'&&el(Calendar,{token}),
       screen==='terminal'&&el(Terminal,{token}),
       screen==='audit'&&el(Audit,{token}),
       screen==='settings'&&el(Settings,{token,onModelChange:m=>setActiveModel(m)}),
-      showOnboarding&&el(OnboardingWizard,{onDismiss:()=>setShowOnboarding(false)})
+      showOnboarding&&el(OnboardingWizard,{onDismiss:()=>setShowOnboarding(false),token})
+    ),
+    toasts.length>0&&el('div',{className:'toasts'},
+      toasts.map(n=>el('div',{key:n.id,className:'toast',onClick:()=>setToasts(t=>t.filter(x=>x.id!==n.id))},
+        el('div',{className:'toast-title'},'⏰ '+n.title),
+        el('div',{className:'toast-body'},n.body)
+      ))
     )
   );
 }
