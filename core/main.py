@@ -34,6 +34,7 @@ from core.auth.routes import router as auth_router
 from core.agent.routes import router as agent_router
 from core.agent.persona_routes import router as persona_router
 from core.agent.schedule_routes import router as schedule_router
+from core.channels.telegram_routes import router as telegram_router
 from core.skills.calendar.routes import router as calendar_router
 from core.skills.terminal.routes import router as terminal_router
 from core.skills.plugin_routes import router as skills_router
@@ -111,6 +112,14 @@ async def lifespan(app: FastAPI):
     from core.agent.scheduler import scheduler_loop
     _scheduler_task = _asyncio.create_task(scheduler_loop())
 
+    # 4b. Start the Telegram bridge if the user connected a bot (outbound
+    #     long-polling only — the backend stays bound to 127.0.0.1).
+    from core.channels import telegram as _telegram
+    try:
+        _telegram.start_poller()
+    except Exception as e:
+        print(f"[BixDot] Telegram bridge not started: {e}")
+
     # 5. Log startup
     audit.log(AuditEvent.AGENT_QUERY, {"event": "server_startup", "version": settings.version})
 
@@ -129,6 +138,7 @@ async def lifespan(app: FastAPI):
 
     yield
 
+    _telegram.stop_poller()
     _scheduler_task.cancel()
     try:
         await _scheduler_task
@@ -244,6 +254,7 @@ app.include_router(auth_router)
 app.include_router(agent_router)
 app.include_router(persona_router)
 app.include_router(schedule_router)
+app.include_router(telegram_router)
 app.include_router(calendar_router)
 app.include_router(terminal_router)
 app.include_router(skills_router)
