@@ -42,6 +42,7 @@ class AgentSession(BaseModel):
     model: str = ""            # per-session Ollama model (empty = global default)
     model_mode: str = ModelMode.FULL_AGENT.value
     is_private: bool = False   # private sessions: no message content in audit log
+    persona_id: str = ""       # persona this session speaks as ("" = default BixDot)
 
 class AgentResponse(BaseModel):
     message: str
@@ -327,10 +328,16 @@ def get_available_tools(session: "AgentSession") -> list[dict]:
     return BUILTIN_TOOLS + skill_tools
 
 
-def get_system_prompt() -> str:
-    """Build system prompt with actual filesystem context."""
+def get_system_prompt(persona: dict | None = None) -> str:
+    """Build system prompt with filesystem context, plus the persona's prompt."""
     ctx = get_system_context()
-    return f"""You are BixDot, a personal AI agent running on the user's device using Ollama.
+    persona_block = ""
+    if persona and persona.get("system_prompt"):
+        persona_block = (
+            f"\n\nPERSONA — you are acting as \"{persona['name']}\":\n"
+            f"{persona['system_prompt']}\n"
+        )
+    return f"""You are BixDot, a personal AI agent running on the user's device using Ollama.{persona_block}
 No data leaves this machine.
 
 CRITICAL — TOOL USE RULES (read carefully):
@@ -437,9 +444,22 @@ class AgentRuntime:
         llm = LLMAdapter(backend=session.llm_backend, user_id=session.user_id,
                          model=session.model or None)
 
+        # Load the session's persona (prompt + tool allowlist). Personas shape
+        # what the model is OFFERED — the permission system still gates every
+        # actual execution.
+        persona = None
+        if session.persona_id:
+            try:
+                from core.agent.personas import get_persona
+                persona = get_persona(session.persona_id)
+            except Exception:
+                persona = None
+
         # THINKING / TEXT_ONLY → single call, no tool loop
         if mode in (ModelMode.THINKING, ModelMode.TEXT_ONLY):
-            return await self._run_simple(session, user_message, llm, strip_thinking=(mode == ModelMode.THINKING))
+            return await self._run_simple(session, user_message, llm,
+                                          strip_thinking=(mode == ModelMode.THINKING),
+                                          persona=persona)
         tool_calls_made      = []
         permissions_requested = []
         collected_results    = []   # gather tool results before synthesis
@@ -447,6 +467,10 @@ class AgentRuntime:
 
         # Discover enabled, verified third-party skills (exposed as tools).
         skill_tools, skill_tool_map = third_party_tools()
+        all_tools = BUILTIN_TOOLS + skill_tools
+        if persona and persona.get("allowed_tools"):
+            allowed = set(persona["allowed_tools"])
+            all_tools = [t for t in all_tools if t["name"] in allowed]
 
         # ── Memory injection: prepend relevant memories before Phase 1 ───────
         try:
@@ -475,10 +499,10 @@ class AgentRuntime:
             # Only give the model tools if the message actually needs them.
             # Passing tools to llama3.2 for conversational messages causes it
             # to call tools inappropriately — stripping them forces plain text.
-            active_tools = (BUILTIN_TOOLS + skill_tools) if _needs_tools(user_message) else None
+            active_tools = all_tools if _needs_tools(user_message) else None
             response = await llm.chat(
                 messages=messages,
-                system=get_system_prompt(),
+                system=get_system_prompt(persona),
                 tools=active_tools,
             )
 
@@ -581,11 +605,11 @@ class AgentRuntime:
 
     async def _run_simple(
         self, session: AgentSession, user_message: str,
-        llm: LLMAdapter, *, strip_thinking: bool
+        llm: LLMAdapter, *, strip_thinking: bool, persona: dict | None = None
     ) -> AgentResponse:
         """Single-call path for THINKING and TEXT_ONLY models (no tool loop)."""
         messages = [{"role": m.role, "content": m.content} for m in session.messages]
-        response = await llm.chat(messages=messages, system=get_system_prompt(), tools=None)
+        response = await llm.chat(messages=messages, system=get_system_prompt(persona), tools=None)
         text = " ".join(
             _text(b) for b in response["content"] if _type(b) == "text"
         ).strip()

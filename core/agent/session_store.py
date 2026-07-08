@@ -66,12 +66,14 @@ def get_session_store():
 # ─── Metadata helpers ──────────────────────────────────────────────────────────
 
 def _meta_from_row(row, *, message_count: int, last_preview: Optional[str]) -> dict:
+    keys = row.keys()
     return {
         "session_id": row["session_id"],
         "user_id": row["user_id"],
         "name": row["name"],
         "model": row["model"],
         "model_mode": row["model_mode"],
+        "persona_id": (row["persona_id"] or "") if "persona_id" in keys else "",
         "llm_backend": row["llm_backend"],
         "is_private": bool(row["is_private"]),
         "is_archived": bool(row["is_archived"]),
@@ -101,6 +103,7 @@ def create_session(
     model_mode: str = ModelMode.FULL_AGENT.value,
     llm_backend: str = "ollama",
     is_private: bool = False,
+    persona_id: str = "",
 ) -> dict:
     """Create a session. Returns its metadata dict."""
     session_id = str(uuid.uuid4())
@@ -114,6 +117,7 @@ def create_session(
             model=model,
             model_mode=model_mode,
             is_private=True,
+            persona_id=persona_id,
         )
         _private_meta[session_id] = {
             "session_id": session_id,
@@ -121,6 +125,7 @@ def create_session(
             "name": name,
             "model": model,
             "model_mode": model_mode,
+            "persona_id": persona_id,
             "llm_backend": llm_backend,
             "is_private": True,
             "is_archived": False,
@@ -134,9 +139,10 @@ def create_session(
         conn.execute(
             """INSERT INTO sessions
                (session_id, user_id, name, model, model_mode, llm_backend,
-                is_private, is_archived, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?, ?)""",
-            (session_id, user_id, name, model, model_mode, llm_backend, now, now),
+                is_private, is_archived, created_at, updated_at, persona_id)
+               VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?)""",
+            (session_id, user_id, name, model, model_mode, llm_backend,
+             now, now, persona_id),
         )
     return get_session_meta(session_id)  # type: ignore[return-value]
 
@@ -339,6 +345,7 @@ def load_session(session_id: str) -> Optional[AgentSession]:
         llm_backend=row["llm_backend"],
         model=row["model"],
         model_mode=row["model_mode"],
+        persona_id=(row["persona_id"] or "") if "persona_id" in row.keys() else "",
         messages=messages,
     )
 

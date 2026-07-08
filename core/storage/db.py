@@ -212,6 +212,66 @@ CREATE TABLE IF NOT EXISTS skill_capability_grants (
     FOREIGN KEY (skill_id) REFERENCES installed_skills(skill_id) ON DELETE CASCADE
 );
 
+-- Agent personas (v0.5): named agents with their own prompt, model, and tool set.
+-- Memory is deliberately shared across personas (one assistant that knows you).
+CREATE TABLE IF NOT EXISTS personas (
+    persona_id    TEXT PRIMARY KEY,       -- slug for built-ins, uuid for custom
+    name          TEXT NOT NULL,
+    icon          TEXT NOT NULL DEFAULT '🤖',
+    description   TEXT NOT NULL DEFAULT '',
+    system_prompt TEXT NOT NULL DEFAULT '',
+    model         TEXT NOT NULL DEFAULT '',   -- default model for new sessions ('' = global)
+    allowed_tools TEXT NOT NULL DEFAULT '[]', -- JSON list of tool names; [] = all tools
+    is_builtin    INTEGER NOT NULL DEFAULT 0,
+    created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Scheduled background agents (v0.5): cron-lite, consumer-friendly schedules.
+CREATE TABLE IF NOT EXISTS scheduled_agents (
+    schedule_id     TEXT PRIMARY KEY,
+    user_id         TEXT NOT NULL,
+    persona_id      TEXT,                    -- NULL = default assistant
+    name            TEXT NOT NULL,
+    prompt          TEXT NOT NULL,
+    frequency       TEXT NOT NULL,           -- 'hourly' | 'daily' | 'weekdays' | 'weekly'
+    at_time         TEXT NOT NULL DEFAULT '07:00',  -- HH:MM local time
+    weekday         INTEGER,                 -- 0=Mon..6=Sun, for 'weekly'
+    notify_desktop  INTEGER NOT NULL DEFAULT 1,
+    notify_telegram INTEGER NOT NULL DEFAULT 0,
+    is_enabled      INTEGER NOT NULL DEFAULT 1,
+    last_run_at     TEXT,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Capabilities the user pre-approved for a schedule at creation time.
+-- Headless runs cannot show permission prompts, so approval happens up front.
+CREATE TABLE IF NOT EXISTS schedule_capability_grants (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    schedule_id  TEXT NOT NULL,
+    capability   TEXT NOT NULL,
+    UNIQUE(schedule_id, capability),
+    FOREIGN KEY (schedule_id) REFERENCES scheduled_agents(schedule_id) ON DELETE CASCADE
+);
+
+-- Notification queue: backend enqueues, frontend polls and shows native toasts.
+CREATE TABLE IF NOT EXISTS notifications (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     TEXT NOT NULL,
+    title       TEXT NOT NULL,
+    body        TEXT NOT NULL,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+    delivered   INTEGER NOT NULL DEFAULT 0
+);
+
+-- Telegram chat pairings (v0.5): only paired chat_ids may talk to the agent.
+CREATE TABLE IF NOT EXISTS telegram_pairings (
+    chat_id     TEXT PRIMARY KEY,
+    user_id     TEXT NOT NULL,
+    persona_id  TEXT,                        -- persona that answers this chat
+    paired_at   TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- App settings (non-secret config persisted across restarts)
 CREATE TABLE IF NOT EXISTS settings (
     key     TEXT PRIMARY KEY,
@@ -227,6 +287,8 @@ CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_updated ON sessions(updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_messages_session ON session_messages(session_id, id ASC);
 CREATE INDEX IF NOT EXISTS idx_skill_grants_skill ON skill_capability_grants(skill_id);
+CREATE INDEX IF NOT EXISTS idx_schedules_user ON scheduled_agents(user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, delivered);
 """
 
 
@@ -270,6 +332,12 @@ def init_db() -> None:
         # Migration: add email column to existing users tables (idempotent)
         try:
             conn.execute("ALTER TABLE users ADD COLUMN email TEXT")
+        except Exception:
+            pass  # Column already exists — safe to ignore
+
+        # Migration (v0.5): sessions gain an optional persona binding (idempotent)
+        try:
+            conn.execute("ALTER TABLE sessions ADD COLUMN persona_id TEXT")
         except Exception:
             pass  # Column already exists — safe to ignore
 

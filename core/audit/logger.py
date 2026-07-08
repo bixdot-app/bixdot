@@ -57,10 +57,31 @@ class AuditEvent(str, Enum):
     # Models
     CLOUD_MODEL_BLOCKED = "model.cloud_blocked"
 
+    # Personas (v0.5)
+    PERSONA_CREATED = "persona.created"
+    PERSONA_UPDATED = "persona.updated"
+    PERSONA_DELETED = "persona.deleted"
+
+    # Scheduled agents (v0.5)
+    SCHEDULE_CREATED = "schedule.created"
+    SCHEDULE_UPDATED = "schedule.updated"
+    SCHEDULE_DELETED = "schedule.deleted"
+    SCHEDULE_RUN = "schedule.run"
+    SCHEDULE_RUN_FAILED = "schedule.run_failed"
+
+    # Telegram bridge (v0.5) — outbound long-polling only, localhost preserved
+    TELEGRAM_ENABLED = "telegram.enabled"
+    TELEGRAM_DISABLED = "telegram.disabled"
+    TELEGRAM_PAIRED = "telegram.paired"
+    TELEGRAM_UNPAIRED = "telegram.unpaired"
+    TELEGRAM_MESSAGE = "telegram.message"
+    TELEGRAM_REJECTED = "telegram.rejected"   # message from unpaired chat
+
     # Agent
     AGENT_QUERY = "agent.query"
     AGENT_TOOL_CALL = "agent.tool_call"
     AGENT_RESPONSE = "agent.response"
+    AGENT_SUBAGENT = "agent.subagent"         # multi-agent orchestration (v0.5)
 
     # Data
     FILE_READ = "data.file_read"

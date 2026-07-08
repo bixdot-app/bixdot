@@ -32,6 +32,7 @@ from core.audit.logger import get_audit_logger, AuditEvent
 from core.security import limiter
 from core.auth.routes import router as auth_router
 from core.agent.routes import router as agent_router
+from core.agent.persona_routes import router as persona_router
 from core.skills.calendar.routes import router as calendar_router
 from core.skills.terminal.routes import router as terminal_router
 from core.skills.plugin_routes import router as skills_router
@@ -46,6 +47,8 @@ async def lifespan(app: FastAPI):
     """Startup checks. If any fail, the server does not start."""
     from core.storage.db import init_db
     init_db()
+    from core.agent.personas import seed_builtin_personas
+    seed_builtin_personas()
     from core.skills.memory.store import init_memory_db
     init_memory_db()
     from core.skills.documents.store import init_documents_db
@@ -228,6 +231,7 @@ if __name__ == "__main__":
 # ─── Routers ──────────────────────────────────────────────────────────────────
 app.include_router(auth_router)
 app.include_router(agent_router)
+app.include_router(persona_router)
 app.include_router(calendar_router)
 app.include_router(terminal_router)
 app.include_router(skills_router)

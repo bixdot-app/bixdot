@@ -51,9 +51,10 @@ class ChatRequest(BaseModel):
 class CreateSessionRequest(BaseModel):
     model_config = {"protected_namespaces": ()}
     name: str = "New Chat"
-    model: str = ""               # empty = use persisted/settings default
+    model: str = ""               # empty = persona default, then global default
     is_private: bool = False
     llm_backend: Literal["claude", "ollama"] = "ollama"
+    persona_id: str = ""          # persona this session speaks as
 
 
 class UpdateSessionRequest(BaseModel):
@@ -67,6 +68,7 @@ class SessionSummary(BaseModel):
     name: str
     model: str
     model_mode: str
+    persona_id: str = ""
     is_private: bool
     is_archived: bool = False
     created_at: str
@@ -162,6 +164,7 @@ def _summary(meta: dict) -> SessionSummary:
         name=meta["name"],
         model=meta["model"],
         model_mode=meta["model_mode"],
+        persona_id=meta.get("persona_id", ""),
         is_private=meta["is_private"],
         is_archived=meta.get("is_archived", False),
         created_at=meta["created_at"],
@@ -180,11 +183,21 @@ async def create_session(
     user=Depends(require_auth),
 ):
     """
-    Create a new agent session (regular or private).
-    Cloud models are blocked with HTTP 400 (local-first guarantee).
+    Create a new agent session (regular or private), optionally bound to a
+    persona. Cloud models are blocked with HTTP 400 (local-first guarantee).
     """
+    # Persona: resolve first so its default model applies when none is chosen.
+    requested_model = request.model
+    if request.persona_id:
+        from core.agent.personas import get_persona
+        persona = get_persona(request.persona_id)
+        if not persona:
+            raise HTTPException(status_code=404, detail="Persona not found")
+        if not requested_model and persona["model"]:
+            requested_model = persona["model"]
+
     model_name, model_mode = await _resolve_model_and_mode(
-        request.llm_backend, request.model, user.sub
+        request.llm_backend, requested_model, user.sub
     )
 
     meta = store_create_session(
@@ -194,6 +207,7 @@ async def create_session(
         model_mode=model_mode.value,
         llm_backend=request.llm_backend,
         is_private=request.is_private,
+        persona_id=request.persona_id,
     )
 
     audit = get_audit_logger()
