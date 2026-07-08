@@ -28,6 +28,13 @@ jobs:
 
     runs-on: ${{ matrix.platform }}
 
+    # Auto-updater signing (v0.5): when these secrets are set, builds also
+    # produce signed updater artifacts and releases include latest.json.
+    # Without them, builds are identical to before — nothing breaks.
+    env:
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -108,23 +115,24 @@ jobs:
 
       - name: Build Tauri app (macOS)
         if: matrix.platform == 'macos-latest'
+        shell: bash
         run: |
-          cargo tauri build ${{ matrix.args }} --config '{
-            "bundle": {
-              "icon": [
-                "icons/32x32.png",
-                "icons/128x128.png",
-                "icons/256x256.png",
-                "icons/512x512.png",
-                "icons/icon.ico",
-                "icons/icon.icns"
-              ]
-            }
-          }'
+          ICONS='"icon":["icons/32x32.png","icons/128x128.png","icons/256x256.png","icons/512x512.png","icons/icon.ico","icons/icon.icns"]'
+          CONFIG="{\"bundle\":{$ICONS}}"
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            CONFIG="{\"bundle\":{\"createUpdaterArtifacts\":true,$ICONS}}"
+          fi
+          cargo tauri build ${{ matrix.args }} --config "$CONFIG"
 
       - name: Build Tauri app (Windows + Linux)
         if: matrix.platform != 'macos-latest'
-        run: cargo tauri build ${{ matrix.args }}
+        shell: bash
+        run: |
+          EXTRA=""
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            EXTRA='--config {"bundle":{"createUpdaterArtifacts":true}}'
+          fi
+          cargo tauri build ${{ matrix.args }} $EXTRA
 
       # ── Find and copy all installers to a flat staging folder ──────────────
       - name: Stage installers (Windows)
@@ -133,7 +141,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path staging
           Get-ChildItem -Recurse src-tauri/target/x86_64-pc-windows-msvc/release/bundle `
-            -Include *.exe,*.msi | Copy-Item -Destination staging/
+            -Include *.exe,*.msi,*.sig | Copy-Item -Destination staging/
           Get-ChildItem staging/
 
       - name: Stage installers (macOS aarch64)
@@ -141,6 +149,12 @@ jobs:
         run: |
           mkdir -p staging
           find src-tauri/target/aarch64-apple-darwin/release/bundle -name "*.dmg" -exec cp {} staging/ \;
+          # Updater artifacts (only exist when signing is configured) — rename
+          # per-arch to avoid collisions when artifacts are merged.
+          find src-tauri/target/aarch64-apple-darwin/release/bundle -name "*.app.tar.gz" \
+            -exec cp {} staging/BixDot_aarch64.app.tar.gz \; || true
+          find src-tauri/target/aarch64-apple-darwin/release/bundle -name "*.app.tar.gz.sig" \
+            -exec cp {} staging/BixDot_aarch64.app.tar.gz.sig \; || true
           ls staging/
 
       - name: Stage installers (macOS x86_64)
@@ -148,6 +162,10 @@ jobs:
         run: |
           mkdir -p staging
           find src-tauri/target/x86_64-apple-darwin/release/bundle -name "*.dmg" -exec cp {} staging/ \;
+          find src-tauri/target/x86_64-apple-darwin/release/bundle -name "*.app.tar.gz" \
+            -exec cp {} staging/BixDot_x64.app.tar.gz \; || true
+          find src-tauri/target/x86_64-apple-darwin/release/bundle -name "*.app.tar.gz.sig" \
+            -exec cp {} staging/BixDot_x64.app.tar.gz.sig \; || true
           ls staging/
 
       - name: Stage installers (Linux)
@@ -156,6 +174,7 @@ jobs:
           mkdir -p staging
           find src-tauri/target/release/bundle -name "*.deb" -exec cp {} staging/ \;
           find src-tauri/target/release/bundle -name "*.AppImage" -exec cp {} staging/ \;
+          find src-tauri/target/release/bundle -name "*.AppImage.sig" -exec cp {} staging/ \; || true
           ls staging/
 
       - name: Upload installers
@@ -183,6 +202,58 @@ jobs:
 
       - name: List installers
         run: find installers -type f | sort
+
+      # Auto-updater manifest (v0.5): built only when signed updater artifacts
+      # exist (i.e. TAURI_SIGNING_PRIVATE_KEY was configured for the build).
+      - name: Generate latest.json for the auto-updater
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          python3 - <<'EOF'
+          import json, os, datetime
+
+          tag = os.environ["TAG"]
+          version = tag.lstrip("v")
+          d = "installers"
+          files = set(os.listdir(d))
+
+          def sig_for(name):
+              p = os.path.join(d, name + ".sig")
+              return open(p).read().strip() if os.path.exists(p) else None
+
+          def url_for(name):
+              return (f"https://github.com/bixdot-app/bixdot/releases/download/"
+                      f"{tag}/{name}")
+
+          platforms = {}
+          for f in sorted(files):
+              s = sig_for(f)
+              if not s:
+                  continue
+              if f.endswith("-setup.exe"):
+                  platforms["windows-x86_64"] = {"signature": s, "url": url_for(f)}
+              elif f == "BixDot_aarch64.app.tar.gz":
+                  platforms["darwin-aarch64"] = {"signature": s, "url": url_for(f)}
+              elif f == "BixDot_x64.app.tar.gz":
+                  platforms["darwin-x86_64"] = {"signature": s, "url": url_for(f)}
+              elif f.endswith(".AppImage"):
+                  platforms["linux-x86_64"] = {"signature": s, "url": url_for(f)}
+
+          if platforms:
+              manifest = {
+                  "version": version,
+                  "notes": "See https://github.com/bixdot-app/bixdot/blob/main/CHANGELOG.md",
+                  "pub_date": datetime.datetime.now(datetime.timezone.utc)
+                      .strftime("%Y-%m-%dT%H:%M:%SZ"),
+                  "platforms": platforms,
+              }
+              with open(os.path.join(d, "latest.json"), "w") as fh:
+                  json.dump(manifest, fh, indent=2)
+              print("latest.json written for:", ", ".join(sorted(platforms)))
+          else:
+              print("No signed updater artifacts found — skipping latest.json "
+                    "(add TAURI_SIGNING_PRIVATE_KEY to enable auto-updates).")
+          EOF
 
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1

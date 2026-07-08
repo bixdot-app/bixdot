@@ -68,6 +68,12 @@
     }
   },
   "plugins": {
-    "shell": { "open": false }
+    "shell": { "open": false },
+    "updater": {
+      "pubkey": "",
+      "endpoints": [
+        "https://github.com/bixdot-app/bixdot/releases/latest/download/latest.json"
+      ]
+    }
   }
 }

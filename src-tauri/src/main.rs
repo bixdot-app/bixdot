@@ -71,12 +71,53 @@ fn spawn_hidden(mut cmd: Command) -> std::io::Result<Child> {
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 fn main() {
-    tauri::Builder::default()
-        .plugin(tauri_plugin_shell::init())
+    let context = tauri::generate_context!();
+
+    // Auto-updater (v0.5): only active once a signing pubkey is configured in
+    // tauri.conf.json → plugins.updater.pubkey. With no key the plugin is not
+    // registered at all and the app behaves exactly as before — graceful.
+    let updater_configured = context
+        .config()
+        .plugins
+        .0
+        .get("updater")
+        .and_then(|v| v.get("pubkey"))
+        .and_then(|v| v.as_str())
+        .map(|s| !s.is_empty())
+        .unwrap_or(false);
+
+    let mut builder = tauri::Builder::default().plugin(tauri_plugin_shell::init());
+    if updater_configured {
+        builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+    }
+
+    builder
         .manage(PythonBackend(Mutex::new(None)))
         .manage(OllamaProcess(Mutex::new(None)))
-        .setup(|app| {
+        .setup(move |app| {
             let app_dir = find_app_dir();
+
+            // ── Silent auto-update (non-technical users never reinstall) ──
+            if updater_configured {
+                let update_handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    use tauri_plugin_updater::UpdaterExt;
+                    match update_handle.updater() {
+                        Ok(updater) => match updater.check().await {
+                            Ok(Some(update)) => {
+                                println!("[BixDot] Update {} found — downloading…", update.version);
+                                match update.download_and_install(|_, _| {}, || {}).await {
+                                    Ok(_) => println!("[BixDot] Update installed — applies on next launch."),
+                                    Err(e) => eprintln!("[BixDot] Update install failed: {e}"),
+                                }
+                            }
+                            Ok(None) => println!("[BixDot] BixDot is up to date."),
+                            Err(e) => eprintln!("[BixDot] Update check failed: {e}"),
+                        },
+                        Err(e) => eprintln!("[BixDot] Updater unavailable: {e}"),
+                    }
+                });
+            }
 
             // Resolve sidecar path now (requires app.path() which is only in setup)
             let sidecar_path = app.path().resource_dir().ok().and_then(|dir| {
@@ -200,7 +241,7 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![backend_status])
-        .build(tauri::generate_context!())
+        .build(context)
         .expect("Error building BixDot")
         .run(|app, event| match event {
             RunEvent::WindowEvent {
