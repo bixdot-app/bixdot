@@ -471,6 +471,47 @@ async def list_models(user=Depends(require_auth)):
     return {"models": [i.model_dump() for i in infos], "ollama_available": True}
 
 
+@router.post("/models/pull")
+async def pull_model(request: SetModelRequest, user=Depends(require_auth)):
+    """
+    Download a model through Ollama, streaming progress as NDJSON so the UI
+    can show a progress bar — non-technical users never touch a terminal.
+    Cloud-tagged models are refused (local-first guarantee).
+    """
+    import json as _json
+    import httpx
+    from fastapi.responses import StreamingResponse
+    from core.config import settings as cfg
+
+    model = request.model.strip()
+    if not model:
+        raise HTTPException(status_code=400, detail="Model name is required.")
+    if model.lower().endswith((":cloud", "-cloud")):
+        raise HTTPException(
+            status_code=400,
+            detail="Cloud models transmit data off-device and cannot be used.",
+        )
+
+    get_audit_logger().log(
+        AuditEvent.AGENT_QUERY, {"event": "model_pull_started", "model": model},
+        user_id=user.sub,
+    )
+
+    async def _stream():
+        try:
+            async with httpx.AsyncClient(base_url=cfg.ollama_url, timeout=None) as client:
+                async with client.stream(
+                    "POST", "/api/pull", json={"model": model, "stream": True}
+                ) as resp:
+                    async for line in resp.aiter_lines():
+                        if line.strip():
+                            yield line + "\n"
+        except Exception as e:
+            yield _json.dumps({"error": f"Download failed: {e}"}) + "\n"
+
+    return StreamingResponse(_stream(), media_type="application/x-ndjson")
+
+
 @router.get("/model")
 async def get_model(user=Depends(require_auth)):
     """Return the currently selected local model (persistent setting)."""
