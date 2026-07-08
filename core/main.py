@@ -33,6 +33,7 @@ from core.security import limiter
 from core.auth.routes import router as auth_router
 from core.agent.routes import router as agent_router
 from core.agent.persona_routes import router as persona_router
+from core.agent.schedule_routes import router as schedule_router
 from core.skills.calendar.routes import router as calendar_router
 from core.skills.terminal.routes import router as terminal_router
 from core.skills.plugin_routes import router as skills_router
@@ -105,7 +106,12 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"[BixDot] Skill verification skipped: {e}")
 
-    # 4. Log startup
+    # 4. Start the background scheduler (scheduled agents, v0.5)
+    import asyncio as _asyncio
+    from core.agent.scheduler import scheduler_loop
+    _scheduler_task = _asyncio.create_task(scheduler_loop())
+
+    # 5. Log startup
     audit.log(AuditEvent.AGENT_QUERY, {"event": "server_startup", "version": settings.version})
 
     print(f"""
@@ -123,6 +129,11 @@ async def lifespan(app: FastAPI):
 
     yield
 
+    _scheduler_task.cancel()
+    try:
+        await _scheduler_task
+    except _asyncio.CancelledError:
+        pass
     audit.log(AuditEvent.AGENT_QUERY, {"event": "server_shutdown"})
 
 
@@ -232,6 +243,7 @@ if __name__ == "__main__":
 app.include_router(auth_router)
 app.include_router(agent_router)
 app.include_router(persona_router)
+app.include_router(schedule_router)
 app.include_router(calendar_router)
 app.include_router(terminal_router)
 app.include_router(skills_router)
