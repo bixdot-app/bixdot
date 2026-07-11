@@ -55,6 +55,8 @@ def _now() -> datetime:
 
 async def _api(method: str, payload: dict | None = None, *, timeout: float = 60) -> dict:
     """Call a Telegram Bot API method. Raises on transport errors."""
+    from core.privacy import record_net
+    record_net("telegram")
     token = get_api_key(KEYRING_SERVICE)
     if not token:
         raise RuntimeError("Telegram bot token not configured.")

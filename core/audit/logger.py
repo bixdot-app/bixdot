@@ -235,6 +235,11 @@ class AuditLogger:
 
         return True, None
 
+    def count(self) -> int:
+        """Total number of audit entries (for the Privacy dashboard)."""
+        with self._conn() as conn:
+            return conn.execute("SELECT COUNT(*) FROM audit_log").fetchone()[0]
+
     def recent(self, limit: int = 50) -> list[dict]:
         """Fetch recent audit entries for the UI."""
         with self._conn() as conn:

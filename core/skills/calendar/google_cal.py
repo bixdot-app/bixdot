@@ -115,6 +115,8 @@ class GoogleCalendarProvider(CalendarProvider):
     # ── Calendar API calls ────────────────────────────────────────────────────
 
     async def get_events(self, days_ahead: int = 7) -> list[CalendarEvent]:
+        from core.privacy import record_net
+        record_net("calendar")
         token  = await self._refresh_if_needed()
         now    = datetime.now(timezone.utc)
         end    = now + timedelta(days=days_ahead)
@@ -168,6 +170,8 @@ class GoogleCalendarProvider(CalendarProvider):
         description: str = "",
         location: str = "",
     ) -> CalendarEvent:
+        from core.privacy import record_net
+        record_net("calendar")
         token = await self._refresh_if_needed()
         body = {
             "summary":     title,

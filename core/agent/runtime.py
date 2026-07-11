@@ -920,6 +920,8 @@ class AgentRuntime:
             return f"Search error: {e}"
 
     async def _web_search(self, query: str, max_results: int, user_id: str) -> str:
+        from core.privacy import record_net
+        record_net("websearch")
         self.audit.log(AuditEvent.NET_REQUEST, {"query": query}, user_id=user_id)
         try:
             from ddgs import DDGS

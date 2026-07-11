@@ -21,12 +21,16 @@ class GitHubClient:
         }
 
     async def get(self, path: str, params: dict | None = None) -> dict | list:
+        from core.privacy import record_net
+        record_net("github")
         async with httpx.AsyncClient(base_url=GITHUB_API, timeout=15) as client:
             r = await client.get(path, headers=self._headers, params=params or {})
             r.raise_for_status()
             return r.json()
 
     async def post(self, path: str, body: dict) -> dict:
+        from core.privacy import record_net
+        record_net("github")
         async with httpx.AsyncClient(base_url=GITHUB_API, timeout=15) as client:
             r = await client.post(path, headers=self._headers, json=body)
             r.raise_for_status()

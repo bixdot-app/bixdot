@@ -16,6 +16,8 @@ MAX_PAGE_CHARS = 3000
 async def fetch_page_text(url: str, timeout: int = 10) -> str:
     try:
         import httpx
+        from core.privacy import record_net
+        record_net("research")
         async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
             r = await client.get(url, headers={"User-Agent": "BixDot/0.3 research-agent"})
             html = r.text
@@ -34,6 +36,8 @@ async def fetch_page_text(url: str, timeout: int = 10) -> str:
 async def run_search(query: str, max_results: int = 3) -> List[dict]:
     try:
         from ddgs import DDGS
+        from core.privacy import record_net
+        record_net("websearch")
         with DDGS() as ddgs:
             return list(ddgs.text(query, max_results=max_results))
     except Exception:

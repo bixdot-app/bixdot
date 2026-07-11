@@ -272,6 +272,15 @@ CREATE TABLE IF NOT EXISTS telegram_pairings (
     paired_at   TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Network ledger (v0.6 Privacy Proof): aggregate counters of every outbound
+-- connection BixDot initiates, by purpose. Self-accounting for the dashboard;
+-- the audit log holds the per-event trail.
+CREATE TABLE IF NOT EXISTS net_ledger (
+    kind     TEXT PRIMARY KEY,
+    count    INTEGER NOT NULL DEFAULT 0,
+    last_at  TEXT
+);
+
 -- App settings (non-secret config persisted across restarts)
 CREATE TABLE IF NOT EXISTS settings (
     key     TEXT PRIMARY KEY,

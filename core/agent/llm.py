@@ -142,6 +142,8 @@ class LLMAdapter:
         """
         # Prefer the per-session model; fall back to the persisted global setting.
         from core.storage.db import get_setting
+        from core.privacy import record_net
+        record_net("ollama")
         active_model = self.model or get_setting("local_model") or settings.local_model
 
         audit.log(
@@ -204,6 +206,8 @@ class LLMAdapter:
         """Optional cloud — user's own key, PII scrubbed first."""
         if not settings.cloud_api_key:
             raise RuntimeError("Cloud LLM enabled but no API key set.")
+        from core.privacy import record_net
+        record_net("cloud_llm")
 
         # Scrub PII before anything leaves the device
         scrubbed = []
