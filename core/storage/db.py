@@ -298,6 +298,39 @@ CREATE TABLE IF NOT EXISTS watcher_capability_grants (
     FOREIGN KEY (watcher_id) REFERENCES watchers(watcher_id) ON DELETE CASCADE
 );
 
+-- Ask My Files (v0.6): 100% local knowledge base. Text + embeddings never
+-- leave the device; embeddings come from a local Ollama embedding model.
+CREATE TABLE IF NOT EXISTS knowledge_folders (
+    folder_id   TEXT PRIMARY KEY,
+    user_id     TEXT NOT NULL,
+    path        TEXT NOT NULL,
+    added_at    TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id, path)
+);
+
+CREATE TABLE IF NOT EXISTS knowledge_files (
+    file_id     TEXT PRIMARY KEY,
+    folder_id   TEXT NOT NULL,
+    user_id     TEXT NOT NULL,
+    path        TEXT NOT NULL,
+    mtime       REAL NOT NULL,
+    chunk_count INTEGER NOT NULL DEFAULT 0,
+    indexed_at  TEXT,
+    UNIQUE(user_id, path),
+    FOREIGN KEY (folder_id) REFERENCES knowledge_folders(folder_id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS knowledge_chunks (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    file_id     TEXT NOT NULL,
+    user_id     TEXT NOT NULL,
+    content     TEXT NOT NULL,
+    embedding   BLOB NOT NULL,          -- float32 vector
+    FOREIGN KEY (file_id) REFERENCES knowledge_files(file_id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_kchunks_user ON knowledge_chunks(user_id);
+CREATE INDEX IF NOT EXISTS idx_kfiles_user ON knowledge_files(user_id);
+
 -- Network ledger (v0.6 Privacy Proof): aggregate counters of every outbound
 -- connection BixDot initiates, by purpose. Self-accounting for the dashboard;
 -- the audit log holds the per-event trail.

@@ -252,6 +252,21 @@ BUILTIN_TOOLS = [
         }
     },
     {
+        "name": "search_my_files",
+        "description": (
+            "Search the user's indexed personal files (their local knowledge base) "
+            "for relevant content. Use when the user asks about their own notes, "
+            "documents, projects, or anything they have on their computer."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "What to look for"}
+            },
+            "required": ["query"]
+        }
+    },
+    {
         "name": "delegate_tasks",
         "description": (
             "Split a complex request into 2-4 INDEPENDENT subtasks and run them in "
@@ -302,6 +317,7 @@ TOOL_CAPABILITY_MAP = {
     "recall":             Capability.MEMORY_READ,
     "list_documents":     Capability.DOCS_READ,
     "search_document":    Capability.DOCS_READ,
+    "search_my_files":    Capability.DOCS_READ,
     "list_github_repos":  Capability.GITHUB_READ,
     "list_github_issues": Capability.GITHUB_READ,
     "read_github_issue":  Capability.GITHUB_READ,
@@ -418,8 +434,9 @@ _TOOL_KEYWORDS = (
     "remember", "recall", "note that", "keep in mind", "i prefer",
     "my name is", "always use", "never use", "forget",
     "what do you know about", "what have i told you",
-    # documents
+    # documents / my files
     "document", "pdf", "upload", "my file", "that report", "the report",
+    "my files", "my notes", "my folder", "on my computer", "in my documents",
     "summarise", "summarize", "extract from", "what does the", "according to",
     # github
     "github", "repo", "repository", "issue", "pull request", "pr",
@@ -808,6 +825,8 @@ class AgentRuntime:
                 return await self._list_documents(user_id)
             elif tool_name == "search_document":
                 return await self._search_document(tool_input.get("query", ""), tool_input.get("doc_id"), user_id)
+            elif tool_name == "search_my_files":
+                return await self._search_my_files(tool_input.get("query", ""), user_id)
             elif tool_name == "list_github_repos":
                 return await self._list_github_repos(user_id)
             elif tool_name == "list_github_issues":
@@ -1048,6 +1067,28 @@ class AgentRuntime:
             return "\n\n---\n\n".join(all_relevant[:5])
         except Exception as e:
             return f"Document search error: {e}"
+
+    async def _search_my_files(self, query: str, user_id: str) -> str:
+        if not query.strip():
+            return "Error: query is required"
+        try:
+            from core.skills.knowledge.store import search, get_status
+            self.audit.log(AuditEvent.KNOWLEDGE_SEARCH, {"query": query[:100]},
+                           user_id=user_id)
+            results = await search(user_id, query, top_k=5)
+            if not results:
+                status = get_status(user_id)
+                if not status["folders"]:
+                    return ("No folders are indexed yet. Add folders in "
+                            "Settings → My Files to build your local knowledge base.")
+                return f"Nothing relevant found in your files for: {query}"
+            out = []
+            for r in results:
+                name = r["path"].replace("\\", "/").rsplit("/", 1)[-1]
+                out.append(f"[{name}]\n{r['content']}")
+            return "\n\n---\n\n".join(out)
+        except Exception as e:
+            return f"My Files search error: {e}"
 
     async def _list_github_repos(self, user_id: str) -> str:
         try:

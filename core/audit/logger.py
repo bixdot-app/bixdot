@@ -69,6 +69,11 @@ class AuditEvent(str, Enum):
     SCHEDULE_RUN = "schedule.run"
     SCHEDULE_RUN_FAILED = "schedule.run_failed"
 
+    # Ask My Files (v0.6) — local knowledge base
+    KNOWLEDGE_FOLDER_ADDED = "knowledge.folder_added"
+    KNOWLEDGE_FOLDER_REMOVED = "knowledge.folder_removed"
+    KNOWLEDGE_SEARCH = "knowledge.search"
+
     # Watchers (v0.6) — event-triggered automations
     WATCHER_CREATED = "watcher.created"
     WATCHER_UPDATED = "watcher.updated"

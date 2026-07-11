@@ -1151,6 +1151,97 @@ function ModelSelector({token, onModelChange}){
   );
 }
 
+// ── My Files / Ask anything (v0.6) ────────────────────────────────────────────
+function MyFilesPanel({token}){
+  const[st,setSt]=useState(null);
+  const[path,setPath]=useState('');
+  const[busy,setBusy]=useState(false);
+  const[msg,setMsg]=useState('');
+  const[dl,setDl]=useState(null);
+
+  const load=()=>{api('/agent/knowledge/status',{},token).then(setSt).catch(()=>{});};
+  useEffect(()=>{load(); const iv=setInterval(load,15000); return()=>clearInterval(iv);},[token]);
+
+  const addFolder=async()=>{
+    if(!path.trim())return;
+    setBusy(true); setMsg('');
+    try{
+      await api('/agent/knowledge/folders',{method:'POST',body:JSON.stringify({path})},token);
+      setPath(''); setMsg('✓ Folder added — indexing runs in the background.');
+      api('/agent/knowledge/reindex',{method:'POST'},token).catch(()=>{});
+      load();
+    }catch(e){ setMsg('Error: '+e.message); }
+    setBusy(false);
+  };
+  const removeFolder=async(f)=>{
+    if(!confirm('Stop indexing "'+f.path+'"? Its index is deleted (files are untouched).'))return;
+    await api('/agent/knowledge/folders/'+f.folder_id,{method:'DELETE'},token).catch(()=>{});
+    load();
+  };
+  const reindex=async()=>{
+    setBusy(true); setMsg('');
+    try{ const r=await api('/agent/knowledge/reindex',{method:'POST'},token);
+      setMsg('✓ Indexed '+r.indexed+' file(s) — the rest continue in the background.'); load();
+    }catch(e){ setMsg('Error: '+e.message); }
+    setBusy(false);
+  };
+  const pullEmbed=async()=>{
+    setDl({pct:0,status:'Starting…'});
+    try{
+      const r=await fetch('http://localhost:8747/agent/models/pull',{method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+        body:JSON.stringify({model:'nomic-embed-text'})});
+      const reader=r.body.getReader(); const dec=new TextDecoder(); let buf='';
+      while(true){const{done,value}=await reader.read(); if(done)break;
+        buf+=dec.decode(value,{stream:true});
+        const lines=buf.split('\n'); buf=lines.pop();
+        for(const ln of lines){ if(!ln.trim())continue;
+          try{const j=JSON.parse(ln);
+            if(j.error){setDl({pct:0,status:j.error,err:true});return;}
+            if(j.total&&j.completed!=null)setDl({pct:Math.round(j.completed/j.total*100),status:'Downloading…'});
+          }catch(e){}}}
+      setDl(null); load();
+    }catch(e){ setDl({pct:0,status:'Failed: '+e.message,err:true}); }
+  };
+
+  if(!st) return el('div',{className:'s-card'},el('div',{className:'s-row'},el('span',{style:{fontSize:12,color:'var(--muted)'}},'Loading…')));
+
+  return el('div',{className:'s-card'},
+    el('div',{className:'s-row'},
+      el('div',{className:'s-info'},
+        el('p',null,'Ask anything about your files'),
+        el('span',null,'BixDot indexes chosen folders on this device — nothing is uploaded, ever.')
+      ),
+      st.total_chunks>0&&el('span',{className:'s-active'},st.total_files+' files · '+st.total_chunks+' pieces')
+    ),
+    !st.embedding_model&&el('div',{className:'setup-form'},
+      el('div',{style:{fontSize:11,color:'var(--muted)',marginBottom:6,lineHeight:1.5}},
+        'This needs a small local "understanding" model (~270 MB, one-time).'),
+      dl&&el('div',null,el('div',{className:'dlbar'},el('div',{style:{width:(dl.pct||0)+'%'}})),
+        el('div',{style:{fontSize:11,color:dl.err?'var(--red)':'var(--muted)'}},(dl.pct?dl.pct+'% · ':'')+dl.status)),
+      (!dl||dl.err)&&el('button',{className:'connect-btn',onClick:pullEmbed},'⬇ Download nomic-embed-text')
+    ),
+    st.embedding_model&&el('div',null,
+      (st.folders||[]).map(f=>el('div',{key:f.folder_id,className:'s-row'},
+        el('div',{className:'s-info'},
+          el('p',{style:{fontFamily:'var(--mono)',fontSize:12}},f.path),
+          el('span',null,f.files_indexed+' indexed'+(f.files_pending>0?' · '+f.files_pending+' pending':'')+' · '+f.chunks+' pieces')
+        ),
+        el('button',{className:'revoke-btn',onClick:()=>removeFolder(f)},'Remove')
+      )),
+      el('div',{className:'setup-form'},
+        el('input',{className:'setup-input',placeholder:'C:\\Users\\you\\Documents',value:path,
+          onChange:e=>setPath(e.target.value),onKeyDown:e=>e.key==='Enter'&&addFolder()}),
+        el('div',{style:{display:'flex',gap:8}},
+          el('button',{className:'connect-btn',onClick:addFolder,disabled:busy||!path.trim()},'+ Add folder'),
+          (st.folders||[]).length>0&&el('button',{className:'cal-btn-sec',style:{fontSize:12,padding:'5px 12px'},onClick:reindex,disabled:busy},busy?'Working…':'Index now')
+        )
+      )
+    ),
+    msg&&el('div',{style:{padding:'8px 14px',fontSize:12,color:'var(--accent)',background:'var(--accent-dim)',borderTop:'1px solid var(--border)'}},msg)
+  );
+}
+
 // ── Telegram Settings (v0.5) ──────────────────────────────────────────────────
 function TelegramSettings({token}){
   const[st,setSt]=useState(null);
@@ -1291,6 +1382,10 @@ function Settings({token, onModelChange}){
           el('button',{className:'toggle'+(cloud?' on':''),onClick:()=>setCloud(c=>!c)})
         )
       )
+    ),
+    el('div',{className:'s-section'},
+      el('div',{className:'s-label'},'My Files — ask anything'),
+      el(MyFilesPanel,{token})
     ),
     el('div',{className:'s-section'},
       el('div',{className:'s-label'},'Personas'),

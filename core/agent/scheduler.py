@@ -318,6 +318,14 @@ async def scheduler_loop() -> None:
             # Imported here: watchers imports from this module at load time.
             from core.agent.watchers import check_watchers
             await check_watchers()
+
+            # Ask My Files (v0.6): incremental background indexing, a few
+            # files per tick per user — never hogs the machine.
+            from core.skills.knowledge.store import (
+                all_user_ids_with_folders, index_pending,
+            )
+            for uid in all_user_ids_with_folders():
+                await index_pending(uid)
         except asyncio.CancelledError:
             raise
         except Exception as e:  # never let one bad tick kill the loop

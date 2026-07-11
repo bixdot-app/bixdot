@@ -36,6 +36,7 @@ from core.agent.persona_routes import router as persona_router
 from core.agent.schedule_routes import router as schedule_router
 from core.channels.telegram_routes import router as telegram_router
 from core.privacy_routes import router as privacy_router
+from core.skills.knowledge.routes import router as knowledge_router
 from core.skills.calendar.routes import router as calendar_router
 from core.skills.terminal.routes import router as terminal_router
 from core.skills.plugin_routes import router as skills_router
@@ -257,6 +258,7 @@ app.include_router(persona_router)
 app.include_router(schedule_router)
 app.include_router(telegram_router)
 app.include_router(privacy_router)
+app.include_router(knowledge_router)
 app.include_router(calendar_router)
 app.include_router(terminal_router)
 app.include_router(skills_router)
