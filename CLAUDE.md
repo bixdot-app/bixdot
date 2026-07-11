@@ -12,7 +12,7 @@
 - **Website:** https://bixdot.app
 - **GitHub:** https://github.com/bixdot-app/bixdot
 - **License:** BUSL-1.1 (source-available, free to self-host, commercial use requires license)
-- **Version:** v0.5.0 (released 2026-07-08)
+- **Version:** v0.6.0 (released 2026-07-11)
 - **Owner:** Shanker / DigiTech Business Pte. Ltd
 
 ---
@@ -78,7 +78,8 @@ bixdot/
 │   │   ├── personas.py            # Persona store + 5 built-ins (v0.5)
 │   │   ├── persona_routes.py      # /agent/personas CRUD (v0.5)
 │   │   ├── scheduler.py           # Scheduled agents + notifications (v0.5)
-│   │   ├── schedule_routes.py     # /agent/schedules, /agent/notifications (v0.5)
+│   │   ├── schedule_routes.py     # /agent/schedules, /notifications, /watchers (v0.5-0.6)
+│   │   ├── watchers.py            # Event triggers: folder + meeting (v0.6)
 │   │   └── paths.py               # Cross-platform path resolution
 │   ├── channels/
 │   │   ├── telegram.py            # Telegram bridge — outbound long-poll (v0.5)
@@ -92,6 +93,7 @@ bixdot/
 │   │   ├── documents/             # list_documents, search_document — markitdown (MIT), PDF/DOCX/PPTX/XLSX
 │   │   ├── github/                # list_github_repos, list_github_issues, read_github_issue — PAT in keyring
 │   │   ├── research/              # deep_research — 4-step pipeline: plan → search → fetch → synthesise
+│   │   ├── knowledge/             # Ask My Files — local embeddings RAG (v0.6)
 │   │   ├── registry.py            # installed_skills + skill_capability_grants data access
 │   │   ├── plugin_manager.py      # Skill install/verify/sandbox lifecycle, SHA-256, capability gate
 │   │   ├── sandbox.py             # Subprocess skill sandbox — JSON stdin/stdout, stripped env, 30s/1MB
@@ -100,6 +102,8 @@ bixdot/
 │   │   └── executor.py            # Sandboxed subprocess executor for plugin/terminal isolation
 │   ├── audit/
 │   │   └── logger.py              # SHA-256 hash-chained audit log
+│   ├── privacy.py                 # Network ledger — Privacy Proof accounting (v0.6)
+│   ├── privacy_routes.py          # /agent/privacy/report (v0.6)
 │   ├── security.py                # Shared SlowAPI rate limiter instance
 │   └── storage/
 │       └── db.py                  # SQLite init, is_first_run(), token_blocklist
@@ -108,9 +112,11 @@ bixdot/
 ├── src-tauri/                     # Tauri desktop wrapper
 │   ├── src/
 │   │   └── main.rs                # Tauri app entry, backend spawn, system tray
+│   ├── capabilities/
+│   │   └── remote-ui.json         # ONLY IPC surface: notifications for localhost UI (v0.6)
 │   ├── Cargo.toml                 # No [lib] section — binary only (avoids macro conflict)
 │   ├── build.rs                   # tauri_build::build()
-│   └── tauri.conf.json            # Tauri v2 config, window URL: http://localhost:8747
+│   └── tauri.conf.json            # Tauri v2 config, withGlobalTauri, window URL: http://localhost:8747
 ├── tests/                         # pytest tests
 ├── docs/
 │   ├── THREAT_MODEL.md            # Every CVE class mapped to architectural mitigations
@@ -126,7 +132,7 @@ bixdot/
 │   ├── RELEASE_NOTES_v0.1.0.md
 │   ├── RELEASE_NOTES_v0.1.1.md
 │   ├── RELEASE_NOTES_v0.2.1.md
-│   └── RELEASE_NOTES_v0.5.0.md
+│   └── RELEASE_NOTES_v0.6.0.md
 ├── .claude/
 │   └── settings.json              # PostToolUse hooks: ruff auto-fix, pip-audit on requirements
 ├── requirements.txt               # Python 3.11+ dependencies
@@ -270,9 +276,43 @@ artifacts + latest.json ONLY when `TAURI_SIGNING_PRIVATE_KEY` secret exists.
 One-time activation: `cargo tauri signer generate`, pubkey → tauri.conf.json,
 private key + password → repo secrets.
 
+### 14. Privacy Proof / Network Ledger (v0.6.0)
+
+`core/privacy.py` — every outbound call seam records `record_net(kind)` into
+the `net_ledger` table (aggregate counters, category local/optin/cloud).
+**When adding ANY new outbound call, instrument it** and add its kind to
+`NET_KINDS` — the dashboard promises full disclosure. Honesty framing is
+mandatory: self-accounting + structural guarantees, never "OS firewall".
+`GET /agent/privacy/report` re-verifies the audit chain live.
+
+### 15. Watchers (v0.6.0)
+
+`core/agent/watchers.py` — event triggers evaluated on the scheduler tick.
+`folder_new_file`: snapshot diff, first tick baselines (never fires), ≤3
+fires/tick, folder must be inside home. `meeting_soon`: fires once per event
+entering the lead window; requires explicit `calendar:read` at creation
+(the trigger check itself reads events). Firing = Routines security model
+(pre-approved caps, TTL grants, "👀" session, notifications, audit).
+
+### 16. Ask My Files (v0.6.0)
+
+`core/skills/knowledge/store.py` — local RAG: markitdown text extraction,
+embeddings via LOCAL Ollama embedding model (EMBEDDING mode from the v0.4
+classifier; `/api/embed`), float32 BLOBs in SQLite, numpy cosine top-k.
+Incremental indexing on the scheduler tick (5 files/tick, mtime-diffed).
+Agent tool `search_my_files` behind `docs:read`. Folders inside home only.
+
+### 17. Webview IPC (v0.6.0) — keep the surface minimal
+
+`src-tauri/capabilities/remote-ui.json` is the ONLY IPC exposure to the
+localhost-served UI: main window + `http://localhost:8747` remote scope +
+`notification:default` + `core:default`. **Never add filesystem/shell/network
+plugin permissions to this capability** — the UI talks to the backend over
+HTTP with JWT, not over Tauri IPC.
+
 ---
 
-## Current Status — v0.5.0 ✅ SHIPPED
+## Current Status — v0.6.0 ✅ SHIPPED
 
 | Feature | Status |
 |---|---|
@@ -314,20 +354,26 @@ private key + password → repo secrets.
 | Auto-updater (activates with signing keys) | ✅ v0.5.0 |
 | Zero-setup onboarding (in-app model download) | ✅ v0.5.0 |
 | Plain-language permissions | ✅ v0.5.0 |
+| Privacy Proof dashboard + network ledger | ✅ v0.6.0 |
+| Watchers (folder + meeting triggers) | ✅ v0.6.0 |
+| Ask My Files (local embeddings knowledge base) | ✅ v0.6.0 |
+| Native OS notifications (Tauri IPC, scoped capability) | ✅ v0.6.0 |
 
 ---
 
-## v0.6.0 Roadmap — Next Sprint
+## v0.7.0 Roadmap — Next Sprint
 
 Priority order:
 
-1. **Native mobile app** — Android first via Tauri 2 Mobile (iOS needs a Mac + Apple Developer account).
+1. **Remote pairing design for native mobile** — the Python backend cannot run on Android
+   (PyInstaller has no Android target), and phone→desktop networking would violate the
+   127.0.0.1 invariant. Needs an E2E-encrypted pairing/tunnel design before any mobile shell.
 
-2. **Native OS notifications** — toasts when the window is closed to tray (needs Tauri remote-URL capability work).
+2. **Skill marketplace foundations** — signed community skills (Sigstore/cosign pipeline).
 
-3. **Slack channel integration** — same outbound-only pattern as Telegram.
+3. **Local voice input exploration** — on-device STT (Web Speech unavailable in WebView2).
 
-4. **Voice input exploration** — Web Speech API is unavailable in WebView2; needs a local STT approach.
+4. **Slack channel** — outbound Socket Mode, if consumer demand appears (deprioritised: work tool).
 
 ---
 
@@ -339,9 +385,11 @@ Priority order:
 - No code signing certificate yet — SmartScreen warning on Windows, Gatekeeper on macOS
 - License enforcement is legal-only (BUSL-1.1) — no technical key enforcement yet
 - Auto-updater dormant until the one-time signing-key setup (see RELEASE_NOTES_v0.5.0 → "For maintainers")
-- Notifications are in-app toasts + Telegram only — native OS toasts need Tauri
-  remote-URL capability work (frontend is served over http, no IPC bridge) — v0.6.0
-- Scheduled runs only fire while the app is running (backend process alive in tray)
+- Scheduled runs / watchers / indexing only fire while the app is running (backend alive in tray)
+- Privacy ledger is self-accounting — the skill sandbox does not block network
+  syscalls (documented in THREAT_MODEL v0.6.0); OS-level egress control is future work
+- Native OS toasts ship in v0.6.0 but the Tauri IPC path (withGlobalTauri +
+  remote capability) is CI-compiled only — verify on the first v0.6.0 build
 
 ---
 
@@ -481,5 +529,5 @@ Every release follows this exact sequence — no manual checks needed:
 
 ---
 
-*Last updated: 2026-07-08 | v0.5.0*
+*Last updated: 2026-07-11 | v0.6.0*
 *© 2026 DigiTech Business Pte. Ltd.*

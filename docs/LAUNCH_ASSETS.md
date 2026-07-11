@@ -101,11 +101,16 @@ Public threat model maps each CVE class to specific architectural mitigations.
 - **Zero-setup onboarding** — in-app model download with progress bar; no terminal
 - **Plain-language permissions** — human prompts instead of capability codes
 
-## v0.6.0 Coming Next
-- Native mobile app (Android first via Tauri 2 Mobile)
-- Native OS notifications when the app is closed to tray
-- Slack channel integration (same outbound-only pattern as Telegram)
-- Voice input exploration (local STT)
+## v0.6.0 What Shipped (Feature Release — 2026-07-11) — "Proof & Proactive"
+- **Privacy Proof dashboard** — the marketing centerpiece: live connection ledger (LOCAL / YOU ENABLED / CLOUD), tamper-evident audit seal re-verified on view, "0 connections to cloud AI" headline counter. No competitor can credibly build this screen.
+- **Watchers** — event-triggered automations: new-file-in-folder and meeting-lead-time triggers, plain-language capability approval, native + Telegram notifications
+- **Ask My Files** — 100% local knowledge base: point at folders, ask anything; local embedding model (one-click download), vectors in SQLite, nothing uploaded ever
+- **Native OS notifications** — real toasts even when hidden to tray (single scoped Tauri capability is the only IPC surface)
+
+## v0.7.0 Coming Next
+- Remote-pairing design for native mobile (architecturally honest: Python backend can't run on Android; localhost-only must hold)
+- Skill marketplace foundations (signed community skills)
+- Local voice input exploration (on-device STT)
 
 ---
 

@@ -74,12 +74,13 @@ Until then, everything builds and runs exactly as before.
 
 ---
 
-## What's Next — v0.6.0
+## What's Next — v0.6.0 ✅ Shipped
 
-- **Native mobile app** (Android first via Tauri 2 Mobile)
-- **Native OS notifications** (toast when the app is closed to tray)
-- **Slack channel** integration
-- **Voice input** exploration
+- **Privacy Proof dashboard** — live, verifiable local-first accounting
+- **Watchers** — event-triggered automations (new files, upcoming meetings)
+- **Ask My Files** — 100% local knowledge base over your folders
+- **Native OS notifications** — toasts even when hidden to tray
+- Native mobile deferred with an architectural rationale (see v0.6.0 notes); Telegram remains the mobile strategy
 
 ---
 

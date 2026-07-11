@@ -1,7 +1,7 @@
 # BixDot — Skills Reference
 
-> Version: 0.5.0
-> Last updated: 2026-07-08
+> Version: 0.6.0
+> Last updated: 2026-07-11
 > This document is the authoritative reference for all built-in skills, their tool definitions,
 > required permissions, security constraints, and the plugin system. Keep it in sync with
 > `core/agent/runtime.py` (BUILTIN_TOOLS), `core/agent/permissions.py` (Capability),
@@ -428,6 +428,28 @@ Defined in `core/skills/calendar/`. All extend `CalendarProvider` base class.
 **iCal setup:**
 - Provide path to a local `.ics` file or a webcal URL
 - Read-only (no `create_event` support on `.ics`)
+
+---
+
+## v0.6.0 Additions
+
+### search_my_files (built-in tool — Ask My Files)
+Semantic search over the user's locally indexed folders.
+
+| Field | Value |
+|---|---|
+| Capability | `docs:read` |
+| Index | Folders inside home only; markitdown text + local Ollama embeddings; SQLite vectors |
+| Privacy | Embedding calls hit 127.0.0.1 and appear in the Privacy ledger as local |
+| Code | `core/skills/knowledge/store.py`, runtime `_search_my_files()` |
+
+**Parameters:** `query` (string, required).
+
+### Watchers & Privacy ledger (not tools)
+Watchers (`core/agent/watchers.py`) trigger agent runs from events — see
+THREAT_MODEL v0.6.0 for the headless-grant model. The Privacy ledger
+(`core/privacy.py`) instruments every outbound call seam; **any new outbound
+call must call `record_net(kind)`** and register its kind in `NET_KINDS`.
 
 ---
 

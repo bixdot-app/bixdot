@@ -4,6 +4,32 @@ All notable changes to BixDot are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).  
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] — 2026-07-11
+
+The **Proof & Proactive** release — the assistant that notices, acts, and can prove it told no one.
+
+### Added — Privacy Proof
+- **New Privacy screen** that *demonstrates* local-first instead of claiming it: a live tamper-evident seal (the SHA-256 audit chain is re-verified every time you look), a headline "0 connections to cloud AI" counter, and a full-disclosure ledger of every purpose BixDot can talk for — including zero rows — classified LOCAL / YOU ENABLED / CLOUD.
+- Every outbound call seam is instrumented (`core/privacy.py`): local Ollama, cloud LLM (off by default), Telegram, web search, research fetches, GitHub, calendar. `GET /agent/privacy/report`. Framed honestly: self-accounting at every call site plus structural guarantees, not an OS firewall.
+
+### Added — Watchers (event-triggered automations)
+- Routines react to the clock; **Watchers react to life**: "When a new file appears in Downloads → summarise it", "15 minutes before each meeting → brief me". Zero new dependencies — folder snapshots and calendar lead-times are evaluated on the existing scheduler tick.
+- Same security model as Routines: capabilities pre-approved in plain language at creation, granted per-run with a TTL. Folder paths must live inside the home directory; meeting watchers require explicit `calendar:read` approval because the trigger check itself reads the calendar. First folder scan baselines silently — existing files never trigger a storm.
+- Results land in a visible "👀" session, in-app toasts, native OS toasts, and optionally Telegram. Full audit trail.
+
+### Added — Ask My Files (100% local knowledge base)
+- Point BixDot at folders and **ask anything about your own files**. Text extraction (markitdown), embeddings (a local Ollama embedding model — one-click download of `nomic-embed-text`), vectors in SQLite, cosine search via numpy (BSD-3). Nothing is uploaded, ever; embedding calls hit 127.0.0.1 and appear in the Privacy ledger as local.
+- Incremental background indexing on the scheduler tick (a few files at a time, changed files re-indexed, deleted files purged). New agent tool `search_my_files` gated behind `docs:read`. Settings → "My Files" manages folders and shows index progress.
+
+### Added — Native OS notifications
+- Routine and watcher results now pop native Windows/macOS/Linux toasts even when the window is hidden to tray (Tauri notification plugin; a single scoped capability is the only IPC surface exposed to the UI). In-app toasts remain as fallback everywhere.
+
+### Deferred with reasons (v0.7 planning)
+- **Native Android**: Tauri 2 can build the shell, but PyInstaller cannot target Android — a phone app would need to reach the desktop backend over the network, which violates the 127.0.0.1-only invariant. Needs a real remote-pairing design; **Telegram remains the mobile strategy**.
+- **Slack**: work tool, low value for the consumer positioning. **Voice**: no viable local path yet (Web Speech unavailable in WebView2).
+
+---
+
 ## [0.5.0] — 2026-07-08
 
 The **Daily Companion** release — built for non-technical users' daily life.

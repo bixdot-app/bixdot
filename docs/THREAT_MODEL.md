@@ -1,7 +1,7 @@
 # BixDot — Threat Model
 
-> Version: 0.5.0  
-> Last updated: 2026-07-08  
+> Version: 0.6.0  
+> Last updated: 2026-07-11  
 > Status: Living document — updated with every release
 
 ---
@@ -254,6 +254,64 @@ Every known BixDot vulnerability class is addressed by a specific architectural 
 - The updater plugin is not even registered when no public key is configured — no unsigned-update path exists.
 
 **Code:** `src-tauri/src/main.rs`, `.github/workflows/release.yml`
+
+---
+
+### v0.6.0 Threat Surface — Proof & Proactive (2026-07-11)
+
+#### Privacy Proof Ledger (honesty statement)
+**Surface:** None added — but the feature makes claims that must stay true.
+
+**What the ledger IS:** BixDot's own accounting of outbound connections,
+instrumented at every network call seam in the codebase, cross-checkable
+against the tamper-evident audit log.
+
+**What it is NOT:** an OS-level firewall. Two documented gaps: (1) the skill
+sandbox strips credentials and the environment but does **not** block network
+syscalls — a malicious third-party skill could make its own connections
+without appearing in the ledger (mitigated by SHA-256 verification, capability
+review at install, and the license gate; OS firewalling is future work);
+(2) the desktop wrapper's update check (GitHub, signed) happens in Rust and is
+disclosed as static text on the dashboard rather than counted.
+
+---
+
+#### Watchers (headless event triggers)
+**Surface:** Code runs in response to filesystem/calendar events with no user present.
+
+**Mitigations:**
+- Same pre-approved capability model as schedules (plain-language approval at creation; per-run TTL grants).
+- Watched folders must resolve inside the user's home directory (validated at creation).
+- Meeting watchers demand an explicit `calendar:read` approval because the trigger check itself reads events.
+- First folder scan baselines without firing (no storm on existing files); ≤3 fires per tick; per-watcher state is user-scoped.
+- Every firing audited (`watcher.fired`/`watcher.failed`).
+
+**Code:** `core/agent/watchers.py`
+
+---
+
+#### Ask My Files (local indexing)
+**Surface:** Bulk reading of user documents; derived text + vectors stored in SQLite.
+
+**Mitigations:**
+- Folders must live inside the user's home directory; rows are user-scoped; removing a folder deletes its index (cascade).
+- Extraction is text-only via markitdown (no macro execution); 50 MB/file cap; 2000 files/folder cap; hidden paths skipped.
+- Embeddings computed by a LOCAL Ollama model — calls go to 127.0.0.1 and are visible in the Privacy ledger; no third-party embedding APIs exist in the code path.
+- Agent access gated behind `docs:read`; searches audited (`knowledge.search`).
+- **Known limitation:** indexed content inherits the existing LLM prompt-injection caveat — malicious text in a document can attempt to steer the agent (see "What We Don't Protect Against").
+
+**Code:** `core/skills/knowledge/store.py`
+
+---
+
+#### Native Notifications (first webview IPC surface)
+**Surface:** The localhost-served UI gains a Tauri IPC bridge for the first time.
+
+**Mitigations:**
+- A single capability file scopes the bridge to the `main` window, the exact remote URL `http://localhost:8747`, and only `notification:default` + `core:default` — no filesystem, shell, or network plugin permissions are exposed.
+- Notification content originates from the authenticated backend queue (JWT-gated endpoint), not from page-injectable data.
+
+**Code:** `src-tauri/capabilities/remote-ui.json`
 
 ---
 

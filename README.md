@@ -6,7 +6,7 @@
   [![CI](https://github.com/bixdot-app/bixdot/actions/workflows/ci.yml/badge.svg)](https://github.com/bixdot-app/bixdot/actions/workflows/ci.yml)
   [![Release](https://github.com/bixdot-app/bixdot/actions/workflows/release.yml/badge.svg)](https://github.com/bixdot-app/bixdot/actions/workflows/release.yml)
   [![License: BUSL-1.1](https://img.shields.io/badge/License-BUSL--1.1-blue.svg)](LICENSE)
-  [![Version](https://img.shields.io/badge/version-0.5.0-green.svg)](https://github.com/bixdot-app/bixdot/releases/tag/v0.5.0)
+  [![Version](https://img.shields.io/badge/version-0.6.0-green.svg)](https://github.com/bixdot-app/bixdot/releases/tag/v0.6.0)
 
   [Download](https://github.com/bixdot-app/bixdot/releases/latest) · [Docs](docs/) · [Security](mailto:security@bixdot.app)
 </div>
@@ -25,7 +25,7 @@ It's also the most secure AI agent available. We built it after studying every k
 
 ## Download
 
-**[→ Download BixDot v0.5.0](https://github.com/bixdot-app/bixdot/releases/latest)**
+**[→ Download BixDot v0.6.0](https://github.com/bixdot-app/bixdot/releases/latest)**
 
 | Platform | Installer |
 |---|---|
@@ -41,6 +41,9 @@ It's also the most secure AI agent available. We built it after studying every k
 ## Features
 
 - **Chat** — talk to any Ollama model locally; model selector persists your choice
+- **Privacy Proof** — a live dashboard that *shows* your data staying home: connection ledger, tamper-evident audit seal, "0 connections to cloud AI" in real time
+- **Watchers** — event-triggered automations: summarise every new file in Downloads, get briefed 15 minutes before each meeting
+- **Ask My Files** — a 100% local knowledge base over folders you choose; embeddings and search never leave the device
 - **Routines** — scheduled background agents: a Morning Briefing at 7:00, an evening news digest, a Week Ahead summary — set once, runs on its own
 - **Personas** — five ready-made helpers (Day Planner, Researcher, Writer, File Helper…) plus your own custom ones; all share one memory
 - **Telegram bridge** — chat with your agent from any phone; outbound-only connection, your agent never leaves your computer
@@ -122,7 +125,11 @@ Full threat model: [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md)
 | Telegram bridge (phone access) | ✅ v0.5.0 |
 | Auto-updater | ✅ v0.5.0 |
 | Zero-setup onboarding | ✅ v0.5.0 |
-| Mobile (iOS + Android) | 📅 Phase 2 |
+| Privacy Proof dashboard | ✅ v0.6.0 |
+| Watchers (event triggers) | ✅ v0.6.0 |
+| Ask My Files (local knowledge base) | ✅ v0.6.0 |
+| Native OS notifications | ✅ v0.6.0 |
+| Mobile (needs remote-pairing design) | 📅 v0.7 exploration |
 | Skill marketplace | 📅 Phase 2 |
 
 ---
@@ -162,10 +169,13 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) for full guidelines.
 
 ## Roadmap
 
-**v0.6.0 — Coming next**
-Native mobile app (Android first via Tauri 2 Mobile), native OS notifications when closed to tray, Slack channel integration (same outbound-only pattern as Telegram), voice input exploration
+**v0.7.0 — Coming next**
+Remote-pairing design for a true native mobile app (the Python backend can't run on Android, and phone→desktop networking would break the localhost-only guarantee — this needs an E2E-encrypted design, not a shortcut), skill marketplace foundations (signed community skills), local voice input exploration
 
 ---
+
+**v0.6.0 — Released 11 July 2026**
+The Proof & Proactive release: Privacy Proof dashboard (live connection ledger, tamper-evident audit seal, full-disclosure accounting of every outbound purpose), Watchers (event-triggered automations for new files and upcoming meetings, same pre-approved-capability model as Routines), Ask My Files (100% local embeddings knowledge base over chosen folders), native OS notifications via a single scoped Tauri capability.
 
 **v0.5.0 — Released 8 July 2026**
 The Daily Companion release: Routines (scheduled background agents with plain-language capability approval), five built-in Personas + custom, multi-agent orchestration (parallel helper agents, no permission escalation), Telegram bridge (outbound long-polling — agent reachable from any phone while staying on 127.0.0.1), auto-updater, zero-setup onboarding (in-app model download with progress), plain-language permission prompts, in-app notification toasts.
