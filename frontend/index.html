@@ -244,6 +244,28 @@
   .dlbar>div{height:100%;background:var(--accent);transition:width .3s;}
   /* v0.5 — Pairing code */
   .paircode{font-family:var(--mono);font-size:28px;letter-spacing:.35em;color:var(--accent);background:var(--accent-dim);border:1px solid var(--accent-mid);border-radius:10px;padding:10px 16px;text-align:center;margin:10px 0;}
+
+  /* v0.6 — Privacy Proof */
+  .priv-body{flex:1;overflow-y:auto;padding:18px;max-width:640px;}
+  .seal{display:flex;align-items:center;gap:14px;border:1px solid var(--accent-mid);background:var(--accent-dim);border-radius:14px;padding:16px 18px;margin-bottom:14px;}
+  .seal.broken{border-color:rgba(255,71,87,.4);background:var(--red-dim);}
+  .seal-icon{font-size:34px;}
+  .seal-title{font-size:15px;font-weight:700;}
+  .seal-sub{font-size:11.5px;color:var(--muted);margin-top:2px;}
+  .bigstat{display:flex;gap:10px;margin-bottom:14px;}
+  .bigstat>div{flex:1;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center;}
+  .bigstat .n{font-size:26px;font-weight:800;line-height:1.1;}
+  .bigstat .l{font-size:10.5px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;margin-top:4px;}
+  .ledger{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--border);border-radius:11px;overflow:hidden;}
+  .ledger th{font-size:10px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;text-align:left;padding:9px 12px;border-bottom:1px solid var(--border);}
+  .ledger td{font-size:12px;padding:9px 12px;border-bottom:1px solid var(--border);}
+  .ledger tr:last-child td{border-bottom:none;}
+  .cat-pill{font-size:9.5px;font-family:var(--mono);padding:2px 7px;border-radius:5px;}
+  .cat-local{background:var(--accent-dim);color:var(--accent);}
+  .cat-optin{background:rgba(61,145,255,.12);color:var(--blue);}
+  .cat-cloud{background:var(--warn-dim);color:var(--warn);}
+  .priv-facts{display:flex;flex-direction:column;gap:6px;margin:14px 0;}
+  .priv-fact{display:flex;align-items:center;gap:9px;font-size:12.5px;background:var(--card);border:1px solid var(--border);border-radius:9px;padding:9px 12px;}
 </style>
 </head>
 <body>
@@ -287,6 +309,7 @@ const SEND_ICON='M22 2L11 13 M22 2L15 22 8 13 2 9z';
 const CAL_ICON='M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z';
 const TERM_ICON='M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z';
 const ROUTINE_ICON='M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z';
+const SHIELD_ICON='M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z';
 
 // ── Login ─────────────────────────────────────────────────────────────────────
 function Login({onLogin}){
@@ -1433,6 +1456,86 @@ function Calendar({token}){
 }
 
 
+// ── Privacy Proof (v0.6) ──────────────────────────────────────────────────────
+function Privacy({token}){
+  const[rep,setRep]=useState(null);
+  useEffect(()=>{
+    const load=()=>api('/agent/privacy/report',{},token).then(setRep).catch(()=>{});
+    load();
+    const iv=setInterval(load,5000);
+    return()=>clearInterval(iv);
+  },[token]);
+
+  if(!rep) return el('div',{className:'priv-body'},el('div',{className:'empty'},el('p',null,'Checking…')));
+
+  const chainOk=rep.audit&&rep.audit.chain_valid;
+  const catPill=c=>el('span',{className:'cat-pill cat-'+c},
+    c==='local'?'LOCAL':c==='optin'?'YOU ENABLED':'CLOUD');
+  const fmtLast=t=>t?new Date(t).toLocaleTimeString():'never';
+
+  return el('div',{className:'priv-body'},
+    // The seal
+    el('div',{className:'seal'+(chainOk?'':' broken')},
+      el('span',{className:'seal-icon'},chainOk?'🛡️':'⚠️'),
+      el('div',null,
+        el('div',{className:'seal-title'},chainOk
+          ?'Verified — nothing has been tampered with'
+          :'WARNING — audit log integrity check failed'),
+        el('div',{className:'seal-sub'},
+          'Tamper-evident audit log: '+(rep.audit.entries||0).toLocaleString()+
+          ' entries, SHA-256 hash chain '+(chainOk?'intact':('broken at entry '+rep.audit.broken_at))+
+          '. Re-verified on every startup and every time you open this page.')
+      )
+    ),
+    // Headline numbers
+    el('div',{className:'bigstat'},
+      el('div',null,
+        el('div',{className:'n',style:{color:'var(--accent)'}},(rep.totals.cloud||0).toString()),
+        el('div',{className:'l'},'connections to cloud AI')),
+      el('div',null,
+        el('div',{className:'n'},(rep.totals.local||0).toLocaleString()),
+        el('div',{className:'l'},'local AI calls (this device)')),
+      el('div',null,
+        el('div',{className:'n',style:{color:'var(--blue)'}},(rep.totals.optin||0).toLocaleString()),
+        el('div',{className:'l'},'opt-in connections'))
+    ),
+    // Connection ledger — full disclosure incl. zero rows
+    el('div',{className:'s-label',style:{marginBottom:7}},'Every place BixDot talks — and why'),
+    el('table',{className:'ledger'},
+      el('thead',null,el('tr',null,
+        el('th',null,'Purpose'),el('th',null,'Where'),el('th',null,'Type'),
+        el('th',{style:{textAlign:'right'}},'Calls'),el('th',null,'Last')
+      )),
+      el('tbody',null,
+        rep.counters.map(c=>el('tr',{key:c.kind},
+          el('td',null,c.label),
+          el('td',{style:{color:'var(--muted)',fontSize:11}},c.where),
+          el('td',null,catPill(c.category)),
+          el('td',{style:{textAlign:'right',fontFamily:'var(--mono)'}},c.count.toLocaleString()),
+          el('td',{style:{color:'var(--muted)',fontSize:11}},fmtLast(c.last_at))
+        ))
+      )
+    ),
+    // Structural facts
+    el('div',{className:'priv-facts'},
+      el('div',{className:'priv-fact'},'🔒',el('span',null,'Server bound to ',
+        el('code',{style:{color:'var(--accent)',fontFamily:'var(--mono)'}},rep.config.bind_host+':'+rep.config.bind_port),
+        ' — unreachable from your network or the internet.')),
+      el('div',{className:'priv-fact'},rep.config.cloud_llm_enabled?'⚠️':'✅',
+        el('span',null,'Cloud AI is ',el('b',null,rep.config.cloud_llm_enabled?'ENABLED':'off'),
+          rep.config.cloud_llm_enabled?' — you turned this on; PII is scrubbed before anything is sent.':' — your conversations never leave this computer.')),
+      el('div',{className:'priv-fact'},rep.config.telegram_enabled?'📱':'✅',
+        el('span',null,'Telegram bridge is ',el('b',null,rep.config.telegram_enabled?'on':'off'),
+          rep.config.telegram_enabled?' — messages you send from your phone pass through Telegram.':'.')),
+      el('div',{className:'priv-fact'},'🔑',el('span',null,(rep.grants_active||0)+' active permission grant(s) — revoke any time in Settings.'))
+    ),
+    // Honesty box
+    el('div',{style:{fontSize:11.5,color:'var(--muted)',lineHeight:1.6,background:'var(--card)',border:'1px solid var(--border)',borderRadius:9,padding:'10px 12px'}},
+      el('b',{style:{color:'var(--text)'}},'How this is measured: '),
+      'BixDot counts every outbound connection its own code makes, at every network call site, and the audit log records each action in a tamper-evident chain. This is BixDot’s own accounting — not an operating-system firewall. The structural guarantees are what make it strong: the server only listens on this computer, cloud AI is off unless you turn it on, and the desktop app additionally checks GitHub once at launch for signed updates.')
+  );
+}
+
 // ── Routines (scheduled agents, v0.5) ─────────────────────────────────────────
 const FREQ_LABEL={hourly:'Every hour',daily:'Every day',weekdays:'Weekdays (Mon–Fri)',weekly:'Every week'};
 const WEEKDAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
@@ -1712,6 +1815,7 @@ function App(){
   const nav=[
     {id:'chat',label:'Chat',icon:CHAT_ICON},
     {id:'routines',label:'Routines',icon:ROUTINE_ICON},
+    {id:'privacy',label:'Privacy',icon:SHIELD_ICON},
     {id:'calendar',label:'Calendar',icon:CAL_ICON},
     {id:'terminal',label:'Terminal',icon:TERM_ICON},
     {id:'audit',label:'Audit log',icon:AUDIT_ICON},
@@ -1751,6 +1855,7 @@ function App(){
       ),
       screen==='chat'&&el(Chat,{token,model:activeModel}),
       screen==='routines'&&el(Routines,{token}),
+      screen==='privacy'&&el(Privacy,{token}),
       screen==='calendar'&&el(Calendar,{token}),
       screen==='terminal'&&el(Terminal,{token}),
       screen==='audit'&&el(Audit,{token}),
