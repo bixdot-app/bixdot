@@ -86,7 +86,9 @@ fn main() {
         .map(|s| !s.is_empty())
         .unwrap_or(false);
 
-    let mut builder = tauri::Builder::default().plugin(tauri_plugin_shell::init());
+    let mut builder = tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_notification::init());
     if updater_configured {
         builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
     }

@@ -1980,6 +1980,21 @@ function App(){
   const[licenseBanner,setLicenseBanner]=useState(null); // null = no banner
   const[toasts,setToasts]=useState([]);
 
+  // Native OS toast via the Tauri bridge (v0.6) — works even when the window
+  // is hidden to tray. Fully guarded: in a plain browser this is a no-op.
+  const nativeNotify=async(title,body)=>{
+    try{
+      const inv=window.__TAURI__&&window.__TAURI__.core&&window.__TAURI__.core.invoke;
+      if(!inv) return;
+      let granted=await inv('plugin:notification|is_permission_granted');
+      if(!granted){
+        const p=await inv('plugin:notification|request_permission');
+        granted=(p==='granted');
+      }
+      if(granted) await inv('plugin:notification|notify',{options:{title:'BixDot — '+title,body}});
+    }catch(e){}
+  };
+
   // In-app notifications: poll the queue (routines etc.) and show toasts.
   useEffect(()=>{
     if(!token) return;
@@ -1987,7 +2002,10 @@ function App(){
       const items=(r&&r.notifications)||[];
       if(items.length){
         setToasts(t=>[...t,...items]);
-        items.forEach(n=>setTimeout(()=>setToasts(t=>t.filter(x=>x.id!==n.id)),9000));
+        items.forEach(n=>{
+          nativeNotify(n.title,n.body);
+          setTimeout(()=>setToasts(t=>t.filter(x=>x.id!==n.id)),9000);
+        });
       }
     }).catch(()=>{});
     poll();
