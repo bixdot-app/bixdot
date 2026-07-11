@@ -272,6 +272,32 @@ CREATE TABLE IF NOT EXISTS telegram_pairings (
     paired_at   TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Watchers (v0.6): event-triggered automations — react to life, not the clock.
+CREATE TABLE IF NOT EXISTS watchers (
+    watcher_id      TEXT PRIMARY KEY,
+    user_id         TEXT NOT NULL,
+    persona_id      TEXT,
+    name            TEXT NOT NULL,
+    type            TEXT NOT NULL,               -- 'folder_new_file' | 'meeting_soon'
+    config          TEXT NOT NULL DEFAULT '{}',  -- JSON: {folder,pattern} | {lead_minutes}
+    prompt          TEXT NOT NULL,               -- may contain {file} / {event}
+    notify_desktop  INTEGER NOT NULL DEFAULT 1,
+    notify_telegram INTEGER NOT NULL DEFAULT 0,
+    is_enabled      INTEGER NOT NULL DEFAULT 1,
+    state           TEXT NOT NULL DEFAULT '{}',  -- JSON: folder snapshot / notified event ids
+    last_fired_at   TEXT,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Capabilities pre-approved for a watcher (same headless-run model as schedules)
+CREATE TABLE IF NOT EXISTS watcher_capability_grants (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    watcher_id  TEXT NOT NULL,
+    capability  TEXT NOT NULL,
+    UNIQUE(watcher_id, capability),
+    FOREIGN KEY (watcher_id) REFERENCES watchers(watcher_id) ON DELETE CASCADE
+);
+
 -- Network ledger (v0.6 Privacy Proof): aggregate counters of every outbound
 -- connection BixDot initiates, by purpose. Self-accounting for the dashboard;
 -- the audit log holds the per-event trail.

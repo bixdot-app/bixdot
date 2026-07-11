@@ -1552,12 +1552,33 @@ const ROUTINE_TEMPLATES=[
    frequency:'weekly',at_time:'08:00',weekday:0,caps:['calendar:read']},
 ];
 
+const WATCHER_TEMPLATES=[
+  {label:'📁 New file in Downloads',name:'Downloads watch',type:'folder_new_file',
+   prompt:'A new file arrived: {file}. Open it and give me a two-line summary of what it is.',
+   caps:['fs:read'],folderHint:'Downloads'},
+  {label:'📅 Meeting heads-up',name:'Meeting heads-up',type:'meeting_soon',
+   prompt:'My meeting {event} is starting soon. Brief me in 3 bullets: what it likely is, and anything I should have ready.',
+   caps:['calendar:read','memory:read'],lead:15},
+];
+
 function Routines({token}){
   const[schedules,setSchedules]=useState([]);
   const[personas,setPersonas]=useState([]);
   const[showForm,setShowForm]=useState(false);
   const[msg,setMsg]=useState('');
   const[busyId,setBusyId]=useState(null);
+  // watchers
+  const[watchersList,setWatchersList]=useState([]);
+  const[showWForm,setShowWForm]=useState(false);
+  const[wName,setWName]=useState('');
+  const[wType,setWType]=useState('folder_new_file');
+  const[wFolder,setWFolder]=useState('');
+  const[wPattern,setWPattern]=useState('*');
+  const[wLead,setWLead]=useState(15);
+  const[wPrompt,setWPrompt]=useState('');
+  const[wCaps,setWCaps]=useState(['fs:read']);
+  const[wTg,setWTg]=useState(false);
+  const[wCreating,setWCreating]=useState(false);
   // form
   const[fName,setFName]=useState('');
   const[fPrompt,setFPrompt]=useState('');
@@ -1572,8 +1593,37 @@ function Routines({token}){
   const load=()=>{
     api('/agent/schedules',{},token).then(setSchedules).catch(()=>{});
     api('/agent/personas',{},token).then(setPersonas).catch(()=>{});
+    api('/agent/watchers',{},token).then(setWatchersList).catch(()=>{});
   };
   useEffect(()=>{load();},[token]);
+
+  const applyWTemplate=(t)=>{
+    setShowWForm(true); setWName(t.name); setWType(t.type); setWPrompt(t.prompt);
+    setWCaps(t.caps.slice());
+    if(t.lead) setWLead(t.lead);
+  };
+  const toggleWCap=(c)=>setWCaps(cs=>cs.includes(c)?cs.filter(x=>x!==c):[...cs,c]);
+
+  const createWatcher=async()=>{
+    if(!wName.trim()||!wPrompt.trim()){ setMsg('Give your watcher a name and tell it what to do.'); return; }
+    setWCreating(true); setMsg('');
+    try{
+      const config=wType==='folder_new_file'?{folder:wFolder,pattern:wPattern||'*'}:{lead_minutes:wLead};
+      await api('/agent/watchers',{method:'POST',body:JSON.stringify({
+        name:wName,type:wType,prompt:wPrompt,config,
+        notify_desktop:true,notify_telegram:wTg,capabilities:wCaps,
+      })},token);
+      setShowWForm(false); setWName(''); setWPrompt(''); setWFolder('');
+      setMsg('✓ Watcher created — it checks every 30 seconds while BixDot is running.');
+      load();
+    }catch(e){ setMsg('Error: '+e.message); }
+    setWCreating(false);
+  };
+  const toggleWatcher=async(x)=>{ await api('/agent/watchers/'+x.watcher_id,{method:'PUT',body:JSON.stringify({is_enabled:!x.is_enabled})},token).catch(()=>{}); load(); };
+  const delWatcher=async(x)=>{ if(!confirm('Delete watcher "'+x.name+'"?'))return; await api('/agent/watchers/'+x.watcher_id,{method:'DELETE'},token).catch(()=>{}); load(); };
+  const wDesc=(x)=>x.type==='folder_new_file'
+    ?('New files in '+(x.config.folder||'?')+(x.config.pattern&&x.config.pattern!=='*'?' matching '+x.config.pattern:''))
+    :((x.config.lead_minutes||15)+' minutes before each meeting');
 
   const applyTemplate=(t)=>{
     setShowForm(true); setFName(t.name); setFPrompt(t.prompt);
@@ -1670,8 +1720,68 @@ function Routines({token}){
         (s.capabilities||[]).map(c=>el('span',{key:c,className:'skill-cap',title:capInfo(c).desc},capInfo(c).icon+' '+capInfo(c).title))
       )
     )),
-    schedules.length===0&&!showForm&&el('div',{className:'empty',style:{padding:'30px 10px'}},
-      el('p',null,'No routines yet. Try a template above — like a Morning Briefing that greets you at 7:00 with your day and the news.'))
+    schedules.length===0&&!showForm&&el('div',{className:'empty',style:{padding:'20px 10px'}},
+      el('p',null,'No routines yet. Try a template above — like a Morning Briefing that greets you at 7:00 with your day and the news.')),
+
+    // ── Watchers (v0.6) ────────────────────────────────────────────────────
+    el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',margin:'22px 0 10px'}},
+      el('div',null,
+        el('div',{style:{fontSize:14,fontWeight:600}},'Watchers'),
+        el('div',{style:{fontSize:12,color:'var(--muted)'}},'React to events — a new file, an upcoming meeting — not just the clock.')
+      ),
+      el('button',{className:'cal-btn',onClick:()=>setShowWForm(f=>!f)},showWForm?'Close':'+ New Watcher')
+    ),
+    watchersList.length===0&&!showWForm&&el('div',{style:{display:'flex',flexWrap:'wrap',gap:8,marginBottom:12}},
+      WATCHER_TEMPLATES.map(t=>el('button',{key:t.label,className:'tmpl-chip',onClick:()=>applyWTemplate(t)},t.label))
+    ),
+    showWForm&&el('div',{className:'routine-card'},
+      el('div',{style:{display:'flex',flexWrap:'wrap',gap:8,marginBottom:10}},
+        WATCHER_TEMPLATES.map(t=>el('button',{key:t.label,className:'tmpl-chip',onClick:()=>applyWTemplate(t)},t.label))
+      ),
+      el('div',{style:{display:'flex',gap:8,marginBottom:8,flexWrap:'wrap'}},
+        el('div',{className:'form-field',style:{flex:1,minWidth:140}},el('span',{className:'form-label'},'NAME'),
+          el('input',{className:'form-input',value:wName,onChange:e=>setWName(e.target.value),placeholder:'Downloads watch'})),
+        el('div',{className:'form-field',style:{flex:1,minWidth:170}},el('span',{className:'form-label'},'WHEN'),
+          el('select',{className:'form-input',value:wType,onChange:e=>setWType(e.target.value)},
+            el('option',{value:'folder_new_file'},'📁 A new file appears in a folder'),
+            el('option',{value:'meeting_soon'},'📅 A meeting is about to start')))
+      ),
+      wType==='folder_new_file'&&el('div',{style:{display:'flex',gap:8,marginBottom:8,flexWrap:'wrap'}},
+        el('div',{className:'form-field',style:{flex:2,minWidth:200}},el('span',{className:'form-label'},'FOLDER TO WATCH'),
+          el('input',{className:'form-input',value:wFolder,onChange:e=>setWFolder(e.target.value),placeholder:'C:\\Users\\you\\Downloads'})),
+        el('div',{className:'form-field',style:{flex:1,minWidth:100}},el('span',{className:'form-label'},'FILE TYPE'),
+          el('input',{className:'form-input',value:wPattern,onChange:e=>setWPattern(e.target.value),placeholder:'*.pdf or *'}))
+      ),
+      wType==='meeting_soon'&&el('div',{className:'form-field',style:{marginBottom:8,maxWidth:180}},
+        el('span',{className:'form-label'},'MINUTES BEFORE'),
+        el('input',{className:'form-input',type:'number',min:1,max:240,value:wLead,onChange:e=>setWLead(parseInt(e.target.value)||15)})),
+      el('div',{className:'form-field',style:{marginBottom:8}},el('span',{className:'form-label'},'WHAT SHOULD BIXDOT DO? '+(wType==='folder_new_file'?'({file} = the new file)':'({event} = the meeting)')),
+        el('textarea',{className:'form-input',rows:2,style:{resize:'vertical',fontFamily:'inherit'},value:wPrompt,onChange:e=>setWPrompt(e.target.value),placeholder:wType==='folder_new_file'?'Summarise {file} in two lines':'Brief me on {event}'})),
+      el('div',{className:'form-label',style:{marginBottom:6}},'WHAT IT MAY ACCESS'),
+      ROUTINE_CAPS.map(c=>{const i=capInfo(c);return el('div',{key:c,className:'cap-row'+(wCaps.includes(c)?' sel':''),onClick:()=>toggleWCap(c)},
+        el('span',{className:'cap-ic'},i.icon),
+        el('div',null,el('div',{className:'cap-t'},i.title),el('div',{className:'cap-d'},i.desc))
+      );}),
+      el('div',{className:'s-row',style:{border:'none',padding:'8px 0 4px'}},
+        el('div',{className:'s-info'},el('p',{style:{margin:0}},'Also send to Telegram'),el('span',null,'Needs the Telegram bridge')),
+        el('button',{className:'toggle'+(wTg?' on':''),onClick:()=>setWTg(t=>!t)})
+      ),
+      el('button',{className:'cal-btn',style:{marginTop:6},onClick:createWatcher,disabled:wCreating},wCreating?'Creating…':'Create watcher')
+    ),
+    watchersList.map(x=>el('div',{key:x.watcher_id,className:'routine-card',style:{opacity:x.is_enabled?1:.55}},
+      el('div',{className:'routine-top'},
+        el('span',{className:'routine-name'},'👀 '+x.name),
+        el('div',{className:'routine-actions'},
+          el('button',{className:'toggle'+(x.is_enabled?' on':''),title:x.is_enabled?'Pause':'Resume',onClick:()=>toggleWatcher(x)}),
+          el('button',{className:'revoke-btn',onClick:()=>delWatcher(x)},'Delete')
+        )
+      ),
+      el('div',{className:'routine-meta'},wDesc(x)+(x.last_fired_at?' · last fired '+new Date(x.last_fired_at).toLocaleString():' · not fired yet')),
+      el('div',{style:{fontSize:12,color:'var(--muted)',marginBottom:6}},x.prompt.slice(0,140)+(x.prompt.length>140?'…':'')),
+      el('div',{style:{display:'flex',flexWrap:'wrap',gap:4}},
+        (x.capabilities||[]).map(c=>el('span',{key:c,className:'skill-cap',title:capInfo(c).desc},capInfo(c).icon+' '+capInfo(c).title))
+      )
+    ))
   );
 }
 

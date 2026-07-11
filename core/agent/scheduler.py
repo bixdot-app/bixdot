@@ -313,6 +313,11 @@ async def scheduler_loop() -> None:
                 schedule = get_schedule(r["schedule_id"])
                 if schedule and is_due(schedule):
                     await run_schedule(schedule)
+
+            # Watchers (v0.6) piggyback on the same tick — zero extra loops.
+            # Imported here: watchers imports from this module at load time.
+            from core.agent.watchers import check_watchers
+            await check_watchers()
         except asyncio.CancelledError:
             raise
         except Exception as e:  # never let one bad tick kill the loop

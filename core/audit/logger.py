@@ -69,6 +69,13 @@ class AuditEvent(str, Enum):
     SCHEDULE_RUN = "schedule.run"
     SCHEDULE_RUN_FAILED = "schedule.run_failed"
 
+    # Watchers (v0.6) — event-triggered automations
+    WATCHER_CREATED = "watcher.created"
+    WATCHER_UPDATED = "watcher.updated"
+    WATCHER_DELETED = "watcher.deleted"
+    WATCHER_FIRED = "watcher.fired"
+    WATCHER_FAILED = "watcher.failed"
+
     # Telegram bridge (v0.5) — outbound long-polling only, localhost preserved
     TELEGRAM_ENABLED = "telegram.enabled"
     TELEGRAM_DISABLED = "telegram.disabled"

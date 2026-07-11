@@ -119,3 +119,82 @@ async def run_schedule_now(schedule_id: str, user=Depends(require_auth)):
 async def pending_notifications(user=Depends(require_auth)):
     """Undelivered notifications for the frontend poller (marks them delivered)."""
     return {"notifications": scheduler.fetch_pending_notifications(user.sub)}
+
+
+# ─── Watchers (v0.6) — event-triggered automations ─────────────────────────────
+
+class CreateWatcherRequest(BaseModel):
+    name: str
+    type: str                       # folder_new_file | meeting_soon
+    prompt: str
+    config: dict = {}               # {folder, pattern} | {lead_minutes}
+    persona_id: str = ""
+    notify_desktop: bool = True
+    notify_telegram: bool = False
+    capabilities: list[str] = []
+
+
+class UpdateWatcherRequest(BaseModel):
+    is_enabled: Optional[bool] = None
+
+
+@router.get("/watchers")
+async def list_watchers(user=Depends(require_auth)):
+    from core.agent import watchers
+    return watchers.list_watchers(user.sub)
+
+
+@router.post("/watchers")
+async def create_watcher(request: CreateWatcherRequest, user=Depends(require_auth)):
+    from core.agent import watchers
+    if not request.name.strip() or not request.prompt.strip():
+        raise HTTPException(status_code=400, detail="Name and prompt are required.")
+    try:
+        watcher = watchers.create_watcher(
+            user.sub,
+            name=request.name.strip(),
+            wtype=request.type,
+            config=request.config,
+            prompt=request.prompt.strip(),
+            persona_id=request.persona_id,
+            notify_desktop=request.notify_desktop,
+            notify_telegram=request.notify_telegram,
+            capabilities=request.capabilities,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    get_audit_logger().log(
+        AuditEvent.WATCHER_CREATED,
+        {"watcher_id": watcher["watcher_id"], "name": watcher["name"],
+         "type": watcher["type"], "capabilities": watcher["capabilities"]},
+        user_id=user.sub,
+    )
+    return watcher
+
+
+@router.put("/watchers/{watcher_id}")
+async def update_watcher(watcher_id: str, request: UpdateWatcherRequest,
+                         user=Depends(require_auth)):
+    from core.agent import watchers
+    if not watchers.watcher_belongs_to(watcher_id, user.sub):
+        raise HTTPException(status_code=404, detail="Watcher not found")
+    if request.is_enabled is not None:
+        watchers.set_watcher_enabled(watcher_id, request.is_enabled)
+        get_audit_logger().log(
+            AuditEvent.WATCHER_UPDATED,
+            {"watcher_id": watcher_id, "is_enabled": request.is_enabled},
+            user_id=user.sub,
+        )
+    return watchers.get_watcher(watcher_id)
+
+
+@router.delete("/watchers/{watcher_id}")
+async def delete_watcher(watcher_id: str, user=Depends(require_auth)):
+    from core.agent import watchers
+    if not watchers.watcher_belongs_to(watcher_id, user.sub):
+        raise HTTPException(status_code=404, detail="Watcher not found")
+    watchers.delete_watcher(watcher_id)
+    get_audit_logger().log(
+        AuditEvent.WATCHER_DELETED, {"watcher_id": watcher_id}, user_id=user.sub,
+    )
+    return {"deleted": True, "watcher_id": watcher_id}
