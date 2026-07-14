@@ -289,10 +289,13 @@ jobs:
             ---
 
             ### Requirements
-            1. **Ollama** — https://ollama.ai
-            2. **llama3.2 model** — run `ollama pull llama3.2` after installing Ollama
 
-            Python is bundled — no separate installation needed. BixDot will guide you through setup on first launch.
+            **Windows / macOS:** nothing to pre-install — BixDot's first-run wizard downloads
+            the official Ollama installer (signature-verified) and the AI model for you.
+
+            **Linux:** install [Ollama](https://ollama.com) first; BixDot handles the rest.
+
+            Python is bundled — no separate installation needed.
 
             ---
 

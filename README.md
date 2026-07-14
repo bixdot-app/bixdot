@@ -34,7 +34,7 @@ It's also the most secure AI agent available. We built it after studying every k
 | Mac (Intel) | `BixDot_x64.dmg` |
 | Linux | `BixDot_amd64.AppImage` / `.deb` |
 
-**Requirements:** [Ollama](https://ollama.ai) · `ollama pull llama3.2` · Python is bundled — no separate install needed
+**Requirements:** [Ollama](https://ollama.com) — install it once; BixDot starts it, downloads the AI model, and handles everything else. Python is bundled.
 
 ---
 
