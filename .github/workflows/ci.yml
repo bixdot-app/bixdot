@@ -40,6 +40,10 @@ jobs:
           pip-audit -r requirements.txt
         # Scoped to requirements.txt only — avoids false positives from CI tooling (semgrep etc.)
 
+      - name: Prod requirements must stay GPL-free
+        run: |
+          ! grep -iE "pyinstaller|pymupdf|GPL" requirements.txt
+
       - name: Check license headers
         run: |
           echo "Checking all Python files have BUSL license headers..."

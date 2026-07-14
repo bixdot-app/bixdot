@@ -47,9 +47,13 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r requirements.txt
 
+      # PyInstaller lives in requirements-dev.txt (GPL-with-exception build
+      # tool — never in the production manifest). Installed standalone here
+      # with the same constraint: the full dev manifest pulls semgrep, which
+      # does not reliably install on the Windows/macOS release runners.
       - name: Build PyInstaller backend bundle
         run: |
-          pip install pyinstaller
+          pip install "pyinstaller>=6.0.0"
           pyinstaller bixdot.spec --distpath dist-backend --workpath build-backend
 
       # Tauri externalBin requires the binary to exist with the target triple

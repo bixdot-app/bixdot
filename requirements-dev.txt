@@ -11,3 +11,8 @@ httpx>=0.28.1           # Async test client
 bandit>=1.7.10
 semgrep>=1.89.0
 pip-audit>=2.7.3
+
+# Build / bundling (CI only)
+# GPL-2.0-with-exception build tool — the exception keeps bundled output
+# unencumbered, but it must never appear in the production manifest.
+pyinstaller>=6.0.0
