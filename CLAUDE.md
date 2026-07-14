@@ -412,7 +412,7 @@ Priority order:
 - Session memory limited by llama3.2 context window (~8k tokens)
 - No code signing certificate yet — SmartScreen warning on Windows, Gatekeeper on macOS
 - License enforcement is legal-only (BUSL-1.1) — no technical key enforcement yet
-- Auto-updater dormant until the one-time signing-key setup (see RELEASE_NOTES_v0.5.0 → "For maintainers")
+- Auto-updater pubkey set in v0.6.1; signing requires the `TAURI_SIGNING_PRIVATE_KEY`(+`_PASSWORD`) repo secrets — private key lives OUTSIDE the repo (never commit it); losing it bricks updates for installed apps
 - Scheduled runs / watchers / indexing only fire while the app is running (backend alive in tray)
 - Privacy ledger is self-accounting — the skill sandbox does not block network
   syscalls (documented in THREAT_MODEL v0.6.0); OS-level egress control is future work
