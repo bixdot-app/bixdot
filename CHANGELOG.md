@@ -4,6 +4,34 @@ All notable changes to BixDot are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).  
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.1] — 2026-07-14
+
+The **Trust & Setup** patch — activates self-updates and removes the last manual setup step.
+
+### Added
+- **One-click Ollama setup (Windows/macOS)** — the first-run wizard now downloads the
+  official Ollama installer over HTTPS, **verifies its code signature**
+  (Authenticode / codesign + Gatekeeper) before launching, and hands you Ollama's own
+  installer UI. Never silent-installed; the download appears in the Privacy ledger
+  (`setup` — visible at zero for everyone else) and the audit log
+  (started / verified / launched / rejected). Redirects are pinned to
+  ollama.com / githubusercontent.com and the URL set is hardcoded — no input can
+  influence what is fetched. Linux keeps manual instructions by design: Ollama's
+  Linux install is a curl-pipe-to-shell script we will not execute on a user's behalf.
+
+### Changed
+- Auto-updater activated — releases are now signed; installed apps update themselves.
+- README reflects real setup effort (BixDot starts Ollama and downloads models itself).
+
+### Fixed
+- PyInstaller moved from production requirements to dev requirements (GPL-with-exception
+  build tool — it never belonged in the runtime manifest); CI now guards against
+  GPL entries in `requirements.txt`.
+- Audit logger no longer freezes its database path at import time — the test suite
+  had been silently appending its events to the real `~/.bixdot/audit.db`.
+
+---
+
 ## [0.6.0] — 2026-07-11
 
 The **Proof & Proactive** release — the assistant that notices, acts, and can prove it told no one.

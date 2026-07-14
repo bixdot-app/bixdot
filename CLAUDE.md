@@ -12,7 +12,7 @@
 - **Website:** https://bixdot.app
 - **GitHub:** https://github.com/bixdot-app/bixdot
 - **License:** BUSL-1.1 (source-available, free to self-host, commercial use requires license)
-- **Version:** v0.6.0 (released 2026-07-11)
+- **Version:** v0.6.1 (released 2026-07-14)
 - **Owner:** Shanker / DigiTech Business Pte. Ltd
 
 ---
@@ -100,6 +100,9 @@ bixdot/
 │   │   └── plugin_routes.py       # /agent/skills/* — inspect, install, list, toggle, verify, uninstall
 │   ├── sandbox/
 │   │   └── executor.py            # Sandboxed subprocess executor for plugin/terminal isolation
+│   ├── services/
+│   │   ├── commercial_detect.py   # Commercial-use detection heuristics
+│   │   └── ollama_installer.py    # Signature-verified Ollama installer bootstrap (v0.6.1)
 │   ├── audit/
 │   │   └── logger.py              # SHA-256 hash-chained audit log
 │   ├── privacy.py                 # Network ledger — Privacy Proof accounting (v0.6)
@@ -132,7 +135,7 @@ bixdot/
 │   ├── RELEASE_NOTES_v0.1.0.md
 │   ├── RELEASE_NOTES_v0.1.1.md
 │   ├── RELEASE_NOTES_v0.2.1.md
-│   └── RELEASE_NOTES_v0.6.0.md
+│   └── RELEASE_NOTES_v0.6.1.md
 ├── .claude/
 │   └── settings.json              # PostToolUse hooks: ruff auto-fix, pip-audit on requirements
 ├── requirements.txt               # Python 3.11+ dependencies
@@ -310,9 +313,31 @@ localhost-served UI: main window + `http://localhost:8747` remote scope +
 plugin permissions to this capability** — the UI talks to the backend over
 HTTP with JWT, not over Tauri IPC.
 
+### 18. Ollama installer bootstrap (v0.6.1)
+
+`core/services/ollama_installer.py` — the first-run wizard downloads the
+official Ollama installer for the user. Design rules (do not relax):
+
+- **Backend-only.** No Tauri IPC commands — the IPC surface stays
+  notifications-only (§17). Route: `POST /agent/onboarding/download-ollama`
+  (JWT, 3/min, NDJSON progress stream like `/agent/models/pull`).
+- **Hardcoded URLs** (`OFFICIAL_URLS`) — no user input can influence what is
+  fetched. Every redirect hop must stay on `ollama.com`/`githubusercontent.com`.
+  2 GB hard size cap; `.part` file cleaned up on any abort.
+- **Signature verified BEFORE launch**: Authenticode `Valid` on Windows;
+  `codesign --verify --deep --strict` AND `spctl --assess` on macOS (zip
+  extracted with stdlib `zipfile`, traversal entries rejected). Failure
+  deletes the download and audits `ollama_installer_rejected`.
+- **Never silent-installed** — launches Ollama's own installer UI, never
+  waits on the child; the wizard's `/health/onboarding` poll detects success.
+- **Linux excluded by design** — Ollama's Linux install is curl-pipe-to-shell;
+  the wizard keeps manual instructions there.
+- Ledger kind `"setup"` (optin) + audit events
+  `ollama_installer_{download_started,verified,launched,rejected}`.
+
 ---
 
-## Current Status — v0.6.0 ✅ SHIPPED
+## Current Status — v0.6.1 ✅ SHIPPED
 
 | Feature | Status |
 |---|---|
@@ -358,6 +383,9 @@ HTTP with JWT, not over Tauri IPC.
 | Watchers (folder + meeting triggers) | ✅ v0.6.0 |
 | Ask My Files (local embeddings knowledge base) | ✅ v0.6.0 |
 | Native OS notifications (Tauri IPC, scoped capability) | ✅ v0.6.0 |
+| One-click Ollama setup (signature-verified installer download) | ✅ v0.6.1 |
+| Auto-updater activated (signing pubkey set) | ✅ v0.6.1 |
+| PyInstaller out of prod requirements + CI GPL guard | ✅ v0.6.1 |
 
 ---
 
@@ -529,5 +557,5 @@ Every release follows this exact sequence — no manual checks needed:
 
 ---
 
-*Last updated: 2026-07-11 | v0.6.0*
+*Last updated: 2026-07-14 | v0.6.1*
 *© 2026 DigiTech Business Pte. Ltd.*

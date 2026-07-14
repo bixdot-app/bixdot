@@ -1,7 +1,7 @@
 # BixDot — Threat Model
 
-> Version: 0.6.0  
-> Last updated: 2026-07-11  
+> Version: 0.6.1  
+> Last updated: 2026-07-14  
 > Status: Living document — updated with every release
 
 ---
@@ -312,6 +312,27 @@ disclosed as static text on the dashboard rather than counted.
 - Notification content originates from the authenticated backend queue (JWT-gated endpoint), not from page-injectable data.
 
 **Code:** `src-tauri/capabilities/remote-ui.json`
+
+---
+
+### v0.6.1 Threat Surface — Trust & Setup (2026-07-14)
+
+#### Ollama Installer Bootstrap
+**Surface:** The backend downloads an executable from the internet and launches it — the single most dangerous operation an app can perform, so it is fenced on every side.
+
+**Threats:** malicious mirror / DNS or redirect hijack serving a trojaned installer; download endpoint abuse as an arbitrary-file-fetch primitive; zip path traversal (macOS); silent execution without user awareness.
+
+**Mitigations:**
+- URL set is **hardcoded** (`OFFICIAL_URLS`) — no route parameter, header, or config value can influence what is fetched. HTTPS only.
+- Every hop (initial request and each redirect) must land on `ollama.com` or `githubusercontent.com` with dot-boundary host matching (`evilollama.com` fails); anything else aborts and deletes the partial file. 2 GB hard size cap.
+- **Code signature verified before launch**: Windows requires Authenticode status exactly `Valid`; macOS requires BOTH `codesign --verify --deep --strict` AND `spctl --assess` (Gatekeeper) to pass. Failure deletes the artifact and audits `ollama_installer_rejected`. A hijacked download that is not signed by Ollama's publisher never runs.
+- macOS zip extracted with stdlib `zipfile`; entries with absolute paths or `..` are rejected outright.
+- User-initiated only (wizard button), JWT-gated route, rate-limited 3/minute, refused when Ollama is already installed. The installer opens its **own interactive UI** — no silent-install flags exist anywhere in the code.
+- Full accounting: Privacy ledger kind `setup` (visible at zero) + audit events `ollama_installer_{download_started,verified,launched,rejected}` with the artifact's SHA-256.
+- Linux is excluded by design — Ollama's Linux install is curl-pipe-to-shell, which we will not run on a user's behalf.
+- **Honest caveat:** signature verification proves the binary is genuinely Ollama's — it does not audit what Ollama's installer itself does. That trust decision remains the user's, made through Ollama's own UI.
+
+**Code:** `core/services/ollama_installer.py`, route in `core/agent/routes.py`
 
 ---
 

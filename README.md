@@ -6,7 +6,7 @@
   [![CI](https://github.com/bixdot-app/bixdot/actions/workflows/ci.yml/badge.svg)](https://github.com/bixdot-app/bixdot/actions/workflows/ci.yml)
   [![Release](https://github.com/bixdot-app/bixdot/actions/workflows/release.yml/badge.svg)](https://github.com/bixdot-app/bixdot/actions/workflows/release.yml)
   [![License: BUSL-1.1](https://img.shields.io/badge/License-BUSL--1.1-blue.svg)](LICENSE)
-  [![Version](https://img.shields.io/badge/version-0.6.0-green.svg)](https://github.com/bixdot-app/bixdot/releases/tag/v0.6.0)
+  [![Version](https://img.shields.io/badge/version-0.6.1-green.svg)](https://github.com/bixdot-app/bixdot/releases/tag/v0.6.1)
 
   [Download](https://github.com/bixdot-app/bixdot/releases/latest) · [Docs](docs/) · [Security](mailto:security@bixdot.app)
 </div>
@@ -17,7 +17,7 @@
 
 BixDot is an AI agent that runs **entirely on your device**. Your conversations, files, and commands never leave your machine unless you explicitly choose otherwise.
 
-Every other AI agent today sends your data to a cloud server. BixDot doesn't. It uses [Ollama](https://ollama.ai) to run models locally — no API key, no internet required, no data leaves your device.
+Every other AI agent today sends your data to a cloud server. BixDot doesn't. It uses [Ollama](https://ollama.com) to run models locally — no API key, no internet required, no data leaves your device.
 
 It's also the most secure AI agent available. We built it after studying every known CVE class from existing agent platforms and fixing each one at the architecture level — not with patches.
 
@@ -25,7 +25,7 @@ It's also the most secure AI agent available. We built it after studying every k
 
 ## Download
 
-**[→ Download BixDot v0.6.0](https://github.com/bixdot-app/bixdot/releases/latest)**
+**[→ Download BixDot v0.6.1](https://github.com/bixdot-app/bixdot/releases/latest)**
 
 | Platform | Installer |
 |---|---|
@@ -34,7 +34,7 @@ It's also the most secure AI agent available. We built it after studying every k
 | Mac (Intel) | `BixDot_x64.dmg` |
 | Linux | `BixDot_amd64.AppImage` / `.deb` |
 
-**Requirements:** [Ollama](https://ollama.com) — install it once; BixDot starts it, downloads the AI model, and handles everything else. Python is bundled.
+**Requirements:** none to pre-install on Windows/macOS — BixDot's first-run wizard downloads Ollama for you (Linux: install [Ollama](https://ollama.com) first). Python is bundled.
 
 ---
 
@@ -129,6 +129,8 @@ Full threat model: [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md)
 | Watchers (event triggers) | ✅ v0.6.0 |
 | Ask My Files (local knowledge base) | ✅ v0.6.0 |
 | Native OS notifications | ✅ v0.6.0 |
+| One-click Ollama setup (signature-verified) | ✅ v0.6.1 |
+| Auto-updater activated (signed releases) | ✅ v0.6.1 |
 | Mobile (needs remote-pairing design) | 📅 v0.7 exploration |
 | Skill marketplace | 📅 Phase 2 |
 
@@ -141,7 +143,7 @@ git clone https://github.com/bixdot-app/bixdot.git
 cd bixdot
 pip install -r requirements.txt
 
-# Install Ollama from https://ollama.ai and pull a model
+# Install Ollama from https://ollama.com and pull a model
 ollama pull llama3.2
 
 # Run the backend
@@ -173,6 +175,9 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) for full guidelines.
 Remote-pairing design for a true native mobile app (the Python backend can't run on Android, and phone→desktop networking would break the localhost-only guarantee — this needs an E2E-encrypted design, not a shortcut), skill marketplace foundations (signed community skills), local voice input exploration
 
 ---
+
+**v0.6.1 — Released 14 July 2026**
+The Trust & Setup patch: one-click Ollama setup on Windows/macOS (official installer downloaded and its code signature verified before launch — never silent-installed, fully audit-logged), auto-updater activated with signed releases, PyInstaller moved out of the production dependency manifest with a CI guard against GPL entries.
 
 **v0.6.0 — Released 11 July 2026**
 The Proof & Proactive release: Privacy Proof dashboard (live connection ledger, tamper-evident audit seal, full-disclosure accounting of every outbound purpose), Watchers (event-triggered automations for new files and upcoming meetings, same pre-approved-capability model as Routines), Ask My Files (100% local embeddings knowledge base over chosen folders), native OS notifications via a single scoped Tauri capability.

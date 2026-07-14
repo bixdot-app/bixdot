@@ -68,8 +68,12 @@ end-to-end-encrypted pairing design (v0.7 exploration). Until then, the
 
 ---
 
-## What's Next — v0.7.0
+## What's Next
 
+**v0.6.1 — shipped.** One-click signature-verified Ollama setup (Win/mac),
+auto-updater activated, GPL-free production manifest.
+
+**v0.7.0:**
 - Remote pairing design for a true native mobile app
 - Skill marketplace foundations (signed community skills)
 - Local voice input exploration (on-device STT)

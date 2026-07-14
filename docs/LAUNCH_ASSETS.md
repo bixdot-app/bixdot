@@ -107,6 +107,11 @@ Public threat model maps each CVE class to specific architectural mitigations.
 - **Ask My Files** — 100% local knowledge base: point at folders, ask anything; local embedding model (one-click download), vectors in SQLite, nothing uploaded ever
 - **Native OS notifications** — real toasts even when hidden to tray (single scoped Tauri capability is the only IPC surface)
 
+## v0.6.1 What Shipped (Patch Release — 2026-07-14) — "Trust & Setup"
+- **One-click Ollama setup (Windows/macOS)** — first-run wizard downloads the official installer, verifies its code signature (Authenticode / codesign + Gatekeeper) before launching, opens Ollama's own installer UI; never silent, fully audit-logged, visible in the Privacy ledger. Linux keeps manual instructions by design (no curl|sh on the user's behalf)
+- **Auto-updater activated** — releases signed from v0.6.1; installed apps self-update
+- **GPL-free production manifest** — PyInstaller moved to dev requirements with a CI guard
+
 ## v0.7.0 Coming Next
 - Remote-pairing design for native mobile (architecturally honest: Python backend can't run on Android; localhost-only must hold)
 - Skill marketplace foundations (signed community skills)
