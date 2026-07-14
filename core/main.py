@@ -201,6 +201,7 @@ async def onboarding_status():
     Unauthenticated — returns Ollama connectivity and installed models.
     Used by the frontend onboarding wizard to guide first-time setup.
     """
+    import sys
     import httpx
 
     ollama_ok = False
@@ -228,6 +229,8 @@ async def onboarding_status():
         "suggested_model": suggested,
         "ollama_url": settings.ollama_url,
         "ready": ollama_ok and len(models) > 0,
+        # Lets the wizard offer the one-click Ollama download (Win/mac only)
+        "platform": {"win32": "windows", "darwin": "darwin"}.get(sys.platform, "linux"),
     }
 
 

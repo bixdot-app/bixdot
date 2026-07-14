@@ -361,6 +361,43 @@ function OnboardingWizard({onDismiss,token}){
   const[status,setStatus]=useState(null);
   const[checking,setChecking]=useState(false);
   const[dl,setDl]=useState(null); // {pct,status,err,busy}
+  const[odl,setOdl]=useState(null); // Ollama installer download {pct,status,err,busy,launched}
+
+  const downloadOllama=async()=>{
+    setOdl({pct:0,status:'Starting download…',busy:true});
+    try{
+      const r=await fetch('http://localhost:8747/agent/onboarding/download-ollama',{
+        method:'POST',
+        headers:{'Authorization':'Bearer '+token},
+      });
+      if(!r.ok||!r.body){
+        let msg='Could not start the download.';
+        try{ msg=(await r.json()).detail||msg; }catch(e){}
+        throw new Error(msg);
+      }
+      const reader=r.body.getReader(); const dec=new TextDecoder(); let buf='';
+      while(true){
+        const{done,value}=await reader.read();
+        if(done) break;
+        buf+=dec.decode(value,{stream:true});
+        const lines=buf.split('\n'); buf=lines.pop();
+        for(const ln of lines){
+          if(!ln.trim()) continue;
+          try{
+            const j=JSON.parse(ln);
+            if(j.error){ setOdl({pct:0,status:j.error,err:true}); return; }
+            if(j.status==='launched'){ setOdl({pct:100,status:'Installer opened',launched:true}); }
+            else if(j.status==='verifying'){ setOdl(d=>({pct:(d&&d.pct)||0,status:'Verifying signature…',busy:true})); }
+            else if(j.total&&j.completed!=null){
+              setOdl({pct:Math.min(100,Math.round(j.completed/j.total*100)),status:'Downloading…',busy:true});
+            } else if(j.completed!=null){
+              setOdl(d=>({pct:(d&&d.pct)||0,status:'Downloading… '+Math.round(j.completed/1e6)+' MB',busy:true}));
+            }
+          }catch(e){}
+        }
+      }
+    }catch(e){ setOdl({pct:0,status:'Download failed: '+e.message,err:true}); }
+  };
 
   const download=async()=>{
     const model=(status&&status.suggested_model)||'llama3.2';
@@ -413,10 +450,26 @@ function OnboardingWizard({onDismiss,token}){
       id:'ollama',
       label:'Ollama is running',
       done: status&&status.ollama_running,
-      desc: el('span',null,
-        'Download and install Ollama from ',
-        el('a',{href:'https://ollama.ai',target:'_blank',rel:'noreferrer',style:{color:'var(--accent)'}},'ollama.ai'),
-        ', then start it.'
+      desc: el('div',null,
+        (status&&(status.platform==='windows'||status.platform==='darwin'))&&el('div',null,
+          odl&&el('div',null,
+            el('div',{className:'dlbar'},el('div',{style:{width:(odl.pct||0)+'%'}})),
+            el('div',{style:{fontSize:11,color:odl.err?'var(--red)':'var(--muted)'}},
+              (odl.pct?odl.pct+'% · ':'')+odl.status)
+          ),
+          odl&&odl.launched
+            ? el('div',{style:{fontSize:12,color:'var(--accent)',marginTop:4}},
+                "Ollama's installer has opened — follow its steps. BixDot will continue automatically.")
+            : (!odl||odl.err)&&el('button',{
+                className:'connect-btn',style:{marginBottom:6},
+                onClick:downloadOllama,
+              },odl&&odl.err?'Try again':'⬇ Download Ollama')
+        ),
+        el('div',{style:{marginTop:4}},
+          'Or download it from ',
+          el('a',{href:'https://ollama.com',target:'_blank',rel:'noreferrer',style:{color:'var(--accent)'}},'ollama.com'),
+          ', install, then start it.'
+        )
       ),
     },
     {

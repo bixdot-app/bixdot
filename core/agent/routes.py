@@ -14,9 +14,10 @@ DELETE /agent/sessions/{id} — end a session
 """
 from typing import Literal, Optional
 from pydantic import BaseModel
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from core.auth.middleware import require_auth
+from core.security import limiter
 from core.agent.runtime import AgentRuntime, AgentResponse
 from core.agent.permissions import get_permission_store, Capability
 from core.agent.model_caps import ModelMode, classify_model
@@ -511,6 +512,117 @@ async def pull_model(request: SetModelRequest, user=Depends(require_auth)):
                             yield line + "\n"
         except Exception as e:
             yield _json.dumps({"error": f"Download failed: {e}"}) + "\n"
+
+    return StreamingResponse(_stream(), media_type="application/x-ndjson")
+
+
+@router.post("/onboarding/download-ollama")
+@limiter.limit("3/minute")
+async def download_ollama(request: Request, user=Depends(require_auth)):
+    """
+    Download the OFFICIAL Ollama installer, verify its code signature, and
+    open Ollama's own installer UI — one NDJSON stream so the wizard needs a
+    single call: {completed,total} progress lines, then {"status":"verifying"},
+    then {"status":"launched"} — or {"error": reason} at any point.
+
+    Security posture (CLAUDE.md §18): hardcoded official URL only, redirects
+    pinned to ollama.com/githubusercontent.com, Authenticode / codesign +
+    Gatekeeper verified BEFORE launch, never silent-installed, counted in the
+    Privacy ledger ("setup") and audit-logged at every step.
+    """
+    import asyncio
+    import json as _json
+    import httpx
+    from fastapi.responses import StreamingResponse
+    from core.config import settings as cfg
+    from core.services import ollama_installer as installer
+
+    key = installer.platform_key()
+    if key is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Automatic Ollama setup is not available on this platform — "
+                   "please install Ollama manually from ollama.com.",
+        )
+
+    # Refuse when Ollama is already reachable (same probe as /health/onboarding).
+    try:
+        async with httpx.AsyncClient(base_url=cfg.ollama_url, timeout=3) as probe:
+            r = await probe.get("/api/tags")
+            already_running = r.status_code == 200
+    except Exception:
+        already_running = False
+    if already_running:
+        raise HTTPException(status_code=400, detail="Ollama is already running — no download needed.")
+
+    audit = get_audit_logger()
+    audit.log(
+        AuditEvent.AGENT_QUERY,
+        {"event": "ollama_installer_download_started", "url": installer.OFFICIAL_URLS[key]},
+        user_id=user.sub,
+    )
+
+    async def _stream():
+        queue: asyncio.Queue = asyncio.Queue()
+        task = asyncio.create_task(installer.download(queue.put_nowait))
+        try:
+            while not task.done() or not queue.empty():
+                # Coalesce progress: drain the queue, emit only the newest line
+                # (multi-hundred-MB downloads would otherwise flood the stream).
+                latest = None
+                try:
+                    latest = await asyncio.wait_for(queue.get(), timeout=0.5)
+                    while not queue.empty():
+                        latest = queue.get_nowait()
+                except asyncio.TimeoutError:
+                    pass
+                if latest is not None:
+                    yield _json.dumps(latest) + "\n"
+            path = await task
+        except installer.InstallerError as e:
+            audit.log(
+                AuditEvent.AGENT_QUERY,
+                {"event": "ollama_installer_rejected", "reason": str(e)},
+                user_id=user.sub,
+            )
+            yield _json.dumps({"error": str(e)}) + "\n"
+            return
+
+        yield _json.dumps({"status": "verifying"}) + "\n"
+        # Hash before verification — a failed verify deletes the file.
+        digest = await asyncio.to_thread(installer.file_sha256, path)
+        ok, signer_status = await asyncio.to_thread(installer.verify_signature, path)
+        if not ok:
+            audit.log(
+                AuditEvent.AGENT_QUERY,
+                {"event": "ollama_installer_rejected", "reason": signer_status, "sha256": digest},
+                user_id=user.sub,
+            )
+            yield _json.dumps({"error": f"Signature verification failed — {signer_status}. "
+                                        "The download was deleted."}) + "\n"
+            return
+        audit.log(
+            AuditEvent.AGENT_QUERY,
+            {"event": "ollama_installer_verified", "sha256": digest, "signer_status": signer_status},
+            user_id=user.sub,
+        )
+
+        try:
+            installer.launch(path)
+        except Exception as e:
+            audit.log(
+                AuditEvent.AGENT_QUERY,
+                {"event": "ollama_installer_rejected", "reason": f"Launch failed: {e}"},
+                user_id=user.sub,
+            )
+            yield _json.dumps({"error": f"Could not open the installer: {e}"}) + "\n"
+            return
+        audit.log(
+            AuditEvent.AGENT_QUERY,
+            {"event": "ollama_installer_launched"},
+            user_id=user.sub,
+        )
+        yield _json.dumps({"status": "launched"}) + "\n"
 
     return StreamingResponse(_stream(), media_type="application/x-ndjson")
 

@@ -115,8 +115,11 @@ class AuditEntry(BaseModel):
 
 
 class AuditLogger:
-    def __init__(self, db_path: str = settings.audit_log_path):
-        self.db_path = Path(db_path).expanduser()
+    def __init__(self, db_path: Optional[str] = None):
+        # Resolved at call time, not definition time — a default argument would
+        # freeze the ORIGINAL settings value at import and ignore later changes
+        # (this silently sent test-suite events into the real ~/.bixdot/audit.db).
+        self.db_path = Path(db_path or settings.audit_log_path).expanduser()
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_db()
 

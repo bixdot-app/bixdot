@@ -34,6 +34,7 @@ NET_KINDS: dict[str, tuple[str, str, str]] = {
     "research":  ("optin", "Deep-research page fetches",    "websites you asked to research"),
     "github":    ("optin", "GitHub (your account)",         "api.github.com"),
     "calendar":  ("optin", "Calendar (your account)",       "Google / Microsoft"),
+    "setup":     ("optin", "Setup downloads (Ollama installer)", "ollama.com — one-time, you clicked it"),
 }
 
 
