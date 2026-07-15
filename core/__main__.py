@@ -20,6 +20,12 @@ if getattr(sys, "frozen", False):
     # Set BIXDOT_BASE so core/main.py can locate the frontend
     os.environ.setdefault("BIXDOT_BASE", bundle_dir)
 
+from core.logging_setup import setup_process_logging
+
+# Harden stdio BEFORE anything can print: under the Tauri shell the handles
+# are absent or cp1252 pipes, either of which used to lose or kill startup.
+setup_process_logging()
+
 import uvicorn
 from core.config import settings
 

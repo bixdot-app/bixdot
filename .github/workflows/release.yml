@@ -81,6 +81,33 @@ jobs:
           mv dist-backend/bixdot-backend dist-backend/bixdot-backend-x86_64-unknown-linux-gnu
           chmod +x dist-backend/bixdot-backend-x86_64-unknown-linux-gnu
 
+      # Prove the bundled backend actually boots. Tests run from source and
+      # never exercise the PyInstaller bundle — v0.6.0 shipped with numpy in
+      # the spec's excludes and the backend died at import on every install.
+      # Any missing hidden import, excluded dep, or startup crash fails here.
+      - name: Smoke test backend bundle
+        shell: bash
+        run: |
+          BIN=$(ls dist-backend/bixdot-backend-* | head -n1)
+          chmod +x "$BIN" 2>/dev/null || true
+          "$BIN" &
+          BACKEND_PID=$!
+          for i in $(seq 1 45); do
+            if curl -sf http://127.0.0.1:8747/health > /dev/null; then
+              echo "Backend healthy: $(curl -s http://127.0.0.1:8747/health)"
+              kill $BACKEND_PID 2>/dev/null || true
+              exit 0
+            fi
+            if ! kill -0 $BACKEND_PID 2>/dev/null; then
+              echo "FATAL: backend process exited before becoming healthy"
+              exit 1
+            fi
+            sleep 2
+          done
+          echo "FATAL: backend did not become healthy within 90 s"
+          kill $BACKEND_PID 2>/dev/null || true
+          exit 1
+
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
         with:

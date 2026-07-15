@@ -136,6 +136,7 @@ fn main() {
 
             // Window starts visible immediately showing loading.html (splash screen).
             // Background thread starts the backend, then navigates to the real URL.
+            let watchdog_sidecar = sidecar_path.clone();
             let app_handle = app.handle().clone();
             std::thread::spawn(move || {
                 // ── Start Ollama if not already running ───────────────────
@@ -205,6 +206,41 @@ fn main() {
                 // ── Navigate window from splash to the real app ────────────
                 if let Some(window) = app_handle.get_webview_window("main") {
                     let _ = window.navigate("http://localhost:8747".parse().unwrap());
+                }
+            });
+
+            // ── Backend watchdog (v0.6.2) ─────────────────────────────────
+            // A dead backend used to strand the window on "unable to reach
+            // this page" until the user relaunched the whole app. If the
+            // child we spawned exits, restart it. State None means we never
+            // spawned it or the user quit — never respawn in those cases.
+            let watchdog_handle = app.handle().clone();
+            std::thread::spawn(move || {
+                let mut restarts: u32 = 0;
+                loop {
+                    std::thread::sleep(std::time::Duration::from_secs(10));
+                    let state = watchdog_handle.state::<PythonBackend>();
+                    let mut guard = match state.0.lock() {
+                        Ok(g) => g,
+                        Err(_) => continue,
+                    };
+                    let died = match guard.as_mut() {
+                        Some(child) => matches!(child.try_wait(), Ok(Some(_))),
+                        None => false,
+                    };
+                    if died && !port_open(8747) {
+                        restarts += 1;
+                        if restarts > 20 {
+                            eprintln!("[BixDot] Backend keeps dying — giving up after 20 restarts.");
+                            *guard = None;
+                            break;
+                        }
+                        eprintln!("[BixDot] Backend died — restarting it (attempt {restarts})...");
+                        *guard = match watchdog_sidecar.as_ref() {
+                            Some(exe) => spawn_hidden(Command::new(exe)).ok(),
+                            None => None,
+                        };
+                    }
                 }
             });
 

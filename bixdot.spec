@@ -144,7 +144,9 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=["tkinter", "matplotlib", "numpy", "pandas"],
+    # numpy is REQUIRED since v0.6.0 (Ask My Files cosine search) — excluding
+    # it shipped a backend that died at import. Never exclude a runtime dep.
+    excludes=["tkinter", "matplotlib", "pandas"],
     noarchive=False,
 )
 

@@ -245,6 +245,8 @@ async def onboarding_status():
 
 if __name__ == "__main__":
     import uvicorn
+    from core.logging_setup import setup_process_logging
+    setup_process_logging()
     uvicorn.run(
         "core.main:app",
         host=settings.host,
