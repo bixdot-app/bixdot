@@ -1,5 +1,9 @@
 # BixDot v0.6.1 — "Trust & Setup"
 
+> **Superseded by v0.6.2 — this build was never published.** The v0.6.1 bundle
+> shipped with numpy excluded from the package and its backend crashed at
+> startup. Everything below is included in v0.6.2.
+
 The patch that removes the last manual setup step — and switches on self-updates.
 
 ---

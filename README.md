@@ -6,7 +6,7 @@
   [![CI](https://github.com/bixdot-app/bixdot/actions/workflows/ci.yml/badge.svg)](https://github.com/bixdot-app/bixdot/actions/workflows/ci.yml)
   [![Release](https://github.com/bixdot-app/bixdot/actions/workflows/release.yml/badge.svg)](https://github.com/bixdot-app/bixdot/actions/workflows/release.yml)
   [![License: BUSL-1.1](https://img.shields.io/badge/License-BUSL--1.1-blue.svg)](LICENSE)
-  [![Version](https://img.shields.io/badge/version-0.6.1-green.svg)](https://github.com/bixdot-app/bixdot/releases/tag/v0.6.1)
+  [![Version](https://img.shields.io/badge/version-0.6.2-green.svg)](https://github.com/bixdot-app/bixdot/releases/tag/v0.6.2)
 
   [Download](https://github.com/bixdot-app/bixdot/releases/latest) · [Docs](docs/) · [Security](mailto:security@bixdot.app)
 </div>
@@ -25,7 +25,7 @@ It's also the most secure AI agent available. We built it after studying every k
 
 ## Download
 
-**[→ Download BixDot v0.6.1](https://github.com/bixdot-app/bixdot/releases/latest)**
+**[→ Download BixDot v0.6.2](https://github.com/bixdot-app/bixdot/releases/latest)**
 
 | Platform | Installer |
 |---|---|
@@ -131,6 +131,7 @@ Full threat model: [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md)
 | Native OS notifications | ✅ v0.6.0 |
 | One-click Ollama setup (signature-verified) | ✅ v0.6.1 |
 | Auto-updater activated (signed releases) | ✅ v0.6.1 |
+| Crash log + auto-restart + boot-tested packages | ✅ v0.6.2 |
 | Mobile (needs remote-pairing design) | 📅 v0.7 exploration |
 | Skill marketplace | 📅 Phase 2 |
 
@@ -176,7 +177,10 @@ Remote-pairing design for a true native mobile app (the Python backend can't run
 
 ---
 
-**v0.6.1 — Released 14 July 2026**
+**v0.6.2 — Released 15 July 2026**
+The stability patch that makes v0.6 real: fixed the dead-on-arrival v0.6.0/v0.6.1 packages (numpy missing from the bundle — release builds now boot-test the actual package before shipping), the installer now stops running BixDot processes and cleans stale files before upgrading, backend crashes land in `~/.bixdot/backend.log`, and the desktop shell restarts a dead backend automatically. Includes everything from v0.6.1 below.
+
+**v0.6.1 — Tagged 14 July 2026 (never published — superseded by v0.6.2)**
 The Trust & Setup patch: one-click Ollama setup on Windows/macOS (official installer downloaded and its code signature verified before launch — never silent-installed, fully audit-logged), auto-updater activated with signed releases, PyInstaller moved out of the production dependency manifest with a CI guard against GPL entries.
 
 **v0.6.0 — Released 11 July 2026**

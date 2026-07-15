@@ -12,7 +12,7 @@
 - **Website:** https://bixdot.app
 - **GitHub:** https://github.com/bixdot-app/bixdot
 - **License:** BUSL-1.1 (source-available, free to self-host, commercial use requires license)
-- **Version:** v0.6.1 (released 2026-07-14)
+- **Version:** v0.6.2 (released 2026-07-15)
 - **Owner:** Shanker / DigiTech Business Pte. Ltd
 
 ---
@@ -135,7 +135,7 @@ bixdot/
 │   ├── RELEASE_NOTES_v0.1.0.md
 │   ├── RELEASE_NOTES_v0.1.1.md
 │   ├── RELEASE_NOTES_v0.2.1.md
-│   └── RELEASE_NOTES_v0.6.1.md
+│   └── RELEASE_NOTES_v0.6.2.md
 ├── .claude/
 │   └── settings.json              # PostToolUse hooks: ruff auto-fix, pip-audit on requirements
 ├── requirements.txt               # Python 3.11+ dependencies
@@ -335,9 +335,32 @@ official Ollama installer for the user. Design rules (do not relax):
 - Ledger kind `"setup"` (optin) + audit events
   `ollama_installer_{download_started,verified,launched,rejected}`.
 
+### 19. Backend observability & installer hygiene (v0.6.2)
+
+Hard-won lessons — each of these shipped a broken release once:
+
+- **Never exclude a runtime dep in `bixdot.spec`** — numpy sat in `excludes`
+  while v0.6.0 required it; every bundled backend died at import. The release
+  workflow now SMOKE-TESTS the bundle (boot + `/health`) on every platform;
+  keep that step working.
+- **NSIS hooks must use Tauri v2 macro names** (`NSIS_HOOK_PREINSTALL` /
+  `NSIS_HOOK_PREUNINSTALL`) — `customInit` is electron-builder's convention
+  and is silently never invoked. The pre-install hook kills `bixdot.exe` +
+  `bixdot-backend.exe` and purges stale app files (never `~/.bixdot`).
+- **`core/logging_setup.py`** — called ONLY from process entry points
+  (`core/__main__.py`, `core/main.py` `__main__`), never at import (tests must
+  not touch the real home). Reconfigures stdio to UTF-8/replace (a cp1252 pipe
+  once killed startup via the Unicode banner), routes missing stdio into
+  `~/.bixdot/backend.log` (rotated at 5 MB), enables faulthandler, mirrors
+  uvicorn loggers. The log holds operational output only — never secrets.
+- **`main.rs` watchdog** — respawns the spawned sidecar if it exits (10s poll,
+  20-restart cap, never after intentional quit). Local validation:
+  `cargo check` in `src-tauri/` (needs a placeholder
+  `dist-backend/bixdot-backend-x86_64-pc-windows-msvc.exe`).
+
 ---
 
-## Current Status — v0.6.1 ✅ SHIPPED
+## Current Status — v0.6.2 ✅ SHIPPED
 
 | Feature | Status |
 |---|---|
@@ -386,6 +409,9 @@ official Ollama installer for the user. Design rules (do not relax):
 | One-click Ollama setup (signature-verified installer download) | ✅ v0.6.1 |
 | Auto-updater activated (signing pubkey set) | ✅ v0.6.1 |
 | PyInstaller out of prod requirements + CI GPL guard | ✅ v0.6.1 |
+| Bundle smoke test in release builds | ✅ v0.6.2 |
+| Installer kills processes + purges stale files | ✅ v0.6.2 |
+| Backend crash log + watchdog respawn | ✅ v0.6.2 |
 
 ---
 
@@ -557,5 +583,5 @@ Every release follows this exact sequence — no manual checks needed:
 
 ---
 
-*Last updated: 2026-07-14 | v0.6.1*
+*Last updated: 2026-07-15 | v0.6.2*
 *© 2026 DigiTech Business Pte. Ltd.*

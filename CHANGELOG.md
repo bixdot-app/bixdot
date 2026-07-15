@@ -4,6 +4,37 @@ All notable changes to BixDot are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).  
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.2] — 2026-07-15
+
+The **stability patch** — fixes the dead-on-arrival v0.6 bundle and makes backend crashes impossible to hide.
+
+### Fixed
+- **v0.6.0/v0.6.1 bundled backends died at startup** — `numpy` (required since v0.6.0
+  for Ask My Files) was still in the PyInstaller exclude list, so the packaged backend
+  crashed at import on every machine. Tests run from source and never caught it.
+  Neither version was ever installable; both are superseded by this release.
+- **Installer never killed running processes** — the NSIS hooks used electron-builder
+  macro names (`customInit`) that Tauri v2 never invokes. Upgrading while BixDot sat in
+  the tray failed to replace the locked binaries, leaving a half-upgraded install (the
+  window said "unable to reach this page"). Hooks now use `NSIS_HOOK_PREINSTALL` /
+  `NSIS_HOOK_PREUNINSTALL`, kill the UI + backend, and purge stale app files before
+  writing (user data in `~/.bixdot` is never touched).
+- **Unicode output could kill the backend** — when spawned with cp1252 pipes, the
+  startup banner raised `UnicodeEncodeError` inside the lifespan and the server exited.
+  All stdio is now UTF-8 with replacement characters.
+
+### Added
+- **`~/.bixdot/backend.log`** — the backend now writes startup lines, uvicorn logs,
+  Python tracebacks, and native crash dumps (faulthandler) to a rotating local log.
+  Backend deaths were previously invisible: no console, no file, no Event Log entry.
+- **Backend watchdog** — if the backend process dies, the desktop shell restarts it
+  automatically instead of stranding the window on an error page.
+- **Release builds smoke-test the bundle** — every platform build now boots the
+  packaged backend and requires a healthy `/health` before an installer is produced.
+  The v0.6.0 numpy regression (and the entire missing-dependency class) fails CI now.
+
+---
+
 ## [0.6.1] — 2026-07-14
 
 The **Trust & Setup** patch — activates self-updates and removes the last manual setup step.

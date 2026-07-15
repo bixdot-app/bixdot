@@ -1,7 +1,7 @@
 # BixDot — Skills Reference
 
-> Version: 0.6.1
-> Last updated: 2026-07-14
+> Version: 0.6.2
+> Last updated: 2026-07-15
 > This document is the authoritative reference for all built-in skills, their tool definitions,
 > required permissions, security constraints, and the plugin system. Keep it in sync with
 > `core/agent/runtime.py` (BUILTIN_TOOLS), `core/agent/permissions.py` (Capability),

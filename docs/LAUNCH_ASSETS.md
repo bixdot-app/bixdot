@@ -112,6 +112,12 @@ Public threat model maps each CVE class to specific architectural mitigations.
 - **Auto-updater activated** — releases signed from v0.6.1; installed apps self-update
 - **GPL-free production manifest** — PyInstaller moved to dev requirements with a CI guard
 
+## v0.6.2 What Shipped (Stability Patch — 2026-07-15)
+- **Fixed dead-on-arrival v0.6.0/v0.6.1 bundles** (numpy excluded from the package; neither version was ever installable — v0.6.2 is the real v0.6 release)
+- **Installer now stops running BixDot processes and purges stale files** before writing (Tauri v2 NSIS hook names; user data never touched)
+- **Backend crash log** (`~/.bixdot/backend.log`) + **automatic backend restart** by the desktop shell
+- **Release builds smoke-test the packaged backend** (boot + health check) on every platform before an installer is produced
+
 ## v0.7.0 Coming Next
 - Remote-pairing design for native mobile (architecturally honest: Python backend can't run on Android; localhost-only must hold)
 - Skill marketplace foundations (signed community skills)

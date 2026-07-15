@@ -1,7 +1,7 @@
 # BixDot — Threat Model
 
-> Version: 0.6.1  
-> Last updated: 2026-07-14  
+> Version: 0.6.2  
+> Last updated: 2026-07-15  
 > Status: Living document — updated with every release
 
 ---
@@ -333,6 +333,17 @@ disclosed as static text on the dashboard rather than counted.
 - **Honest caveat:** signature verification proves the binary is genuinely Ollama's — it does not audit what Ollama's installer itself does. That trust decision remains the user's, made through Ollama's own UI.
 
 **Code:** `core/services/ollama_installer.py`, route in `core/agent/routes.py`
+
+---
+
+### v0.6.2 Threat Surface — Stability (2026-07-15)
+
+#### Backend Log (`~/.bixdot/backend.log`)
+**Surface:** a new local file holding backend operational output (startup lines, uvicorn logs, tracebacks, native crash dumps).
+
+**Mitigations:** local file in the user's home only, never transmitted; content is operational — the audit log's sensitive-data rules apply (no tokens, passwords, or message content are ever printed); rotated at 5 MB. Threat framing: readable by anything with user-level file access — same trust boundary as the SQLite databases beside it.
+
+**Code:** `core/logging_setup.py`
 
 ---
 
