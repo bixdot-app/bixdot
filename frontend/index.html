@@ -362,6 +362,14 @@ function OnboardingWizard({onDismiss,token}){
   const[checking,setChecking]=useState(false);
   const[dl,setDl]=useState(null); // {pct,status,err,busy}
   const[odl,setOdl]=useState(null); // Ollama installer download {pct,status,err,busy,launched}
+  const[hw,setHw]=useState(null);  // hardware capability probe (v0.6.3) — advice only
+
+  // Read RAM/disk once so we can recommend a model tier. Advisory: a failure
+  // here just means no recommendation line, never a blocked download.
+  useEffect(()=>{
+    fetch('http://localhost:8747/system/hardware',{headers:{'Authorization':'Bearer '+token}})
+      .then(r=>r.ok?r.json():null).then(j=>{if(j)setHw(j);}).catch(()=>{});
+  },[]);
 
   const downloadOllama=async()=>{
     setOdl({pct:0,status:'Starting download…',busy:true});
@@ -478,6 +486,17 @@ function OnboardingWizard({onDismiss,token}){
       done: status&&status.has_models,
       desc: el('div',null,
         el('div',{style:{marginBottom:6}},'BixDot needs one AI model (~2 GB, one-time download). It runs entirely on this computer.'),
+        hw&&el('div',{style:{fontSize:11,color:'var(--muted)',marginBottom:6,lineHeight:1.5}},
+          hw.free_disk_gb<10
+            ? 'Only '+hw.free_disk_gb+' GB disk free — we recommend the smallest model ('
+              +hw.recommended_models.join(', ')+'). Free up space for larger ones.'
+            : hw.recommended_tier==='light'
+              ? 'Based on your '+hw.total_ram_gb+' GB RAM, we recommend a small model ('
+                +hw.recommended_models.join(', ')+') — that is what the button below installs.'
+              : 'Based on your '+hw.total_ram_gb+' GB RAM, this machine also handles '
+                +hw.recommended_models.join(' and ')
+                +'. The button below installs the standard model; you can switch any time in Settings.'
+        ),
         dl&&el('div',null,
           el('div',{className:'dlbar'},el('div',{style:{width:(dl.pct||0)+'%'}})),
           el('div',{style:{fontSize:11,color:dl.err?'var(--red)':'var(--muted)'}},

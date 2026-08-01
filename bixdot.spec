@@ -116,6 +116,9 @@ hiddenimports = [
     "core.skills.sandbox",
     "core.skills.registry",
     "core.auth.license_check",
+    "core.system.routes",
+    "core.system.hardware",
+    "psutil",
     # markitdown + trafilatura (document chat + research)
     "markitdown",
     "trafilatura",

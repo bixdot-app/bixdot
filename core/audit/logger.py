@@ -95,6 +95,9 @@ class AuditEvent(str, Enum):
     AGENT_RESPONSE = "agent.response"
     AGENT_SUBAGENT = "agent.subagent"         # multi-agent orchestration (v0.5)
 
+    # System
+    SYSTEM_INFO_READ = "system.info_read"     # hardware capability probe (v0.6.3)
+
     # Data
     FILE_READ = "data.file_read"
     FILE_WRITE = "data.file_write"
