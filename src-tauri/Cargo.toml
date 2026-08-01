@@ -1,6 +1,6 @@
 [package]
 name = "bixdot"
-version = "0.6.2"
+version = "0.6.3"
 description = "BixDot — Local-first AI Agent. No cloud required."
 authors = ["DigiTech Business Pte. Ltd."]
 license = "BUSL-1.1"

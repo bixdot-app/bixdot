@@ -118,6 +118,14 @@ Public threat model maps each CVE class to specific architectural mitigations.
 - **Backend crash log** (`~/.bixdot/backend.log`) + **automatic backend restart** by the desktop shell
 - **Release builds smoke-test the packaged backend** (boot + health check) on every platform before an installer is produced
 
+## v0.6.3 What Shipped (Commercial Credibility — 2026-08-02)
+- **Licensing made unambiguous** — free for personal use and internal evaluation; business/commercial use requires a license (applies from v0.6.3 onward; BUSL grants are per-version, not retroactive)
+- **Published security disclosure policy** — 72-hour acknowledgement, 7-day triage, defined scope, safe harbour, explicitly no bug bounty
+- **CycloneDX SBOM with every release** — audit our dependency tree without trusting our word
+- **Beta channel** — `-beta` tags publish as prereleases; stable auto-updates never see them
+- **Hardware check** — the wizard recommends a model your RAM and disk can actually run (recommends, never blocks)
+- **Honest positioning** — dropped the unprovable "most secure AI agent available" claim for what we can demonstrate: permission-gated actions and a tamper-evident audit log
+
 ## v0.7.0 Coming Next
 - Remote-pairing design for native mobile (architecturally honest: Python backend can't run on Android; localhost-only must hold)
 - Skill marketplace foundations (signed community skills)

@@ -48,7 +48,13 @@ downloads Ollama and the AI model for you. Linux: install
 
 ---
 
-## What's Next — v0.7.0
+## What's Next
+
+**Shipped in v0.6.3:** clearer licensing, a published security disclosure
+policy, a dependency SBOM with every release, a beta channel, and a hardware
+check that recommends a model your machine can run.
+
+**v0.7.0:**
 
 - Remote pairing design for a true native mobile app
 - Skill marketplace foundations (signed community skills)

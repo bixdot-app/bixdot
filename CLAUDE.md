@@ -12,7 +12,7 @@
 - **Website:** https://bixdot.app
 - **GitHub:** https://github.com/bixdot-app/bixdot
 - **License:** BUSL-1.1 (source-available, free to self-host, commercial use requires license)
-- **Version:** v0.6.2 (released 2026-07-15)
+- **Version:** v0.6.3 (released 2026-08-02)
 - **Owner:** Shanker / DigiTech Business Pte. Ltd
 
 ---
@@ -107,6 +107,9 @@ bixdot/
 │   │   └── logger.py              # SHA-256 hash-chained audit log
 │   ├── privacy.py                 # Network ledger — Privacy Proof accounting (v0.6)
 │   ├── privacy_routes.py          # /agent/privacy/report (v0.6)
+│   ├── system/
+│   │   ├── hardware.py            # RAM/disk probe + model tier logic (v0.6.3)
+│   │   └── routes.py              # GET /system/hardware (JWT, audited) (v0.6.3)
 │   ├── security.py                # Shared SlowAPI rate limiter instance
 │   └── storage/
 │       └── db.py                  # SQLite init, is_first_run(), token_blocklist
@@ -124,6 +127,7 @@ bixdot/
 ├── docs/
 │   ├── THREAT_MODEL.md            # Every CVE class mapped to architectural mitigations
 │   ├── LAUNCH_ASSETS.md           # HN/Reddit/Product Hunt copy
+│   ├── RELEASING.md               # Channels (stable/beta) + pre-tag checklist (v0.6.3)
 │   └── SKILLS.md                  # Authoritative reference: all skills, capabilities, permissions, plugin system
 ├── .github/
 │   ├── workflows/
@@ -131,11 +135,10 @@ bixdot/
 │   │   ├── release.yml            # Multi-platform Tauri builds + GitHub release
 │   │   └── daily-security-audit.yml  # CVE + Bandit + Ruff; runs 06:00 SGT, auto-commits fixes
 │   ├── ISSUE_TEMPLATE/
-│   ├── SECURITY.md
 │   ├── RELEASE_NOTES_v0.1.0.md
 │   ├── RELEASE_NOTES_v0.1.1.md
 │   ├── RELEASE_NOTES_v0.2.1.md
-│   └── RELEASE_NOTES_v0.6.2.md
+│   └── RELEASE_NOTES_v0.6.3.md
 ├── .claude/
 │   └── settings.json              # PostToolUse hooks: ruff auto-fix, pip-audit on requirements
 ├── requirements.txt               # Python 3.11+ dependencies
@@ -358,9 +361,37 @@ Hard-won lessons — each of these shipped a broken release once:
   `cargo check` in `src-tauri/` (needs a placeholder
   `dist-backend/bixdot-backend-x86_64-pc-windows-msvc.exe`).
 
+### 20. Licensing, disclosure & release channels (v0.6.3)
+
+- **One licensing story, three places.** The BUSL Additional Use Grant
+  (`LICENSE`), every source-file header, and the README License section must
+  agree: free for personal use and internal evaluation; business/commercial
+  use requires a license. If you change one, change all three.
+  **BUSL grants are per-version and NOT retroactive** — never describe a grant
+  change as applying to already-released versions.
+- **No unverifiable superlatives** in user-facing copy ("most secure",
+  "unhackable"). Claim only what the architecture demonstrates: permission
+  gating, the audit chain, localhost-only, the public threat model. CI has no
+  guard for this — it is a review responsibility.
+- **`SECURITY.md` lives at the repo root and is the only one.** GitHub prefers
+  `.github/SECURITY.md`, so a second copy there silently overrides the real
+  policy — that is why it was deleted. Do not re-add it.
+- **Release channels** — `vX.Y.Z` stable, `vX.Y.Z-beta.N` prerelease. The
+  updater reads `releases/latest/download/latest.json` and GitHub excludes
+  prereleases from `latest`, which is the only thing keeping betas away from
+  stable users. `docs/RELEASING.md` is the authority; read it before touching
+  `prerelease:` in the workflow.
+- **SBOM** — `cyclonedx-bom` (Apache-2.0) runs in CI ONLY and generates
+  `bixdot-sbom.json` as a release asset. Never add it to `requirements.txt`
+  or `requirements-dev.txt`.
+- **`/system/hardware`** (`core/system/`) — JWT-required, audited
+  (`SYSTEM_INFO_READ`), reads RAM/disk via psutil (BSD-3). Recommendations
+  must stay non-cloud, non-embedding models so the picker can actually offer
+  them, and they RECOMMEND — the UI must never block a manual choice.
+
 ---
 
-## Current Status — v0.6.2 ✅ SHIPPED
+## Current Status — v0.6.3 ✅ SHIPPED
 
 | Feature | Status |
 |---|---|
@@ -412,6 +443,11 @@ Hard-won lessons — each of these shipped a broken release once:
 | Bundle smoke test in release builds | ✅ v0.6.2 |
 | Installer kills processes + purges stale files | ✅ v0.6.2 |
 | Backend crash log + watchdog respawn | ✅ v0.6.2 |
+| License grant / headers / README made consistent | ✅ v0.6.3 |
+| SECURITY.md disclosure policy | ✅ v0.6.3 |
+| CycloneDX SBOM per release | ✅ v0.6.3 |
+| Beta channel (`-beta` tags → prerelease) | ✅ v0.6.3 |
+| Hardware check + model recommendation | ✅ v0.6.3 |
 
 ---
 
@@ -583,5 +619,5 @@ Every release follows this exact sequence — no manual checks needed:
 
 ---
 
-*Last updated: 2026-07-15 | v0.6.2*
+*Last updated: 2026-08-02 | v0.6.3*
 *© 2026 DigiTech Business Pte. Ltd.*

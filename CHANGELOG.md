@@ -4,6 +4,37 @@ All notable changes to BixDot are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).  
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.3] — 2026-08-02
+
+The **commercial credibility patch** — licensing, disclosure policy, supply-chain transparency, and honest claims. No new agent capabilities.
+
+### Added
+- **Hardware check + model recommendation** — the onboarding model picker now reads your
+  RAM and free disk (`GET /system/hardware`) and recommends a model tier that will
+  actually run well on your machine. It recommends; it never blocks your choice.
+- **Every release now ships a CycloneDX SBOM** (`bixdot-sbom.json`) alongside the
+  installers, so you can audit our dependency tree without trusting our word for it.
+- **`SECURITY.md`** — published vulnerability disclosure policy: 72-hour acknowledgement,
+  7-day triage, defined scope, and safe harbour for good-faith research.
+- **`docs/RELEASING.md`** — release channels (`vX.Y.Z` stable, `vX.Y.Z-beta.N` prerelease)
+  and the mandatory pre-tag test checklist that the v0.6.0/v0.6.1 failures earned us.
+
+### Changed
+- **License Additional Use Grant clarified for v0.6.3 onward.** Versions released before
+  v0.6.3 remain under the grant text they shipped with (BUSL grants are per-version and
+  not retroactive). Free for personal use and internal evaluation; business and
+  commercial use requires a license from legal@bixdot.app.
+- **Honest positioning** — replaced the unverifiable "most secure AI agent available"
+  claim with what we can actually demonstrate: permission-gated actions and a
+  tamper-evident audit log. The security engineering claim stays; the superlative goes.
+- Beta tags (`-beta.N`) now publish as GitHub prereleases; the stable auto-updater
+  never sees them.
+- Consolidated two conflicting security policies into one (`.github/SECURITY.md`
+  promised a 48-hour response and hinted at rewards; the published policy now states
+  72 hours and no bug bounty).
+
+---
+
 ## [0.6.2] — 2026-07-15
 
 The **stability patch** — fixes the dead-on-arrival v0.6 bundle and makes backend crashes impossible to hide.

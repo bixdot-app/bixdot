@@ -1,7 +1,7 @@
 # BixDot — Threat Model
 
-> Version: 0.6.2  
-> Last updated: 2026-07-15  
+> Version: 0.6.3  
+> Last updated: 2026-08-02  
 > Status: Living document — updated with every release
 
 ---
@@ -344,6 +344,17 @@ disclosed as static text on the dashboard rather than counted.
 **Mitigations:** local file in the user's home only, never transmitted; content is operational — the audit log's sensitive-data rules apply (no tokens, passwords, or message content are ever printed); rotated at 5 MB. Threat framing: readable by anything with user-level file access — same trust boundary as the SQLite databases beside it.
 
 **Code:** `core/logging_setup.py`
+
+---
+
+### v0.6.3 Threat Surface — Hardware Probe (2026-08-02)
+
+#### `GET /system/hardware`
+**Surface:** a new route exposing total/available RAM, free disk, and OS family.
+
+**Mitigations:** JWT required like every other route (no additions to `PUBLIC_ROUTES`); reads no user data — no file contents, no paths, no process list, only aggregate capacity numbers; every call is written to the audit chain (`SYSTEM_INFO_READ`); the response is advisory input to a model recommendation and grants no capability. Threat framing: an attacker who can call this already holds a valid access token, at which point machine specs are the least of the exposure.
+
+**Code:** `core/system/hardware.py`, `core/system/routes.py`
 
 ---
 
