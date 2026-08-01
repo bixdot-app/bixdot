@@ -6,7 +6,7 @@
   [![CI](https://github.com/bixdot-app/bixdot/actions/workflows/ci.yml/badge.svg)](https://github.com/bixdot-app/bixdot/actions/workflows/ci.yml)
   [![Release](https://github.com/bixdot-app/bixdot/actions/workflows/release.yml/badge.svg)](https://github.com/bixdot-app/bixdot/actions/workflows/release.yml)
   [![License: BUSL-1.1](https://img.shields.io/badge/License-BUSL--1.1-blue.svg)](LICENSE)
-  [![Version](https://img.shields.io/badge/version-0.6.2-green.svg)](https://github.com/bixdot-app/bixdot/releases/tag/v0.6.2)
+  [![Version](https://img.shields.io/badge/version-0.6.3-green.svg)](https://github.com/bixdot-app/bixdot/releases/tag/v0.6.3)
 
   [Download](https://github.com/bixdot-app/bixdot/releases/latest) · [Docs](docs/) · [Security](mailto:security@bixdot.app)
 </div>
@@ -19,13 +19,13 @@ BixDot is an AI agent that runs **entirely on your device**. Your conversations,
 
 Every other AI agent today sends your data to a cloud server. BixDot doesn't. It uses [Ollama](https://ollama.com) to run models locally — no API key, no internet required, no data leaves your device.
 
-It's also the most secure AI agent available. We built it after studying every known CVE class from existing agent platforms and fixing each one at the architecture level — not with patches.
+**Private AI that acts, with proof and permission.** BixDot lets you search confidential files, automate routine work, and run AI agents on your own machine — every action permission-gated and recorded in a tamper-evident audit log, without surrendering your data to a cloud platform. We built it after studying every known CVE class from existing agent platforms and addressing each one at the architecture level.
 
 ---
 
 ## Download
 
-**[→ Download BixDot v0.6.2](https://github.com/bixdot-app/bixdot/releases/latest)**
+**[→ Download BixDot v0.6.3](https://github.com/bixdot-app/bixdot/releases/latest)**
 
 | Platform | Installer |
 |---|---|
@@ -81,7 +81,7 @@ BixDot is built on a zero-trust architecture because AI agents need stronger sec
 - **Sandboxed skill execution** — subprocess isolation, stripped environment
 - **PII scrubbing** — if cloud LLM used, personal data is scrubbed first
 
-Full threat model: [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md)
+Full threat model: [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) · Vulnerability disclosure policy: [SECURITY.md](SECURITY.md)
 
 ---
 
@@ -132,6 +132,8 @@ Full threat model: [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md)
 | One-click Ollama setup (signature-verified) | ✅ v0.6.1 |
 | Auto-updater activated (signed releases) | ✅ v0.6.1 |
 | Crash log + auto-restart + boot-tested packages | ✅ v0.6.2 |
+| Security policy + SBOM + beta channel | ✅ v0.6.3 |
+| Hardware check + model recommendation | ✅ v0.6.3 |
 | Mobile (needs remote-pairing design) | 📅 v0.7 exploration |
 | Skill marketplace | 📅 Phase 2 |
 
@@ -144,8 +146,8 @@ git clone https://github.com/bixdot-app/bixdot.git
 cd bixdot
 pip install -r requirements.txt
 
-# Install Ollama from https://ollama.com and pull a model
-ollama pull llama3.2
+# Install Ollama from https://ollama.com
+# No model pull needed — BixDot's first-run wizard downloads it for you (one click, no terminal).
 
 # Run the backend
 python -m core.main
@@ -176,6 +178,9 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) for full guidelines.
 Remote-pairing design for a true native mobile app (the Python backend can't run on Android, and phone→desktop networking would break the localhost-only guarantee — this needs an E2E-encrypted design, not a shortcut), skill marketplace foundations (signed community skills), local voice input exploration
 
 ---
+
+**v0.6.3 — Released 2 August 2026**
+The commercial credibility release: licensing made unambiguous (free for personal use and internal evaluation, business use requires a license — applies from v0.6.3 onward, not retroactively), a published [security disclosure policy](SECURITY.md) with a 72-hour acknowledgement commitment, a CycloneDX SBOM attached to every release, a beta channel that stable auto-updates can never reach, and a hardware check that recommends a model your machine can actually run.
 
 **v0.6.2 — Released 15 July 2026**
 The stability patch that makes v0.6 real: fixed the dead-on-arrival v0.6.0/v0.6.1 packages (numpy missing from the bundle — release builds now boot-test the actual package before shipping), the installer now stops running BixDot processes and cleans stale files before upgrading, backend crashes land in `~/.bixdot/backend.log`, and the desktop shell restarts a dead backend automatically. Includes everything from v0.6.1 below.
@@ -225,13 +230,13 @@ Founded 2026. First product: BixDot.
 
 BixDot is **source-available** under [BUSL-1.1](LICENSE).
 
-- ✅ Free to self-host for personal use
+- ✅ Free for personal use and internal evaluation
 - ✅ Source code fully auditable
 - ✅ Converts to Apache 2.0 after 4 years
 - ❌ Not open source (OSI definition)
-- ❌ Commercial use requires a license
+- ❌ Any use by or on behalf of a business, or in the course of providing commercial services, requires a license
 
-Commercial licensing: **legal@bixdot.app**
+Plainly: if you're an individual using BixDot at home, it's free. If a business uses it — internally or in anything it sells or hosts — contact **legal@bixdot.app** for a commercial license.
 
 ---
 
