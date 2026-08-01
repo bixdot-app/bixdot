@@ -56,6 +56,17 @@ jobs:
           pip install "pyinstaller>=6.0.0"
           pyinstaller bixdot.spec --distpath dist-backend --workpath build-backend
 
+      # Supply-chain transparency: ship a machine-readable dependency list with
+      # every release so users can audit our tree without taking our word for it.
+      # cyclonedx-bom is Apache-2.0 and CI-only — never add it to requirements.txt
+      # or requirements-dev.txt (it must not reach a production install path).
+      # TODO(v0.7): cargo-cyclonedx for the Rust dependency tree.
+      - name: Generate SBOM (CycloneDX)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          pip install cyclonedx-bom
+          cyclonedx-py requirements requirements.txt -o bixdot-sbom.json
+
       # Tauri externalBin requires the binary to exist with the target triple
       # suffix at build time. Rename the PyInstaller output accordingly.
       - name: Rename backend to target-triple name (Windows)
@@ -206,6 +217,8 @@ jobs:
           find src-tauri/target/release/bundle -name "*.deb" -exec cp {} staging/ \;
           find src-tauri/target/release/bundle -name "*.AppImage" -exec cp {} staging/ \;
           find src-tauri/target/release/bundle -name "*.AppImage.sig" -exec cp {} staging/ \; || true
+          # Ship the dependency SBOM as a release asset (generated earlier in this job).
+          cp bixdot-sbom.json staging/ || true
           ls staging/
 
       - name: Upload installers
@@ -291,7 +304,11 @@ jobs:
         with:
           artifacts: "installers/*"
           draft: true
-          prerelease: false
+          # Beta tags (vX.Y.Z-beta.N) publish as prereleases. GitHub excludes
+          # prereleases from the `latest` pointer, and the updater endpoint is
+          # releases/latest/download/latest.json — so stable users are never
+          # offered a beta. See docs/RELEASING.md before changing this.
+          prerelease: ${{ contains(github.ref_name, '-beta') }}
           allowUpdates: true
           name: "BixDot ${{ github.ref_name }}"
           tag: ${{ github.ref_name }}
