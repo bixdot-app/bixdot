@@ -23,21 +23,30 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from core.security import limiter
 from core.auth.jwt import (
+    BCRYPT_SHA256,
     create_token_pair,
     decode_token,
+    dummy_hash,
     hash_password,
     verify_password,
 )
 from core.auth.middleware import require_auth
 from core.auth.license_check import detect_commercial_use
 from core.auth.models import (
+    ChangePasswordRequest,
     LicenseStatusResponse,
     LoginRequest,
+    RecoverRequest,
     RefreshRequest,
     SetupRequest,
     SetupStatusResponse,
     TokenResponse,
     UserResponse,
+)
+from core.auth.recovery import (
+    generate_recovery_code,
+    hash_recovery_code,
+    verify_recovery_code,
 )
 from core.audit.logger import AuditEvent, get_audit_logger
 from core.config import settings
@@ -76,11 +85,18 @@ async def setup(request: SetupRequest, req: Request):
     password_hash = hash_password(request.password)
     email = (request.email or "").strip() or None
 
+    # BXD-004: the one moment a recovery code exists in plaintext. Returned to
+    # the caller below, stored only as a bcrypt hash, never logged.
+    recovery_code = generate_recovery_code()
+
     with get_connection() as conn:
         conn.execute(
-            """INSERT INTO users (id, username, email, password_hash, role)
-               VALUES (?, ?, ?, ?, 'owner')""",
-            (user_id, request.username, email, password_hash),
+            """INSERT INTO users (id, username, email, password_hash,
+                                  password_scheme, password_changed_at,
+                                  recovery_code_hash, recovery_code_set_at, role)
+               VALUES (?, ?, ?, ?, ?, datetime('now'), ?, datetime('now'), 'owner')""",
+            (user_id, request.username, email, password_hash,
+             BCRYPT_SHA256, hash_recovery_code(recovery_code)),
         )
 
     detection = detect_commercial_use(email)
@@ -98,6 +114,11 @@ async def setup(request: SetupRequest, req: Request):
          "ip": req.client.host if req.client else "unknown"},
         user_id=user_id,
     )
+    audit.log(
+        AuditEvent.AUTH_RECOVERY_CODE_ISSUED,
+        {"event": "recovery_code_issued_at_setup"},  # never the code itself
+        user_id=user_id,
+    )
 
     tokens = create_token_pair(user_id, "owner")
     _store_refresh_token(tokens.refresh_token, user_id)
@@ -110,6 +131,7 @@ async def setup(request: SetupRequest, req: Request):
         license_required=detection["is_commercial"],
         license_signals=detection["signals"] or None,
         license_message=detection["message"],
+        recovery_code=recovery_code,
     )
 
 
@@ -127,14 +149,30 @@ async def login(request: Request, body: LoginRequest):
     """
     user = _get_user_by_username(body.username)
 
-    # Always run bcrypt — prevents timing attacks revealing valid usernames
-    dummy_hash = "$2b$12$invalidhashfortimingnormalization000000000000000000000"
-    stored_hash = user["password_hash"] if user else dummy_hash
+    # Always run bcrypt — prevents timing attacks revealing valid usernames.
+    # dummy_hash() is a REAL bcrypt hash; the previous inline constant was not a
+    # valid one, so checkpw raised immediately and the miss path was much faster
+    # than the hit path — the opposite of what this is for.
+    stored_hash = user["password_hash"] if user else dummy_hash()
+    scheme = _scheme_of(user) if user else BCRYPT_SHA256
 
-    try:
-        password_valid = verify_password(body.password, stored_hash)
-    except ValueError:
-        password_valid = False
+    password_valid = verify_password(body.password, stored_hash, scheme)
+
+    # BXD-014: a pre-v0.7 row hashed the raw password. On the first successful
+    # login, re-hash under the SHA-256 pre-hash scheme so passphrases past 72
+    # bytes start counting. Doing this transparently is what keeps an existing
+    # v0.6.3 account from being locked out by the fix for a lockout bug.
+    if user and password_valid and scheme != BCRYPT_SHA256:
+        with get_connection() as conn:
+            conn.execute(
+                "UPDATE users SET password_hash = ?, password_scheme = ? WHERE id = ?",
+                (hash_password(body.password), BCRYPT_SHA256, user["id"]),
+            )
+        audit.log(
+            AuditEvent.AUTH_PASSWORD_SCHEME_UPGRADED,
+            {"from": scheme, "to": BCRYPT_SHA256},
+            user_id=user["id"],
+        )
 
     if not user or not password_valid or not user["is_active"]:
         audit.log(
@@ -278,6 +316,105 @@ async def logout(
     audit.log(AuditEvent.AUTH_LOGOUT, {}, user_id=user.sub)
 
 
+# ─── Password change & recovery (BXD-004) ─────────────────────────────────────
+
+@router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit("5/minute")
+async def change_password(
+    request: Request,
+    body: ChangePasswordRequest,
+    user=Depends(require_auth),
+):
+    """
+    Change the owner's password. Requires proof of the current one.
+
+    All other sessions die immediately: password_changed_at invalidates every
+    access token issued before now (checked in require_auth), and every refresh
+    token is revoked. Without the timestamp, "all sessions revoked" would mean
+    "within 15 minutes", because there is no registry of issued access tokens.
+    """
+    row = _get_user_by_id(user.sub)
+    if not row:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if not verify_password(body.current_password, row["password_hash"], _scheme_of(row)):
+        audit.log(
+            AuditEvent.AUTH_LOGIN_FAILURE,
+            {"event": "change_password_wrong_current",
+             "ip": request.client.host if request.client else "unknown"},
+            user_id=user.sub,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Current password is incorrect",
+        )
+
+    _set_password(user.sub, body.new_password)
+    _revoke_all_sessions(user.sub, blocklist_jti=user.jti, expires_at=user.exp)
+
+    audit.log(
+        AuditEvent.AUTH_PASSWORD_CHANGED,
+        {"event": "password_changed", "all_sessions_revoked": True},
+        user_id=user.sub,
+    )
+
+
+@router.post("/recover", response_model=TokenResponse)
+@limiter.limit("3/minute")
+async def recover(request: Request, body: RecoverRequest):
+    """
+    Reset a forgotten password with the single-use recovery code from setup.
+
+    Unauthenticated by necessity — it exists precisely for the case where the
+    user cannot log in. That makes it the 7th and last entry in PUBLIC_ROUTES,
+    and it is the most tightly rate-limited route in the product.
+
+    On success the code is consumed and a fresh one is issued, so the user is
+    never left without a way back in.
+    """
+    ip = request.client.host if request.client else "unknown"
+    user = _get_user_by_username(body.username)
+
+    # Constant work whether or not the account exists, same reasoning as login.
+    stored = user["recovery_code_hash"] if user and user["recovery_code_hash"] else dummy_hash()
+    code_valid = verify_recovery_code(body.recovery_code, stored)
+
+    if not user or not code_valid or not user["is_active"]:
+        audit.log(
+            AuditEvent.AUTH_RECOVERY_FAILED,
+            {"username": body.username, "ip": ip},  # never the submitted code
+            user_id=user["id"] if user else None,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid recovery code",
+        )
+
+    user_id = user["id"]
+    new_code = generate_recovery_code()
+
+    _set_password(user_id, body.new_password, recovery_hash=hash_recovery_code(new_code))
+    _revoke_all_sessions(user_id)
+
+    audit.log(
+        AuditEvent.AUTH_RECOVERY_USED,
+        {"event": "password_reset_via_recovery_code", "ip": ip,
+         "all_sessions_revoked": True, "new_code_issued": True},
+        user_id=user_id,
+    )
+
+    tokens = create_token_pair(user_id, user["role"])
+    _store_refresh_token(tokens.refresh_token, user_id)
+
+    return TokenResponse(
+        access_token=tokens.access_token,
+        refresh_token=tokens.refresh_token,
+        expires_in=settings.jwt_access_token_expire_minutes * 60,
+        role=user["role"],
+        recovery_code=new_code,
+    )
+
+
 # ─── Current User ─────────────────────────────────────────────────────────────
 
 @router.get("/me", response_model=UserResponse)
@@ -336,6 +473,53 @@ def _get_user_by_id(user_id: str):
         return conn.execute(
             "SELECT * FROM users WHERE id = ?", (user_id,)
         ).fetchone()
+
+
+def _scheme_of(row) -> str:
+    """Password scheme for a user row, tolerating pre-migration rows."""
+    try:
+        return row["password_scheme"] or BCRYPT_SHA256
+    except (IndexError, KeyError):
+        return BCRYPT_SHA256
+
+
+def _set_password(user_id: str, new_password: str, recovery_hash: str | None = None) -> None:
+    """
+    Write a new password under the current scheme and stamp the change time.
+
+    password_changed_at is what makes session revocation immediate — see
+    require_auth in core/auth/middleware.py.
+    """
+    with get_connection() as conn:
+        if recovery_hash is None:
+            conn.execute(
+                "UPDATE users SET password_hash = ?, password_scheme = ?, "
+                "password_changed_at = datetime('now') WHERE id = ?",
+                (hash_password(new_password), BCRYPT_SHA256, user_id),
+            )
+        else:
+            conn.execute(
+                "UPDATE users SET password_hash = ?, password_scheme = ?, "
+                "password_changed_at = datetime('now'), recovery_code_hash = ?, "
+                "recovery_code_set_at = datetime('now') WHERE id = ?",
+                (hash_password(new_password), BCRYPT_SHA256, recovery_hash, user_id),
+            )
+
+
+def _revoke_all_sessions(user_id: str, blocklist_jti: str | None = None,
+                         expires_at=None) -> None:
+    """Revoke every refresh token, and blocklist the caller's access token."""
+    with get_connection() as conn:
+        conn.execute(
+            "UPDATE refresh_tokens SET revoked = 1, revoked_at = datetime('now') "
+            "WHERE user_id = ? AND revoked = 0",
+            (user_id,),
+        )
+        if blocklist_jti and expires_at is not None:
+            conn.execute(
+                "INSERT OR IGNORE INTO token_blocklist (jti, expires_at) VALUES (?, ?)",
+                (blocklist_jti, expires_at.isoformat()),
+            )
 
 
 def _store_refresh_token(token: str, user_id: str) -> None:

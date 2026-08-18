@@ -101,8 +101,10 @@
   .s-active{font-size:11px;background:var(--accent-dim);color:var(--accent);padding:3px 8px;border-radius:6px;font-family:var(--mono);}
   .revoke-btn{background:transparent;border:1px solid var(--border);color:var(--red);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;}
   /* Login */
-  .login-page{display:flex;align-items:center;justify-content:center;height:100vh;}
-  .login-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:30px;width:320px;}
+  /* body has overflow:hidden, so the taller setup card must scroll inside
+     .login-page or it clips on short screens instead of scrolling. */
+  .login-page{display:flex;align-items:center;justify-content:center;min-height:100vh;height:100vh;overflow-y:auto;padding:20px 0;}
+  .login-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:30px;width:320px;margin:auto;flex-shrink:0;}
   .login-logo{text-align:center;margin-bottom:22px;}
   .field{margin-bottom:13px;}
   .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px;font-family:var(--mono);}
@@ -112,6 +114,24 @@
   .login-btn:disabled{opacity:.5;cursor:not-allowed;}
   .err-box{font-size:12px;color:var(--red);background:var(--red-dim);border-radius:6px;padding:8px 10px;margin-top:8px;text-align:center;}
   .note-box{font-size:12px;color:var(--accent);background:var(--accent-dim);border-radius:6px;padding:8px 10px;margin-bottom:12px;}
+  /* v0.7 — password UX + recovery code (BXD-004) */
+  .pw-wrap{position:relative;}
+  .pw-wrap input{padding-right:54px;}
+  .pw-toggle{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);font-size:11px;font-family:var(--mono);cursor:pointer;padding:4px 6px;border-radius:5px;}
+  .pw-toggle:hover{color:var(--accent);background:var(--accent-dim);}
+  .pw-rules{margin:-4px 0 12px;display:flex;flex-direction:column;gap:3px;}
+  .pw-rule{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px;line-height:1.4;}
+  .pw-rule.ok{color:var(--accent);}
+  .pw-tick{font-family:var(--mono);width:10px;display:inline-block;}
+  .warn-box{font-size:11.5px;color:var(--warn);background:var(--warn-dim);border-radius:6px;padding:9px 11px;margin-bottom:12px;line-height:1.55;}
+  .ack-row{display:flex;align-items:flex-start;gap:8px;font-size:11.5px;color:var(--text);margin-bottom:14px;line-height:1.5;cursor:pointer;}
+  .ack-row input{margin-top:2px;accent-color:var(--accent);flex-shrink:0;}
+  .recovery-code{font-family:var(--mono);font-size:15px;letter-spacing:1px;color:var(--accent);background:var(--card);border:1px dashed var(--accent-mid);border-radius:8px;padding:14px 10px;text-align:center;margin-bottom:10px;word-break:break-all;user-select:all;}
+  .ghost-btn{width:100%;background:none;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px;font-size:12.5px;cursor:pointer;margin-bottom:14px;}
+  .ghost-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .login-alt{text-align:center;margin-top:14px;}
+  .link-btn{background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline;padding:4px;}
+  .link-btn:hover{color:var(--accent);}
   /* License banner */
   #license-banner{background:var(--surface);border-bottom:1px solid var(--accent-mid);padding:9px 18px;display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--text);flex-shrink:0;}
   #license-banner a{color:var(--accent);text-decoration:none;font-weight:500;}
@@ -311,30 +331,129 @@ const TERM_ICON='M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 0
 const ROUTINE_ICON='M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z';
 const SHIELD_ICON='M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z';
 
-// ── Login ─────────────────────────────────────────────────────────────────────
+// ── Password field with visibility toggle ─────────────────────────────────────
+// Paste is deliberately NOT blocked (acceptance case B8): blocking it is
+// hostile and pushes people toward weaker, hand-typed passwords.
+function PwField({label,value,onChange,placeholder,onEnter,autoFocus}){
+  const[show,setShow]=useState(false);
+  return el('div',{className:'field'},
+    el('label',null,label),
+    el('div',{className:'pw-wrap'},
+      el('input',{
+        type:show?'text':'password', value, autoFocus:!!autoFocus,
+        onChange:e=>onChange(e.target.value),
+        placeholder:placeholder||'••••••••••••',
+        onKeyDown:e=>e.key==='Enter'&&onEnter&&onEnter()
+      }),
+      el('button',{
+        type:'button', className:'pw-toggle', tabIndex:-1,
+        title:show?'Hide password':'Show password',
+        'aria-label':show?'Hide password':'Show password',
+        onClick:()=>setShow(s=>!s)
+      },show?'Hide':'Show')
+    )
+  );
+}
+
+// Live checklist — catches a rule failure before the server has to.
+const PW_RULES=[
+  {id:'len',  label:'12 characters or more', ok:v=>v.length>=12},
+  {id:'upper',label:'An uppercase letter',   ok:v=>/[A-Z]/.test(v)},
+  {id:'lower',label:'A lowercase letter',    ok:v=>/[a-z]/.test(v)},
+  {id:'digit',label:'A number',              ok:v=>/[0-9]/.test(v)},
+  {id:'spec', label:'A special character',   ok:v=>/[!@#$%^&*()_+\-=\[\]{}|;:,.<>?]/.test(v)},
+];
+function PwChecklist({value}){
+  return el('div',{className:'pw-rules'},
+    PW_RULES.map(r=>{
+      const ok=r.ok(value);
+      return el('div',{key:r.id,className:'pw-rule'+(ok?' ok':'')},
+        el('span',{className:'pw-tick'},ok?'✓':'○'),r.label);
+    })
+  );
+}
+
+// ── Recovery code — blocking, shown exactly once ──────────────────────────────
+function RecoveryCodeGate({code,onContinue}){
+  const[saved,setSaved]=useState(false);
+  const[copied,setCopied]=useState(false);
+  const copy=()=>{
+    try{ navigator.clipboard.writeText(code); setCopied(true); setTimeout(()=>setCopied(false),1800); }
+    catch(e){ /* clipboard unavailable — the code is on screen to copy by hand */ }
+  };
+  return el('div',{className:'login-page'},
+    el('div',{className:'login-box'},
+      el('div',{className:'login-logo'},
+        el('div',{style:{textAlign:'center',fontSize:15,fontWeight:600,color:'var(--text)'}},'Save your recovery code'),
+      ),
+      el('div',{className:'warn-box'},
+        'This is the only way back into BixDot if you forget your password. ',
+        'It is shown once and works once. There is no server and no support ',
+        'channel that can recover your data without it.'
+      ),
+      el('div',{className:'recovery-code'},code),
+      el('button',{className:'ghost-btn',onClick:copy},copied?'Copied ✓':'Copy code'),
+      el('label',{className:'ack-row'},
+        el('input',{type:'checkbox',checked:saved,onChange:e=>setSaved(e.target.checked)}),
+        el('span',null,'I have written this code down or saved it somewhere safe and offline.')
+      ),
+      el('button',{className:'login-btn',onClick:onContinue,disabled:!saved},'Continue to BixDot')
+    )
+  );
+}
+
+// ── Login / Setup / Recover ───────────────────────────────────────────────────
 function Login({onLogin}){
   const[u,setU]=useState('');
   const[p,setP]=useState('');
+  const[p2,setP2]=useState('');
   const[email,setEmail]=useState('');
   const[err,setErr]=useState('');
   const[loading,setLoading]=useState(false);
   const[setup,setSetup]=useState(false);
+  const[ack,setAck]=useState(false);
+  const[mode,setMode]=useState('auth');        // 'auth' | 'recover'
+  const[code,setCode]=useState('');
+  const[pending,setPending]=useState(null);    // {code, token, username, ...}
 
   useEffect(()=>{
     api('/auth/setup-status').then(r=>setSetup(!r.setup_complete)).catch(()=>{});
   },[]);
 
+  const mismatch = (setup||mode==='recover') && p2.length>0 && p!==p2;
+  const rulesOk  = PW_RULES.every(r=>r.ok(p));
+  const canSubmit = mode==='recover'
+    ? (!!u && !!code && rulesOk && p===p2 && !loading)
+    : setup
+      ? (!!u && rulesOk && p===p2 && ack && !loading)
+      : (!!u && !!p && !loading);
+
+  const finish=(d,username)=>{
+    setStoredToken(d.access_token,username);
+    onLogin(d.access_token,username,d.license_required,d.license_message);
+  };
+
   const submit=async()=>{
-    if(!u||!p) return;
+    if(!canSubmit) return;
     setLoading(true); setErr('');
     try{
-      const body=setup?{username:u,password:p,email:email||undefined}:{username:u,password:p};
-      const d=await api(setup?'/auth/setup':'/auth/login',{method:'POST',body:JSON.stringify(body)});
-      setStoredToken(d.access_token,u);
-      onLogin(d.access_token,u,d.license_required,d.license_message);
+      let path,body;
+      if(mode==='recover'){ path='/auth/recover'; body={username:u,recovery_code:code,new_password:p}; }
+      else if(setup){ path='/auth/setup'; body={username:u,password:p,email:email||undefined}; }
+      else { path='/auth/login'; body={username:u,password:p}; }
+      const d=await api(path,{method:'POST',body:JSON.stringify(body)});
+      // setup and recover both mint a code that is shown exactly once.
+      if(d.recovery_code) setPending({d,username:u,code:d.recovery_code});
+      else finish(d,u);
     }catch(e){ setErr(e.message); }
     setLoading(false);
   };
+
+  if(pending) return el(RecoveryCodeGate,{
+    code:pending.code, onContinue:()=>finish(pending.d,pending.username)
+  });
+
+  const title = mode==='recover' ? 'Reset with recovery code' : null;
 
   return el('div',{className:'login-page'},
     el('div',{className:'login-box'},
@@ -345,13 +464,51 @@ function Login({onLogin}){
         ),
         el('div',{style:{textAlign:'center'}},el('span',{className:'badge'},'LOCAL FIRST · NO CLOUD'))
       ),
-      setup&&el('div',{className:'note-box'},'First run — create your owner account'),
-      el('div',{className:'field'},el('label',null,'Username'),el('input',{value:u,onChange:e=>setU(e.target.value),placeholder:'username',autoFocus:true,onKeyDown:e=>e.key==='Enter'&&submit()})),
-      setup&&el('div',{className:'field'},el('label',null,'Work email (optional)'),el('input',{type:'email',value:email,onChange:e=>setEmail(e.target.value),placeholder:'you@company.com',onKeyDown:e=>e.key==='Enter'&&submit()})),
-      el('div',{className:'field'},el('label',null,'Password'),el('input',{type:'password',value:p,onChange:e=>setP(e.target.value),placeholder:'••••••••••••',onKeyDown:e=>e.key==='Enter'&&submit()})),
-      setup&&el('div',{style:{fontSize:11,color:'var(--muted)',marginBottom:8,lineHeight:1.5}},'Password needs: 12+ chars, uppercase, lowercase, number, special char (e.g. BixDot123!hello)'),
-      el('button',{className:'login-btn',onClick:submit,disabled:loading},loading?'Please wait…':setup?'Create account':'Sign in'),
-      err&&el('div',{className:'err-box'},err)
+      title&&el('div',{className:'note-box'},title),
+      setup&&mode==='auth'&&el('div',{className:'note-box'},'First run — create your owner account'),
+
+      el('div',{className:'field'},el('label',null,'Username'),
+        el('input',{value:u,onChange:e=>setU(e.target.value),placeholder:'username',autoFocus:true,onKeyDown:e=>e.key==='Enter'&&submit()})),
+
+      setup&&mode==='auth'&&el('div',{className:'field'},el('label',null,'Work email (optional)'),
+        el('input',{type:'email',value:email,onChange:e=>setEmail(e.target.value),placeholder:'you@company.com',onKeyDown:e=>e.key==='Enter'&&submit()})),
+
+      mode==='recover'&&el('div',{className:'field'},el('label',null,'Recovery code'),
+        el('input',{value:code,onChange:e=>setCode(e.target.value),placeholder:'XXXXX-XXXXX-XXXXX-XXXXX',
+          style:{fontFamily:'var(--mono)',letterSpacing:'.5px'},onKeyDown:e=>e.key==='Enter'&&submit()})),
+
+      el(PwField,{
+        label: mode==='recover'?'New password':'Password',
+        value:p, onChange:setP, onEnter:submit
+      }),
+
+      (setup||mode==='recover')&&el(PwField,{
+        label:'Confirm password', value:p2, onChange:setP2, onEnter:submit
+      }),
+      mismatch&&el('div',{className:'err-box'},'Passwords do not match'),
+
+      (setup||mode==='recover')&&el(PwChecklist,{value:p}),
+
+      setup&&mode==='auth'&&el('div',{className:'warn-box'},
+        'BixDot runs entirely on this device. There is no server and no ',
+        'password reset. If you lose your password, your recovery code is the ',
+        'only way back in — you will be shown it on the next screen.'
+      ),
+      setup&&mode==='auth'&&el('label',{className:'ack-row'},
+        el('input',{type:'checkbox',checked:ack,onChange:e=>setAck(e.target.checked)}),
+        el('span',null,'I understand that a lost password cannot be recovered without my recovery code.')
+      ),
+
+      el('button',{className:'login-btn',onClick:submit,disabled:!canSubmit},
+        loading?'Please wait…':mode==='recover'?'Reset password':setup?'Create account':'Sign in'),
+
+      err&&el('div',{className:'err-box'},err),
+
+      !setup&&el('div',{className:'login-alt'},
+        mode==='auth'
+          ? el('button',{className:'link-btn',onClick:()=>{setMode('recover');setErr('');setP('');setP2('');}},'Forgot your password?')
+          : el('button',{className:'link-btn',onClick:()=>{setMode('auth');setErr('');setP('');setP2('');setCode('');}},'Back to sign in')
+      )
     )
   );
 }

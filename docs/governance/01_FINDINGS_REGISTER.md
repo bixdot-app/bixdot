@@ -36,7 +36,7 @@ here is inferred from documentation or memory.
 ## CRITICAL
 
 ### BXD-001 — The privacy dashboard can state a falsehood
-**Severity:** CRITICAL · **Control:** C-1 · **Status:** OPEN
+**Severity:** CRITICAL · **Control:** C-1 · **Status:** ✅ FIXED (Phase 1)
 
 **Evidence**
 - `core/config.py:48` — `ollama_url: str = "http://localhost:11434"` is a plain
@@ -78,7 +78,7 @@ The cloud-*model* door is locked (BXD-009) while the cloud-*transport* window is
 ---
 
 ### BXD-002 — `PUBLIC_ROUTES` is dead code; C-3 is a convention, not a control
-**Severity:** CRITICAL · **Control:** C-3 · **Status:** OPEN
+**Severity:** CRITICAL · **Control:** C-3 · **Status:** ✅ FIXED (Phase 1)
 
 **Evidence**
 - `core/auth/middleware.py:10` docstring: *"Applied to EVERY route. No exceptions."*
@@ -129,7 +129,7 @@ and nothing catches it.
 ---
 
 ### BXD-003 — An unattended bot pushes to `main` and can rewrite production code
-**Severity:** CRITICAL · **Control:** governance · **Status:** OPEN
+**Severity:** CRITICAL · **Control:** governance · **Status:** ✅ FIXED (Phase 1) — workflow half done; branch protection on `main` remains a MANUAL step, see 03_GOVERNANCE.md section 2
 
 **Evidence** — `.github/workflows/daily-security-audit.yml`
 - `:16-17` — `permissions: contents: write`
@@ -172,7 +172,7 @@ Today the answer is yes.
 ## HIGH
 
 ### BXD-004 — No password change. No recovery. Permanent lockout by design.
-**Severity:** HIGH · **Control:** product basics · **Status:** OPEN
+**Severity:** HIGH · **Control:** product basics · **Status:** ✅ FIXED (Phase 1) — includes BXD-014
 
 **Evidence** — grep across `core/`, `frontend/` for
 `change.password|change_password|reset.password|reset_password|forgot`:
@@ -353,6 +353,15 @@ exponential backoff with an audited unlock, and keep a generous global ceiling a
 a second layer.
 
 ### BXD-014 — bcrypt's 72-byte truncation is unhandled; login fields unbounded
+**Status:** ✅ FIXED (Phase 1, folded into BXD-004)
+
+> Note on the original description: on `bcrypt >= 4.1` — and our floor is
+> `bcrypt>=4.2.0` — the library **raises `ValueError`** past 72 bytes rather
+> than silently truncating, so `POST /auth/setup` returned HTTP 500 for any
+> passphrase over 72 bytes while `SetupRequest` advertised `max_length=128`.
+> The silent-truncation behaviour described below applies to older bcrypt.
+> Both are fixed by the SHA-256 pre-hash.
+
 `core/auth/models.py:20` permits a 128-character password, but bcrypt
 (`core/auth/jwt.py:119`) silently ignores everything past 72 bytes — so two
 different long passphrases authenticate identically, and a password manager's

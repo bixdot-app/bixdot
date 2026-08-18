@@ -29,6 +29,8 @@ neither authenticated nor allowlisted, so this cannot silently regress.
 Also the direct fix for CVE-2026-25253 (BixDot accepted unauthenticated
 WebSocket connections from any visiting website) via ws_require_auth.
 """
+from datetime import datetime, UTC
+
 from fastapi import Depends, HTTPException, status, WebSocket
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from starlette.responses import JSONResponse
@@ -53,6 +55,10 @@ PUBLIC_ROUTES = {
     "/",                   # static login shell; contains no user data
     "/auth/setup",         # first run only — returns 410 Gone once an owner exists
     "/auth/setup-status",  # tells the shell whether to render setup or login
+    "/auth/recover",       # BXD-004: used precisely when locked out, so it cannot
+                           # require a JWT. Rate limited 3/minute, single-use code,
+                           # verified against a bcrypt hash, audited on success
+                           # and failure.
 }
 
 # Asset prefixes for the unauthenticated login shell. Kept separate from
@@ -103,14 +109,35 @@ def _validate_access_token(token: str) -> TokenPayload:
     except jwt.InvalidTokenError as e:
         raise InvalidAccessToken(str(e))
 
-    # Blocklist (populated on logout for immediate revocation)
     with get_connection() as conn:
+        # Blocklist (populated on logout for immediate revocation)
         blocked = conn.execute(
             "SELECT 1 FROM token_blocklist WHERE jti = ? AND expires_at > datetime('now')",
             (payload.jti,),
         ).fetchone()
-    if blocked:
-        raise InvalidAccessToken("Token has been revoked")
+        if blocked:
+            raise InvalidAccessToken("Token has been revoked")
+
+        # BXD-004: a password change or recovery invalidates every access token
+        # issued before it. There is no registry of issued access tokens, so
+        # without this comparison "all sessions revoked" would silently mean
+        # "within 15 minutes" — long enough for a shoulder-surfed session to
+        # outlive the password change that was meant to kill it.
+        #
+        # Resolution caveat, stated plainly: JWT `iat` is a NumericDate with
+        # one-second resolution (RFC 7519), and SQLite's datetime('now') matches
+        # it. A token minted in the SAME second as the change therefore
+        # survives — a bounded window of under one second, not fifteen minutes.
+        # The comparison is deliberately strict (`<`) rather than `<=`, because
+        # `<=` would revoke the token that /auth/recover itself returns.
+        row = conn.execute(
+            "SELECT password_changed_at FROM users WHERE id = ?", (payload.sub,)
+        ).fetchone()
+
+    if row and row["password_changed_at"]:
+        changed_at = datetime.fromisoformat(row["password_changed_at"]).replace(tzinfo=UTC)
+        if payload.iat < changed_at:
+            raise InvalidAccessToken("Password changed — please sign in again")
 
     return payload
 

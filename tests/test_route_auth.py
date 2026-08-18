@@ -87,6 +87,7 @@ def test_public_routes_is_exactly():
         "/",
         "/auth/setup",
         "/auth/setup-status",
+        "/auth/recover",
     }
 
 
