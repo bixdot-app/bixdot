@@ -31,9 +31,10 @@ is exactly `test_workflow_audit` (10) + `test_ollama_transport` (26) +
 deleted** — `tests/test_hardware.py:91` was rescoped in place (its docstring no
 longer claims to be the C-3 check), which does not change the count.
 
-**Phase 1 status (PR #23, merged 2026-08-18):** BXD-001, BXD-002, BXD-003 (both
-halves), BXD-004, BXD-014 and BXD-018 (new) fixed and tested. BXD-005 through
-BXD-013 and BXD-015 through BXD-017 remain open for Phases 2–4.
+**Phase 1 status (PR #23):** BXD-001, BXD-002, BXD-003 (both halves), BXD-004,
+BXD-014 and BXD-018 (new) fixed and tested; branch protection applied
+2026-08-18. BXD-005 through BXD-013 and BXD-015 through BXD-017 remain open for
+Phases 2–4.
 
 **First, the good news — verified as claimed:**
 
