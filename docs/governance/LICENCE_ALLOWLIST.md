@@ -18,8 +18,17 @@ the dependency tree — that combination kills an enterprise sale outright
 during legal review. The project already learned this the hard way with
 pymupdf (AGPL). This document is the standing record of every dependency
 whose licence text does not literally match the allowlist below, with the
-justification for why it was accepted anyway. Nothing here is silent: an
+justification for why acceptance is proposed. Nothing here is silent: an
 undocumented mismatch fails CI.
+
+**Status of this document.** The exceptions table below is a *proposal*, not a
+ratified decision. `docs/governance/03_GOVERNANCE.md` section 1 assigns
+"New production dependency" to the founder, after a licence → CVE →
+enterprise-impact review. That review has not happened for these rows. CI
+enforces that every exception is *documented*; it cannot and does not enforce
+that anyone *agreed* with it. Until the founder-review row at the top of the
+table is replaced with a dated sign-off, treat this as machine-verified
+evidence awaiting a human decision — not as a governance approval.
 
 ## 2. The allowlist
 
@@ -43,24 +52,30 @@ justification and a CI guard keeping it out of production requirements.
 ## 3. Exceptions table
 
 Every row is a package whose reported licence string does not literally
-normalise into the allowlist above, reviewed and accepted. `scripts/
-check_licenses.py`'s `EXCEPTIONS` dict must list exactly these package names —
-`tests/test_license_gate.py` fails if the two drift apart.
+normalise into the allowlist above, with a proposed justification for
+accepting it. `scripts/check_licenses.py`'s `EXCEPTIONS` dict must list
+exactly these package names — `tests/test_license_gate.py` fails if the two
+drift apart.
 
-| Package | Ecosystem | Reported licence | Why acceptable | Approved by | Date |
+The "Proposed by" column records who *wrote* the justification, which is not
+the same as who *approved* it. Approval is recorded by replacing the
+founder-review row below, and by nothing else.
+
+| Package | Ecosystem | Reported licence | Why acceptable | Proposed by | Date |
 |---|---|---|---|---|---|
-| `ddgs` | pip | MIT | Direct, unambiguous. Annotated in `requirements.txt` — was previously an unpinned-licence debt item. | Shanker | 2026-08-18 |
-| `icalendar` | pip | BSD-2-Clause | Direct, unambiguous. Annotated in `requirements.txt` — was previously an unpinned-licence debt item. | Shanker | 2026-08-18 |
-| `regex` | pip (transitive, via `nltk`/`dateparser` stack) | Apache-2.0 AND CNRI-Python | Both components are permissive. CNRI-Python is the OSI-approved licence covering historical CPython-derived source (used by `regex` for some Unicode tables); it carries no copyleft or commercial restriction. | Shanker | 2026-08-18 |
-| `numpy` | pip (direct — Ask My Files embeddings) | BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0 | Every component is permissive or public-domain-equivalent. Zlib and CC0-1.0 are the only two not literally in the allowlist above; both are OSI-approved permissive licences with no copyleft obligation. | Shanker | 2026-08-18 |
-| `pypdfium2` | pip (transitive, via `markitdown`/`pdfplumber` PDF stack) | "BSD-3-Clause, Apache-2.0, dependency licenses" | Free-form classifier text, not a real SPDX expression — the project (Google's PDFium bindings) is dual BSD-3-Clause/Apache-2.0. Both are already-allowed permissive licences; the string just isn't machine-parseable as such. | Shanker | 2026-08-18 |
-| `tld` | pip (transitive, via `trafilatura`/`courlan` — deep research skill) | MPL-1.1 OR GPL-2.0-only OR LGPL-2.1-or-later | This is a multi-licence **choice**, not a combination. BixDot uses it under the **MPL-1.1 option only** — the GPL/LGPL alternatives are never exercised. MPL-1.1 is file-level weak copyleft: modifying `tld`'s own source (which BixDot does not do) would require sharing those changes, but using it as an unmodified dependency imposes no obligation on BixDot's own code. | Shanker | 2026-08-18 |
-| `certifi` | pip (transitive — CA certificate bundle, ubiquitous HTTP dependency) | Mozilla Public License 2.0 (MPL 2.0) | File-level weak copyleft on a static CA-certificate data bundle. No modification, no linking concern — this is the standard, industry-wide acceptance for `certifi` specifically. | Shanker | 2026-08-18 |
-| `bixdot` (the `src-tauri` crate itself) | cargo | BUSL-1.1 | This workspace's own root crate under its own project licence (`/LICENSE`) — not a third-party dependency risk. `src-tauri/deny.toml` `[[licenses.exceptions]]`. | Shanker | 2026-08-18 |
-| `webpki-root-certs` | cargo (transitive, TLS stack) | CDLA-Permissive-2.0 | CA-certificate data bundle — the cargo-side equivalent of `certifi` above. Static data, never modified, no linking concern. | Shanker | 2026-08-18 |
-| `cssparser`, `cssparser-macros`, `dtoa-short`, `option-ext`, `selectors` | cargo (transitive, via tauri/wry's Servo-derived CSS parsing stack) | MPL-2.0 | File-level weak copyleft, used unmodified. Same reasoning as `certifi`/`tld` above. | Shanker | 2026-08-18 |
-| *(19 crates: `icu_collections`, `unicode-ident`, `zerovec`, `litemap`, etc. — the icu4x internationalisation stack)* | cargo (transitive, via idna/URL-handling crates) | Unicode-3.0 | OSI-approved permissive data licence, not present in the pip allowlist only because it never came up there. Added directly to `src-tauri/deny.toml`'s `allow` list (not a per-crate exception) — see the inline comment there for the full crate list. | Shanker | 2026-08-18 |
-| *(19 crates: `bytemuck`, `foldhash`, `miniz_oxide`, the `objc2-*` macOS bindings, etc.)* | cargo (transitive, mostly macOS platform bindings) | Zlib | OSI-approved permissive licence, same situation as Unicode-3.0 above — added directly to `allow`, see `src-tauri/deny.toml`. | Shanker | 2026-08-18 |
+| **⚠️ FOUNDER REVIEW: PENDING** | — | — | **Nothing below this line has been reviewed by a human.** Every row was proposed by Claude Code during Phase 2 remediation and is machine-verified only — the licence strings are real and were read from the resolved trees, but the *acceptability judgement* in each "Why acceptable" cell is an automated proposal awaiting founder sign-off. Replace this row with a dated approval once reviewed. | — | — |
+| `ddgs` | pip | MIT | Direct, unambiguous. Annotated in `requirements.txt` — was previously an unpinned-licence debt item. | Claude Code (Phase 2) | 2026-08-18 |
+| `icalendar` | pip | BSD-2-Clause | Direct, unambiguous. Annotated in `requirements.txt` — was previously an unpinned-licence debt item. | Claude Code (Phase 2) | 2026-08-18 |
+| `regex` | pip (transitive, via `nltk`/`dateparser` stack) | Apache-2.0 AND CNRI-Python | Both components are permissive. CNRI-Python is the OSI-approved licence covering historical CPython-derived source (used by `regex` for some Unicode tables); it carries no copyleft or commercial restriction. | Claude Code (Phase 2) | 2026-08-18 |
+| `numpy` | pip (direct — Ask My Files embeddings) | BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0 | Every component is permissive or public-domain-equivalent. Zlib and CC0-1.0 are the only two not literally in the allowlist above; both are OSI-approved permissive licences with no copyleft obligation. | Claude Code (Phase 2) | 2026-08-18 |
+| `pypdfium2` | pip (transitive, via `markitdown`/`pdfplumber` PDF stack) | "BSD-3-Clause, Apache-2.0, dependency licenses" | Free-form classifier text, not a real SPDX expression — the project (Google's PDFium bindings) is dual BSD-3-Clause/Apache-2.0. Both are already-allowed permissive licences; the string just isn't machine-parseable as such. | Claude Code (Phase 2) | 2026-08-18 |
+| `tld` | pip (transitive, via `trafilatura`/`courlan` — deep research skill) | MPL-1.1 OR GPL-2.0-only OR LGPL-2.1-or-later | This is a multi-licence **choice**, not a combination. BixDot uses it under the **MPL-1.1 option only** — the GPL/LGPL alternatives are never exercised. MPL-1.1 is file-level weak copyleft: modifying `tld`'s own source (which BixDot does not do) would require sharing those changes, but using it as an unmodified dependency imposes no obligation on BixDot's own code. | Claude Code (Phase 2) | 2026-08-18 |
+| `certifi` | pip (transitive — CA certificate bundle, ubiquitous HTTP dependency) | Mozilla Public License 2.0 (MPL 2.0) | File-level weak copyleft on a static CA-certificate data bundle. No modification, no linking concern — this is the standard, industry-wide acceptance for `certifi` specifically. | Claude Code (Phase 2) | 2026-08-18 |
+| `bixdot` (the `src-tauri` crate itself) | cargo | BUSL-1.1 | This workspace's own root crate under its own project licence (`/LICENSE`) — not a third-party dependency risk. `src-tauri/deny.toml` `[[licenses.exceptions]]`. | Claude Code (Phase 2) | 2026-08-18 |
+| `webpki-root-certs` | cargo (transitive, TLS stack) | CDLA-Permissive-2.0 | CA-certificate data bundle — the cargo-side equivalent of `certifi` above. Static data, never modified, no linking concern. | Claude Code (Phase 2) | 2026-08-18 |
+| `cssparser`, `cssparser-macros`, `dtoa-short`, `option-ext`, `selectors` | cargo (transitive, via tauri/wry's Servo-derived CSS parsing stack) | MPL-2.0 | File-level weak copyleft, used unmodified. Same reasoning as `certifi`/`tld` above. | Claude Code (Phase 2) | 2026-08-18 |
+| *(19 crates: `icu_collections`, `unicode-ident`, `zerovec`, `litemap`, etc. — the icu4x internationalisation stack)* | cargo (transitive, via idna/URL-handling crates) | Unicode-3.0 | OSI-approved permissive data licence, not present in the pip allowlist only because it never came up there. Added directly to `src-tauri/deny.toml`'s `allow` list (not a per-crate exception) — see the inline comment there for the full crate list. | Claude Code (Phase 2) | 2026-08-18 |
+| *(19 crates: `bytemuck`, `foldhash`, `miniz_oxide`, the `objc2-*` macOS bindings, etc.)* | cargo (transitive, mostly macOS platform bindings) | Zlib | OSI-approved permissive licence, same situation as Unicode-3.0 above — added directly to `allow`, see `src-tauri/deny.toml`. | Claude Code (Phase 2) | 2026-08-18 |
 
 **RustSec advisories (BXD-006 / BXD-019):** `cargo deny check advisories`
 surfaced 15 "unmaintained crate" advisories the first time it ran against
@@ -83,9 +98,11 @@ exceptions table above (different tool section) but follows the same
    case like `certifi` above) and not in the forbidden list, add a row to the
    table above **and** a matching entry to `EXCEPTIONS` in
    `scripts/check_licenses.py` (pip) or `deny.toml` (`[[licenses.exceptions]]`,
-   cargo). If it is AGPL/GPL/LGPL/SSPL, it does not go in this table — remove
-   the dependency or move it to `requirements-dev.txt` with a build-time-only
-   justification per section 2.
+   cargo). Put your own name in "Proposed by" — never someone else's, and
+   never the founder's unless they personally reviewed that row. If it is
+   AGPL/GPL/LGPL/SSPL, it does not go in this table — remove the dependency or
+   move it to `requirements-dev.txt` with a build-time-only justification per
+   section 2.
 4. `tests/test_license_gate.py` and `tests/test_workflow_audit.py` must still
    pass — they cross-check this document against the enforcement scripts.
 

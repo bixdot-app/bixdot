@@ -623,6 +623,15 @@ BXD-018's postmortem warned about. Each of the 15 is ignored individually in
 `src-tauri/deny.toml`'s `[advisories] ignore` with a named, crate-specific
 reason, cross-referenced here and in `docs/governance/LICENCE_ALLOWLIST.md`.
 
+**Who accepted this risk — nobody yet.** The evidence above (unmaintained not
+exploitable, transitive via Tauri, "no safe upgrade available") was gathered
+and written by Claude Code during Phase 2. Suppressing an advisory is a
+risk-acceptance decision, which `03_GOVERNANCE.md` section 1 assigns to the
+founder. Treat the 15 ignores as a documented proposal pending that decision,
+on the same footing as the exceptions table in `LICENCE_ALLOWLIST.md` — CI
+enforces that each suppression is *justified in writing*, never that anyone
+*agreed* with the justification.
+
 **Fix** — `src-tauri/deny.toml` `[advisories] ignore` list (15 entries, one
 per RUSTSEC ID). This list must **shrink**, not grow, as Tauri releases land;
 `tests/test_cargo_license_gate.py::test_every_ignored_advisory_has_a_named_reason`
