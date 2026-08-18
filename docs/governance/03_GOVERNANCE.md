@@ -70,6 +70,21 @@ Settings → Branches → Add branch ruleset, targeting `main`:
 
 Record the date applied here once done: _not yet applied_
 
+**Verified absent, 2026-08-18.** `GET /repos/bixdot-app/bixdot/rulesets` returns
+`[]` and no legacy branch protection is set. Both write paths were attempted
+from the Phase 1 agent session and refused at the infrastructure layer:
+
+```
+POST /repos/bixdot-app/bixdot/rulesets              → HTTP 403
+PUT  /repos/bixdot-app/bixdot/branches/main/protection → HTTP 403
+     "Write access to this GitHub API path is not permitted through this proxy."
+```
+
+Repository-settings endpoints are blocked for automated sessions by design —
+which is the same principle this control encodes, applied one layer up. **A
+human with admin rights must apply it through the GitHub UI.** Until then
+BXD-003 stays PARTIALLY FIXED in the register.
+
 ---
 
 ## 3. Change control for automated jobs
