@@ -132,7 +132,14 @@ the artefact may live in `requirements-dev.txt` only. PyInstaller
 (GPL-2.0-with-exception) is the standing example, with a CI guard keeping it out
 of production requirements. Any new exception is recorded with named justification.
 
-**Unpinned-licence debt to clear:** `ddgs`, `icalendar`. Confirm and annotate.
+**Unpinned-licence debt:** ~~`ddgs`, `icalendar`. Confirm and annotate.~~
+**Cleared (BXD-005).** Both annotated directly in `requirements.txt` — `ddgs`
+is MIT, `icalendar` is BSD-2-Clause. The allowlist above is now a live gate,
+not just policy text: `scripts/check_licenses.py` (pip) and
+`src-tauri/deny.toml` (cargo, via `cargo deny check licenses`) enforce it on
+every PR and on every dependency bump the nightly audit proposes. Reviewed
+exceptions — dependencies whose reported licence text doesn't literally match
+this list — live in `docs/governance/LICENCE_ALLOWLIST.md`.
 
 **Version pinning:** prefer `>=` floors over `==` to avoid pip resolver
 backtracking; the licence and CVE gates provide the safety that exact pins would
