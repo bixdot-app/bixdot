@@ -129,6 +129,53 @@ def test_bandit_high_still_fails_the_job():
     ), "The bandit HIGH severity gate was removed"
 
 
+def test_unresolved_cve_is_explicitly_reverified_and_fails_the_job():
+    """
+    BXD-015: `--fix`'s own exit code is not trusted as the sole gate. A
+    dedicated step must re-run pip-audit and a dedicated step must fail the
+    job on its output — mirroring the bandit HIGH pattern above.
+    """
+    steps = _steps()
+    verify = next((s for s in steps if s.get("id") == "pip_audit_verify"), None)
+    assert verify is not None, "No pip-audit re-verification step (id: pip_audit_verify)"
+    assert re.search(r"(?:^|[\s;&|])pip-audit\s", verify.get("run", "")), (
+        "pip_audit_verify step does not actually invoke pip-audit"
+    )
+
+    assert any(
+        "pip_audit_verify" in str(s.get("if", "")) and "unresolved" in str(s.get("if", ""))
+        and "exit 1" in s.get("run", "")
+        for s in steps
+    ), "No step fails the job when pip_audit_verify reports an unresolved CVE — BXD-015"
+
+
+def test_notification_step_runs_independent_of_job_failure():
+    """
+    BXD-015: a passing check does not mean clean, and GitHub's failure email
+    only fires on job failure. A notification step must run via `if: always()`
+    so a clean run still leaves a human-visible record.
+    """
+    steps = _steps()
+    always_steps = [s for s in steps if str(s.get("if", "")).strip() == "always()"]
+    assert always_steps, "No step runs unconditionally via `if: always()` — BXD-015"
+    assert any("gh issue comment" in s.get("run", "") for s in always_steps), (
+        "The always() step must actually post a notification, not just exist"
+    )
+
+
+def test_workflow_notes_60_day_schedule_inactivity_risk():
+    """
+    GitHub disables `schedule` triggers after 60 days of repository inactivity.
+    This can't be tested at runtime, so the risk must be documented in the
+    workflow itself where the next person touching this file will see it.
+    """
+    text = WORKFLOW.read_text(encoding="utf-8")
+    assert "60 days" in text and "inactiv" in text.lower(), (
+        "The 60-day scheduled-workflow inactivity risk is not documented in "
+        "daily-security-audit.yml — BXD-015"
+    )
+
+
 # ─── Permissions ───────────────────────────────────────────────────────────────
 
 def test_workflow_can_open_pull_requests():

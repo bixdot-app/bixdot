@@ -14,13 +14,27 @@
 #   - lint is REPORTED, never auto-applied to product code
 #   - the full test suite runs BEFORE anything is committed
 #   - dependency bumps land on security/audit-YYYY-MM-DD and open a PR
-#   - an unresolved CVE fails the job (no `|| true`)
+#   - an unresolved CVE fails the job (no `|| true`, and re-verified explicitly
+#     after the --fix attempt — BXD-015)
 #
 # Enforced in repository settings (cannot be expressed in this file):
 #   - branch protection on main: require PR + status checks, block force push,
 #     no bypass for Actions or admins.
 #
 # tests/test_workflow_audit.py asserts every one of the properties above.
+#
+# BXD-015 — two structural risks in a schedule-triggered job, neither fixable
+# by better bash:
+#   1. GitHub disables `schedule` triggers after 60 days with no repository
+#      activity. This repo's own commits/PRs keep it active today, but that is
+#      incidental, not a control — nothing in this file can detect or prevent
+#      the schedule being silently disabled. If the daily run summary and the
+#      tracking-issue comment below both go quiet, check
+#      Settings → Actions → this workflow for "disabled_inactivity" first.
+#   2. A green run has historically meant "the one condition we bothered to
+#      check passed" (bandit HIGH), not "clean". The notification step at the
+#      end of this job runs on every trigger, pass or fail, specifically so a
+#      human has a durable record even when nothing fails.
 
 name: Daily Security Audit
 
@@ -37,6 +51,10 @@ permissions:
   # protection on main is what mechanically enforces that. Never widen this.
   contents: write
   pull-requests: write
+  # issues: write is for the always-on notification step only (BXD-015) — it
+  # comments on a running tracking issue so a clean run leaves a visible,
+  # non-failure-dependent record, not just a step summary nobody opens.
+  issues: write
 
 jobs:
   audit:
@@ -50,12 +68,14 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      # NOTE: pinned to 3.12 to match ci.yml. release.yml still builds on 3.11 —
-      # unifying all three onto one declared version is BXD-008 (Phase 2).
+      # BXD-008: one Python version, declared once in .python-version and
+      # referenced here, in ci.yml, and in release.yml. Before this fix, CI and
+      # this audit ran 3.12 while release.yml built 3.11 — CVEs and dependency
+      # floors were validated on an interpreter the product does not ship.
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version-file: ".python-version"
           cache: "pip"
 
       - name: Install audit + lint tools
@@ -137,6 +157,29 @@ jobs:
           fi
           rm -f requirements-new.txt
 
+      # ── 1.5 Verify — an unresolved CVE must fail this job, unconditionally ──
+      # BXD-015: `--fix` above is not proof; it is an attempt. This step
+      # re-runs pip-audit against whatever requirements.txt looks like now
+      # (fixed, partially fixed, or untouched) and is the single source of
+      # truth for "unresolved_cve" — nothing downstream may swallow this.
+      # Runs every time, not just when step 1 found something, so a CVE class
+      # pip-audit only detects on a second pass is not missed either.
+      - name: pip-audit — verify no unresolved CVEs remain
+        id: pip_audit_verify
+        run: |
+          set +e
+          pip-audit -r requirements.txt
+          EXIT=$?
+          set -e
+
+          if [ $EXIT -ne 0 ]; then
+            echo "unresolved=true" >> "$GITHUB_OUTPUT"
+            echo "### ⚠️ Unresolved CVEs remain after the fix attempt" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "unresolved=false" >> "$GITHUB_OUTPUT"
+            echo "### ✅ pip-audit — clean after fix attempt" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       # ── 2. Bandit Security Scan ─────────────────────────────────────────────
       - name: bandit — HIGH severity scan
         id: bandit
@@ -196,6 +239,38 @@ jobs:
       - name: pytest — full suite must pass before anything is proposed
         run: pytest tests/ -q
 
+      # ── 4.5 Licence gate — no pass, no PR (BXD-005) ─────────────────────────
+      # A dependency bump can introduce a new transitive package with a
+      # licence outside docs/governance/03_GOVERNANCE.md section 4 just as
+      # easily as it can introduce a CVE. This is the same gate ci.yml runs
+      # on every PR, run again here so a bad licence never even reaches a PR.
+      - name: pip-licenses — install for the licence gate
+        run: pip install pip-licenses
+
+      - name: Licence gate — pip
+        run: python scripts/check_licenses.py
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo-deny binary
+        id: cache-cargo-deny
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-deny
+          key: cargo-deny-bin-${{ runner.os }}-v0.20
+
+      - name: Install cargo-deny
+        if: steps.cache-cargo-deny.outputs.cache-hit != 'true'
+        run: cargo install cargo-deny --locked
+
+      # BXD-006: the Rust/Tauri tree was never scanned at all before this.
+      # Reviewed exceptions and ignored advisories live in src-tauri/deny.toml
+      # (see docs/governance/LICENCE_ALLOWLIST.md and BXD-019).
+      - name: Licence + advisory gate — cargo
+        working-directory: src-tauri
+        run: cargo deny check advisories licenses
+
       # ── 5. Open a pull request (never a push to main) ────────────────────────
       - name: Open pull request with dependency fixes
         id: pr
@@ -246,3 +321,48 @@ jobs:
         run: |
           echo "::error::Bandit found HIGH severity security issues in core/. See the bandit-report artifact and the job summary for details. Manual fix required."
           exit 1
+
+      # ── 7. Fail job if a CVE remains unresolved (triggers email alert) ──────
+      # BXD-015: this used to be the ONLY thing missing — `--fix` failing was
+      # already ungated (not wrapped in `|| true`), but nothing re-verified
+      # the end state, so a partially-fixed requirements.txt with pip-audit
+      # `--fix`'s own exit code masked by an intervening step could still
+      # produce a green run. This step is the explicit, unambiguous gate.
+      - name: Fail if unresolved CVEs remain (triggers GitHub notification)
+        if: steps.pip_audit_verify.outputs.unresolved == 'true'
+        run: |
+          echo "::error::pip-audit found CVEs in requirements.txt that --fix could not resolve. A passing run must mean clean, not 'we tried'. See the PR (if opened) and the job summary."
+          exit 1
+
+      # ── 8. Notify — always, independent of pass or fail ─────────────────────
+      # BXD-015: GitHub's built-in failure email only fires when the job
+      # fails, and a disabled schedule (see the file header) produces no
+      # signal at all — not even a failure. This step runs on every trigger
+      # via `if: always()` and posts to a running tracking issue, so there is
+      # a human-visible heartbeat regardless of outcome. Best-effort: a
+      # failure here must never fail the overall workflow run.
+      - name: Notify — post today's result to the tracking issue
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          DATE=$(date +%Y-%m-%d)
+          STATUS="✅ clean"
+          [ "${{ steps.pip_audit_verify.outputs.unresolved }}" = "true" ] && STATUS="⚠️ unresolved CVE"
+          [ "${{ steps.bandit.outputs.bandit_issues }}" = "true" ] && STATUS="$STATUS · ⚠️ bandit HIGH"
+          [ "${{ steps.pr.outputs.committed }}" = "true" ] && STATUS="$STATUS · 🔧 PR opened"
+
+          TITLE="Nightly Security Audit Log"
+          ISSUE_NUMBER=$(gh issue list --repo "$REPO" --state open --search "\"$TITLE\" in:title" \
+            --json number,title --jq ".[] | select(.title==\"$TITLE\") | .number" | head -n1)
+
+          if [ -z "$ISSUE_NUMBER" ]; then
+            ISSUE_URL=$(gh issue create --repo "$REPO" --title "$TITLE" \
+              --body "Running log of \`daily-security-audit.yml\` results — one comment per run, newest at the bottom. If this issue stops receiving comments, the schedule may have been disabled after 60 days of repository inactivity (see the workflow file header).")
+            ISSUE_NUMBER=${ISSUE_URL##*/}
+          fi
+
+          gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body \
+            "**$DATE** — $STATUS — [run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"

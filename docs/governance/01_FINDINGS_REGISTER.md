@@ -13,9 +13,9 @@ here is inferred from documentation or memory.
 | Severity | Count | Gate impact |
 |---|---|---|
 | CRITICAL | 3 (3 fixed) | Blocks user testing |
-| HIGH | 5 (1 fixed) | Blocks v0.7.0 tag |
-| MEDIUM | 8 (2 fixed — BXD-014, and BXD-018 found during remediation) | Fix in v0.7 |
-| LOW | 2 | Batch |
+| HIGH | 5 (5 fixed) | Blocks v0.7.0 tag |
+| MEDIUM | 8 (3 fixed — BXD-014, BXD-015, and BXD-018 found during remediation) | Fix in v0.7 |
+| LOW | 3 (1 fixed — BXD-019 found during remediation) | Batch |
 
 > **All three CRITICAL findings are now closed.** BXD-003's repository-side
 > half — branch protection on `main` — was applied 2026-08-18 and verified live
@@ -31,10 +31,21 @@ is exactly `test_workflow_audit` (10) + `test_ollama_transport` (26) +
 deleted** — `tests/test_hardware.py:91` was rescoped in place (its docstring no
 longer claims to be the C-3 check), which does not change the count.
 
+**Test coverage added in Phase 2 — same standard:** the Phase 2 branch
+collects **456** — a further **+61**, exactly `tests/test_host_binding.py` (9)
++ `tests/test_python_version_consistency.py` (5) + 3 new cases added to
+`tests/test_workflow_audit.py` (10 → 13) + `tests/test_license_gate.py` (38)
++ `tests/test_cargo_license_gate.py` (6). Again, no test was replaced or
+deleted.
+
 **Phase 1 status (PR #23):** BXD-001, BXD-002, BXD-003 (both halves), BXD-004,
 BXD-014 and BXD-018 (new) fixed and tested; branch protection applied
-2026-08-18. BXD-005 through BXD-013 and BXD-015 through BXD-017 remain open for
-Phases 2–4.
+2026-08-18.
+
+**Phase 2 status:** BXD-005, BXD-006, BXD-007, BXD-008, BXD-015 fixed and
+tested; BXD-019 (new, found while fixing BXD-006) reviewed and ignored with
+per-advisory justification rather than left open. BXD-009 through BXD-013 and
+BXD-016 through BXD-017 remain open for Phases 3–4.
 
 **First, the good news — verified as claimed:**
 
@@ -253,7 +264,24 @@ as amateurism rather than as a privacy trade-off.
 ---
 
 ### BXD-005 — Dependencies can be auto-bumped with no licence gate
-**Severity:** HIGH · **Control:** dependency policy · **Status:** OPEN
+**Severity:** HIGH · **Control:** dependency policy · **Status:** ✅ FIXED (Phase 2)
+**Enforcing test:** `tests/test_license_gate.py` (pip) · `tests/test_cargo_license_gate.py` (cargo)
+
+> `scripts/check_licenses.py` resolves the full pip transitive tree against
+> the allowlist below and fails on anything outside it without a reviewed
+> exception; `src-tauri/deny.toml` (`cargo deny check licenses`) does the
+> same for the Rust tree. Both are wired as required CI jobs
+> (`licenses-python`, `cargo-deny` in `ci.yml`) and as a gate in
+> `daily-security-audit.yml` before the dependency-bump PR is opened —
+> exactly the flow this finding described as missing. Every package whose
+> reported licence text didn't literally match the allowlist is recorded in
+> `docs/governance/LICENCE_ALLOWLIST.md` with a named justification;
+> `ddgs` (MIT) and `icalendar` (BSD-2-Clause) are now annotated directly in
+> `requirements.txt`. The npm leg (`npm-audit` job in `ci.yml`) is a
+> documented no-op — there is no `package.json` in this repo (React ships as
+> two vendored, pinned, MIT UMD builds per `CLAUDE.md`) — that activates
+> automatically the moment one is introduced rather than being bolted on
+> after the fact.
 
 **Evidence** — `daily-security-audit.yml:69-74` runs `pip-audit --fix`, which
 raises dependency floors and can pull new transitive packages. Grep across
@@ -285,7 +313,21 @@ The discipline is there; the **automation** is not.
 ---
 
 ### BXD-006 — Two of three dependency trees are never scanned
-**Severity:** HIGH · **Control:** C-1/claims · **Status:** OPEN
+**Severity:** HIGH · **Control:** C-1/claims · **Status:** ✅ FIXED (Phase 2)
+**Enforcing test:** `tests/test_cargo_license_gate.py`
+
+> `cargo deny check advisories licenses` (`cargo-deny` job in `ci.yml` and a
+> gate step in `daily-security-audit.yml`) now scans `src-tauri/Cargo.lock`
+> against both the RustSec advisory database and the same licence policy as
+> the pip tree — see `src-tauri/deny.toml`. Running it for the first time
+> surfaced **15 real, previously-invisible advisories**, logged as **BXD-019**
+> below rather than swept under an unreviewed ignore list — see that entry
+> for why none of them are exploitable CVEs the fix could resolve. CycloneDX
+> SBOM generation is extended to the cargo tree in `release.yml`
+> (`cargo-cyclonedx`); npm has no tree to extend (see BXD-005). The "zero
+> CVEs" claims this finding flagged as Python-only now have Rust-tree
+> coverage backing them; a review of the marketing copy itself is tracked
+> separately under BXD-016 (scope: public claims drift).
 
 **Evidence** — `ci.yml:37-41` runs `pip-audit -r requirements.txt`. Grep of
 `ci.yml` and `daily-security-audit.yml` for `cargo`, `npm`, `pnpm`, `yarn`:
@@ -308,7 +350,18 @@ product and it has no vulnerability scanning at all.
 ---
 
 ### BXD-007 — `debug=true` is an environment-settable bypass of C-2
-**Severity:** HIGH · **Control:** C-2 · **Status:** OPEN
+**Severity:** HIGH · **Control:** C-2 · **Status:** ✅ FIXED (Phase 2)
+**Enforcing test:** `tests/test_host_binding.py`
+
+> `core/config.py`'s host validator no longer reads `debug` at all — non-loopback
+> fails unconditionally. The only way past it is the explicit, out-of-band
+> `BIXDOT_DEV_UNSAFE_BIND=1` (read directly from the environment, never a
+> pydantic field, so a shipped `.env` cannot set it), and even that is refused
+> outright when `sys.frozen` is true (a packaged build). `debug` itself is
+> forced to `False` in a packaged build regardless of what the environment
+> says, so `/docs`/`/redoc`/reload cannot be flipped on in a shipped binary
+> either. `test_debug_true_does_not_permit_non_loopback_host` is this
+> finding's exact repro (`DEBUG=true HOST=0.0.0.0`), now asserting failure.
 
 **Evidence**
 - `core/config.py:28` — `debug: bool = False`, a normal settings field, so
@@ -333,7 +386,19 @@ Precisely OpenClaw's exposure class (135,000+ exposed instances), reachable via
 ---
 
 ### BXD-008 — Audits validate an interpreter the product does not ship
-**Severity:** HIGH · **Control:** release integrity · **Status:** OPEN
+**Severity:** HIGH · **Control:** release integrity · **Status:** ✅ FIXED (Phase 2)
+**Enforcing test:** `tests/test_python_version_consistency.py`
+
+> `.python-version` (pinned to `3.11`, matching the shipped PyInstaller
+> bundle and `pyproject.toml`'s `requires-python = ">=3.11"`) is now the
+> single source of truth, referenced via `python-version-file` from `ci.yml`,
+> `daily-security-audit.yml`, and `release.yml`. `3.11` was chosen over `3.12`
+> specifically so the interpreter validated by CVE/dependency audits is the
+> one the release pipeline actually builds — moving `release.yml` to `3.12`
+> instead would have meant re-validating the entire Tauri/PyInstaller build
+> matrix untested. The stale "Set up Python 3.11" step title (actually
+> running 3.12) was already corrected before this pass; the test suite now
+> asserts no workflow can hardcode a diverging version again.
 
 **Evidence**
 - `ci.yml:23,74,95,114` → Python `3.12`
@@ -417,6 +482,20 @@ entropy, standard practice) or cap at 72 bytes with a clear message; add
 `max_length` to `LoginRequest`.
 
 ### BXD-015 — "Are the scheduled audits running?" — unverifiable, and green ≠ clean
+**Status:** ✅ FIXED (Phase 2) · **Enforcing test:** `tests/test_workflow_audit.py`
+
+> `pip-audit`'s `--fix` exit code was already ungated (BXD-003's fix removed
+> the `|| true`), but nothing re-verified the end state — a dedicated
+> `pip_audit_verify` step now re-runs `pip-audit` unconditionally after the
+> fix attempt and a dedicated failure step fails the job on its output,
+> mirroring the bandit HIGH pattern. A `Notify` step with `if: always()`
+> posts today's result (clean, unresolved CVE, bandit HIGH, and/or PR-opened)
+> to a running "Nightly Security Audit Log" tracking issue on every trigger,
+> pass or fail — so a disabled schedule produces a visible gap in that issue
+> rather than silence. The 60-day scheduled-workflow inactivity risk is
+> documented directly in the workflow file header for the next person who
+> touches it; no keepalive was added; see that comment for why.
+
 Could not confirm run history from this environment (GitHub API rate limit on a
 shared IP). Two structural problems regardless of the answer:
 
@@ -480,7 +559,7 @@ Quarantined; freeze new features until the first-ten-users milestone is met.
 
 ---
 
-## Findings discovered during Phase 1 remediation
+## Findings discovered during remediation
 
 Not present in the original audit. Logged here rather than silently folded in,
 per the governance principle that the register records everything found, not
@@ -510,12 +589,57 @@ both the login and the recovery-code paths.
 
 ---
 
+### BXD-019 — The Rust tree's first scan surfaced 15 unmaintained-crate advisories
+**Severity:** LOW · **Control:** C-1/claims (BXD-006) · **Status:** ✅ FIXED (Phase 2 — ignored with review, not hidden)
+
+**Evidence** — `src-tauri/Cargo.lock` had never been scanned (BXD-006). The
+first `cargo deny check advisories` run against it, in this pass, returned 15
+RustSec advisories:
+
+| Advisory family | Count | Crates | Category |
+|---|---|---|---|
+| Archived gtk-rs GTK3 bindings (Linux tray support) | 9 | `gdk`, `gdk-sys`, `gdkwayland-sys`, `gdkx11`, `gdkx11-sys`, `gtk`, `gtk-sys`, `gtk3-macros`, `atk`, `atk-sys` | unmaintained |
+| Archived `rust-unic` Unicode crates (via `urlpattern`) | 5 | `unic-char-range`, `unic-char-property`, `unic-common`, `unic-ucd-ident`, `unic-ucd-version` | unmaintained |
+| `proc-macro-error` | 1 | — | unmaintained (maintainer unreachable 2+ years) |
+
+The 15 IDs, exactly as ignored in `src-tauri/deny.toml`: `RUSTSEC-2024-0411`,
+`RUSTSEC-2024-0412`, `RUSTSEC-2024-0413`, `RUSTSEC-2024-0414`,
+`RUSTSEC-2024-0415`, `RUSTSEC-2024-0416`, `RUSTSEC-2024-0417`,
+`RUSTSEC-2024-0418`, `RUSTSEC-2024-0419`, `RUSTSEC-2024-0420`,
+`RUSTSEC-2025-0075`, `RUSTSEC-2025-0080`, `RUSTSEC-2025-0081`,
+`RUSTSEC-2025-0098`, `RUSTSEC-2025-0100`, `RUSTSEC-2024-0370`.
+
+Severity: none of these are exploitable-vulnerability CVEs — RustSec's
+"unmaintained" category flags an abandoned project, not a known exploit.
+Every one of the 15 advisories is transitive via Tauri itself (not a BixDot
+dependency choice), and every one's own advisory text says **"No safe
+upgrade is available!"** — `cargo update` cannot resolve any of them; only an
+upstream Tauri release replacing gtk-rs GTK3 / `urlpattern`'s Unicode
+dependency / the macro chain pulling in `proc-macro-error` can.
+
+**Why this is logged rather than silently ignored** — a bare RUSTSEC ID with
+no reason in an ignore list is exactly the kind of unverified suppression
+BXD-018's postmortem warned about. Each of the 15 is ignored individually in
+`src-tauri/deny.toml`'s `[advisories] ignore` with a named, crate-specific
+reason, cross-referenced here and in `docs/governance/LICENCE_ALLOWLIST.md`.
+
+**Fix** — `src-tauri/deny.toml` `[advisories] ignore` list (15 entries, one
+per RUSTSEC ID). This list must **shrink**, not grow, as Tauri releases land;
+`tests/test_cargo_license_gate.py::test_every_ignored_advisory_has_a_named_reason`
+enforces that no future entry can be added without a reason, and
+`test_ignored_advisories_are_logged_in_the_findings_register` keeps this
+entry and the config from drifting apart.
+
+**Enforcing test** — `tests/test_cargo_license_gate.py`.
+
+---
+
 ## Fix order
 
 **Phase 1 — before any user touches the product**
 BXD-003 → BXD-001 → BXD-002 → BXD-004
 
-**Phase 2 — before the v0.7.0 tag**
+**Phase 2 — before the v0.7.0 tag** ✅ done
 BXD-005 → BXD-006 → BXD-007 → BXD-008 → BXD-015
 
 **Phase 3 — during v0.7**

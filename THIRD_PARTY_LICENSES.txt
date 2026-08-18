@@ -1,0 +1,17 @@
+BixDot — Third-Party Licences
+==============================
+
+This is a placeholder. The full attribution document (every Python and Rust
+dependency's licence text, reproduced per MIT/BSD/Apache-2.0's attribution
+requirement) is generated during the release build by
+scripts/generate_third_party_licenses.py and overwrites this file before
+`cargo tauri build` bundles it into the installer.
+
+To generate the real file locally:
+    pip install pip-licenses
+    python -m piplicenses --format=json --with-authors --with-license-file \
+        --no-license-path > pip-licenses.json
+    (cd src-tauri && cargo about generate --format json -o ../cargo-about.json)
+    python scripts/generate_third_party_licenses.py \
+        --pip pip-licenses.json --cargo cargo-about.json \
+        --out THIRD_PARTY_LICENSES.txt

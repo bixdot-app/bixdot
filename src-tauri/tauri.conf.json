@@ -42,7 +42,8 @@
       "icons/icon.ico"
     ],
     "resources": [
-      "../frontend/**/*"
+      "../frontend/**/*",
+      "../THIRD_PARTY_LICENSES.txt"
     ],
     "externalBin": [
       "../dist-backend/bixdot-backend"
