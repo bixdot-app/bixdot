@@ -12,17 +12,41 @@ here is inferred from documentation or memory.
 
 | Severity | Count | Gate impact |
 |---|---|---|
-| CRITICAL | 3 | Blocks user testing |
-| HIGH | 5 | Blocks v0.7.0 tag |
-| MEDIUM | 7 | Fix in v0.7 |
+| CRITICAL | 3 (3 fixed) | Blocks user testing |
+| HIGH | 5 (1 fixed) | Blocks v0.7.0 tag |
+| MEDIUM | 8 (2 fixed — BXD-014, and BXD-018 found during remediation) | Fix in v0.7 |
 | LOW | 2 | Batch |
+
+> **All three CRITICAL findings are now closed.** BXD-003's repository-side
+> half — branch protection on `main` — was applied 2026-08-18 and verified live
+> against `GET /repos/bixdot-app/bixdot/rulesets/20978788`: enforcement `active`,
+> empty bypass list, force-push and deletion blocked, PR and status checks
+> required. See `03_GOVERNANCE.md` section 2 for the full configuration and two
+> recorded deviations from the original checklist.
+
+**Test coverage added in Phase 1 — verified, not asserted:** `origin/main`
+collects **300** tests; the Phase 1 branch collects **395**. The delta of **+95**
+is exactly `test_workflow_audit` (10) + `test_ollama_transport` (26) +
+`test_route_auth` (20) + `test_auth_recovery` (39). **No test was replaced or
+deleted** — `tests/test_hardware.py:91` was rescoped in place (its docstring no
+longer claims to be the C-3 check), which does not change the count.
+
+**Phase 1 status (PR #23):** BXD-001, BXD-002, BXD-003 (both halves), BXD-004,
+BXD-014 and BXD-018 (new) fixed and tested; branch protection applied
+2026-08-18. BXD-005 through BXD-013 and BXD-015 through BXD-017 remain open for
+Phases 2–4.
 
 **First, the good news — verified as claimed:**
 
 - `shell=False` holds. Only two subprocess call sites (`core/skills/terminal/sandbox.py:230`, `core/auth/license_check.py:62`), both explicit, no `os.system`/`os.popen` anywhere in `core/`. **C-6 satisfied.**
 - Version consistency is exact: `0.6.3` across `pyproject.toml`, `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`.
 - Password policy is genuinely strong: 12-char minimum, upper/lower/digit/special enforced server-side (`core/auth/models.py:34-46`), bcrypt cost 12 (`core/auth/jwt.py:119`).
-- Login is timing-normalised against a dummy hash so a wrong username and a wrong password cost the same (`core/auth/routes.py:130-136`). This is better than most commercial products.
+- ~~Login is timing-normalised against a dummy hash so a wrong username and a wrong
+  password cost the same (`core/auth/routes.py:130-136`). This is better than most
+  commercial products.~~ **RETRACTED — see BXD-018.** The intent was right; the
+  implementation was not functioning. The dummy hash was not a valid bcrypt hash,
+  so `checkpw` raised before doing any work and the wrong-username path was
+  measurably *faster*. This is why a claim needs a test, not a reading.
 - `/auth/setup` self-disables with `410 Gone` after first run (`core/auth/routes.py:69-73`). Correct.
 - OAuth uses PKCE with a server-side state store, popped on use, bound to `user_id` (`core/skills/calendar/routes.py:148-182`). Correct.
 - Ollama installer pins redirects to `ollama.com`/`githubusercontent.com` with dot-boundary matching, and the tests cover the spoof cases (`test_ollama_installer.py:116-120`). Genuinely careful work.
@@ -36,7 +60,8 @@ here is inferred from documentation or memory.
 ## CRITICAL
 
 ### BXD-001 — The privacy dashboard can state a falsehood
-**Severity:** CRITICAL · **Control:** C-1 · **Status:** OPEN
+**Severity:** CRITICAL · **Control:** C-1 · **Status:** ✅ FIXED (Phase 1, PR #23)
+**Enforcing test:** `tests/test_ollama_transport.py` (26)
 
 **Evidence**
 - `core/config.py:48` — `ollama_url: str = "http://localhost:11434"` is a plain
@@ -78,7 +103,8 @@ The cloud-*model* door is locked (BXD-009) while the cloud-*transport* window is
 ---
 
 ### BXD-002 — `PUBLIC_ROUTES` is dead code; C-3 is a convention, not a control
-**Severity:** CRITICAL · **Control:** C-3 · **Status:** OPEN
+**Severity:** CRITICAL · **Control:** C-3 · **Status:** ✅ FIXED (Phase 1, PR #23)
+**Enforcing test:** `tests/test_route_auth.py` (20)
 
 **Evidence**
 - `core/auth/middleware.py:10` docstring: *"Applied to EVERY route. No exceptions."*
@@ -129,7 +155,25 @@ and nothing catches it.
 ---
 
 ### BXD-003 — An unattended bot pushes to `main` and can rewrite production code
-**Severity:** CRITICAL · **Control:** governance · **Status:** OPEN
+**Severity:** CRITICAL · **Control:** governance · **Status:** ✅ FIXED (Phase 1, PR #23)
+**Enforcing test:** `tests/test_workflow_audit.py` (10)
+
+> **Both halves are now in place.**
+>
+> *Workflow half* — the job no longer attempts a `main` push, stages only
+> dependency manifests, gates every commit on the full suite, and opens a PR.
+> Frozen by `tests/test_workflow_audit.py`.
+>
+> *Enforcing half* — branch protection applied **2026-08-18**, verified live
+> against `GET /repos/bixdot-app/bixdot/rulesets/20978788`: enforcement
+> `active`, empty bypass list, `deletion` and `non_fast_forward` blocked,
+> `pull_request` and `required_status_checks` required. Configuration and two
+> recorded deviations are in `03_GOVERNANCE.md` section 2.
+>
+> Note the asymmetry deliberately: the workflow half has a test that fails if it
+> regresses; the repository half does not and cannot, because CI cannot read its
+> own repository's settings. If the ruleset is ever weakened or deleted, nothing
+> in this codebase will notice. That is a residual risk, not a closed one.
 
 **Evidence** — `.github/workflows/daily-security-audit.yml`
 - `:16-17` — `permissions: contents: write`
@@ -172,7 +216,8 @@ Today the answer is yes.
 ## HIGH
 
 ### BXD-004 — No password change. No recovery. Permanent lockout by design.
-**Severity:** HIGH · **Control:** product basics · **Status:** OPEN
+**Severity:** HIGH · **Control:** product basics · **Status:** ✅ FIXED (Phase 1, PR #23)
+**Enforcing test:** `tests/test_auth_recovery.py` (39) — also covers BXD-014
 
 **Evidence** — grep across `core/`, `frontend/` for
 `change.password|change_password|reset.password|reset_password|forgot`:
@@ -353,6 +398,15 @@ exponential backoff with an audited unlock, and keep a generous global ceiling a
 a second layer.
 
 ### BXD-014 — bcrypt's 72-byte truncation is unhandled; login fields unbounded
+**Status:** ✅ FIXED (Phase 1, PR #23 — folded into BXD-004)
+
+> **Correction to the description below.** On `bcrypt >= 4.1` — and
+> `requirements.txt` floors at `bcrypt>=4.2.0` — the library **raises
+> `ValueError`** past 72 bytes rather than truncating silently. So
+> `POST /auth/setup` returned **HTTP 500** for any passphrase over 72 bytes
+> while `SetupRequest` advertised `max_length=128`. The silent-truncation
+> behaviour described below applies to older bcrypt. Both are fixed by the
+> SHA-256 pre-hash; the failure was more visible, not less severe.
 `core/auth/models.py:20` permits a 128-character password, but bcrypt
 (`core/auth/jwt.py:119`) silently ignores everything past 72 bytes — so two
 different long passphrases authenticate identically, and a password manager's
@@ -423,6 +477,36 @@ absent from any regulated-industry demo.
 
 **Fix:** see `06_SCOPE_FREEZE.md`. Classify every feature Core / Experimental /
 Quarantined; freeze new features until the first-ten-users milestone is met.
+
+---
+
+## Findings discovered during Phase 1 remediation
+
+Not present in the original audit. Logged here rather than silently folded in,
+per the governance principle that the register records everything found, not
+only what was found first.
+
+### BXD-018 — Login timing normalisation was not functioning
+**Severity:** MEDIUM · **Control:** C-3 (auth) · **Status:** ✅ FIXED (Phase 1)
+
+**Evidence** — `core/auth/routes.py:130-136` (pre-fix) used an inline string
+constant as the "dummy hash" compared against on a missing user, intended to
+make the wrong-username and wrong-password paths cost the same time. The
+constant was not a syntactically valid bcrypt hash. `bcrypt.checkpw` raised
+`ValueError` on it immediately, before doing any hashing work — so the
+wrong-username path returned measurably *faster* than the wrong-password path,
+which is precisely the timing signal the normalisation existed to remove.
+
+The original audit (`BXD` baseline, `01_FINDINGS_REGISTER.md` "Summary")
+described this code as *"better than most commercial products."* It was
+better in intent than most; it was not functioning.
+
+**Fix** — `core/auth/jwt.py` adds `dummy_hash()`: a real bcrypt hash of random
+bytes, computed once and cached, so the miss path performs the same bcrypt
+work as a real comparison. `core/auth/routes.py:156` and `:379` now call it on
+both the login and the recovery-code paths.
+
+**Enforcing test** — `tests/test_auth_recovery.py`.
 
 ---
 

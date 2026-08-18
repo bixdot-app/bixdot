@@ -12,7 +12,9 @@ Local-first AI agent with mandatory auth and zero-trust architecture.
 Security guarantees on startup:
 ✓ Bound to localhost only (127.0.0.1)
 ✓ CORS limited to allowlisted local origins
-✓ All routes require JWT auth except /auth/login
+✓ Auth is deny-by-default: AuthGateMiddleware rejects any request whose path is
+  not in auth.middleware.PUBLIC_ROUTES and carries no valid JWT, and per-route
+  Depends(require_auth) adds role checks on top
 ✓ Audit log integrity verified on startup
 ✓ No debug backdoors in production
 """
@@ -20,7 +22,7 @@ from contextlib import asynccontextmanager
 
 import os
 
-from fastapi import FastAPI, Request, status
+from fastapi import Depends, FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -30,6 +32,8 @@ from slowapi.errors import RateLimitExceeded
 from core.config import settings
 from core.audit.logger import get_audit_logger, AuditEvent
 from core.security import limiter
+from core.auth.jwt import TokenPayload
+from core.auth.middleware import AuthGateMiddleware, require_auth
 from core.auth.routes import router as auth_router
 from core.agent.routes import router as agent_router
 from core.agent.persona_routes import router as persona_router
@@ -76,7 +80,7 @@ async def lifespan(app: FastAPI):
     _ollama_started = False
     try:
         async with _httpx.AsyncClient(timeout=2) as _c:
-            _r = await _c.get(f"{settings.ollama_url}/api/tags")
+            _r = await _c.get(f"{settings.effective_ollama_url}/api/tags")
             if _r.status_code == 200:
                 print("[BixDot] Ollama is already running.")
     except Exception:
@@ -165,6 +169,17 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
+# ─── Auth gate — deny by default (BXD-002) ────────────────────────────────────
+# Rejects any request whose path is not in PUBLIC_ROUTES and carries no valid
+# JWT, before routing. A route added without Depends(require_auth) is still
+# refused, so mandatory auth is a control rather than a convention.
+#
+# ORDER MATTERS: Starlette makes the LAST-added middleware the OUTERMOST one.
+# The auth gate is registered first so CORSMiddleware ends up wrapping it and
+# can answer preflight OPTIONS requests, which carry no Authorization header.
+app.add_middleware(AuthGateMiddleware)
+
+
 # ─── CORS — Strict allowlist, no wildcards ────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
@@ -197,10 +212,18 @@ async def health():
 
 
 @app.get("/health/onboarding")
-async def onboarding_status():
+async def onboarding_status(user: TokenPayload = Depends(require_auth)):
     """
-    Unauthenticated — returns Ollama connectivity and installed models.
-    Used by the frontend onboarding wizard to guide first-time setup.
+    Ollama connectivity and installed models, for the onboarding wizard.
+
+    JWT required (BXD-002). This was unauthenticated and disclosed the resolved
+    Ollama URL, the installed model names, and the host platform to anything
+    that could reach 127.0.0.1:8747. The wizard only ever calls it after the
+    owner account exists — both call sites run post-login — so requiring auth
+    costs the setup flow nothing.
+
+    Note this path is NOT covered by "/health" in PUBLIC_ROUTES: the allowlist
+    matches exactly, never by prefix.
     """
     import sys
     import httpx
@@ -210,7 +233,7 @@ async def onboarding_status():
 
     try:
         async with httpx.AsyncClient(
-            base_url=settings.ollama_url, timeout=3
+            base_url=settings.effective_ollama_url, timeout=3
         ) as client:
             r = await client.get("/api/tags")
             if r.status_code == 200:
@@ -223,12 +246,14 @@ async def onboarding_status():
     # Suggest llama3.2 as the default starter model if nothing is installed
     suggested = "llama3.2"
 
+    # Minimum the setup screen needs to render. The resolved Ollama URL is
+    # deliberately NOT returned — it is infrastructure detail the wizard never
+    # displays, and under a remote configuration it names an internal host.
     return {
         "ollama_running": ollama_ok,
         "models": models,
         "has_models": len(models) > 0,
         "suggested_model": suggested,
-        "ollama_url": settings.ollama_url,
         "ready": ollama_ok and len(models) > 0,
         # Lets the wizard offer the one-click Ollama download (Win/mac only)
         "platform": {"win32": "windows", "darwin": "darwin"}.get(sys.platform, "linux"),

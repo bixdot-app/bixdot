@@ -31,6 +31,12 @@ class AuditEvent(str, Enum):
     AUTH_LOGIN_FAILURE = "auth.login.failure"
     AUTH_TOKEN_REFRESH = "auth.token.refresh"
     AUTH_LOGOUT = "auth.logout"
+    # v0.7 (BXD-004). Never log the password or the recovery code itself.
+    AUTH_PASSWORD_CHANGED = "auth.password.changed"
+    AUTH_PASSWORD_SCHEME_UPGRADED = "auth.password.scheme_upgraded"
+    AUTH_RECOVERY_CODE_ISSUED = "auth.recovery.issued"
+    AUTH_RECOVERY_USED = "auth.recovery.used"
+    AUTH_RECOVERY_FAILED = "auth.recovery.failed"
 
     # Permissions
     PERMISSION_GRANTED = "permission.granted"

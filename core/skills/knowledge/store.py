@@ -58,7 +58,7 @@ def _pack(vec: list[float]) -> bytes:
 async def find_embedding_model() -> Optional[str]:
     """First installed Ollama model classified as EMBEDDING, or None."""
     try:
-        async with httpx.AsyncClient(base_url=settings.ollama_url, timeout=5) as client:
+        async with httpx.AsyncClient(base_url=settings.effective_ollama_url, timeout=5) as client:
             r = await client.get("/api/tags")
             r.raise_for_status()
             for m in r.json().get("models", []):
@@ -72,7 +72,7 @@ async def find_embedding_model() -> Optional[str]:
 async def embed_texts(texts: list[str], model: str) -> list[list[float]]:
     """Embed a batch locally via Ollama /api/embed."""
     record_net("ollama")
-    async with httpx.AsyncClient(base_url=settings.ollama_url, timeout=120) as client:
+    async with httpx.AsyncClient(base_url=settings.effective_ollama_url, timeout=120) as client:
         r = await client.post("/api/embed", json={"model": model, "input": texts})
         r.raise_for_status()
         return r.json().get("embeddings", [])

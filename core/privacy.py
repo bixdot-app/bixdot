@@ -26,6 +26,11 @@ from core.storage.db import get_connection
 # kind -> (category, label, where)
 # category: "local" (never leaves this machine) | "optin" (you enabled it)
 #           | "cloud" (data leaves the device — off by default)
+#
+# BXD-001: the "ollama" row here is a PLACEHOLDER and is never shown as-is.
+# Its disclosure is resolved at read time by _ollama_disclosure() from the URL
+# inference actually uses, because a hardcoded "127.0.0.1" would keep claiming
+# the traffic stayed home after the user pointed Ollama at a remote host.
 NET_KINDS: dict[str, tuple[str, str, str]] = {
     "ollama":    ("local", "Local AI (Ollama)",             "127.0.0.1 — this computer"),
     "cloud_llm": ("cloud", "Cloud AI (your own API key)",   "api.anthropic.com"),
@@ -54,6 +59,24 @@ def record_net(kind: str) -> None:
         pass  # accounting must never take down a request
 
 
+def _ollama_disclosure() -> tuple[str, str, str]:
+    """
+    Resolve (category, label, where) for Ollama traffic from the URL actually
+    in use — never from a constant.
+
+    A remote Ollama server means every prompt leaves the device, so it is
+    reported in the "cloud" category with its real hostname. Saying "local"
+    here would put a false statement inside a tamper-evident log that still
+    verifies perfectly, which is worse than no dashboard at all.
+    """
+    from core.config import settings
+
+    if settings.ollama_is_local:
+        return ("local", "Local AI (Ollama)", "127.0.0.1 — this computer")
+    host = settings.ollama_host or "unknown host"
+    return ("cloud", "Remote AI (Ollama)", f"{host} — leaves this device")
+
+
 def get_counters() -> list[dict]:
     """All known kinds with live counts (zero rows included — full disclosure)."""
     try:
@@ -65,6 +88,8 @@ def get_counters() -> list[dict]:
         rows = {}
     out = []
     for kind, (category, label, where) in NET_KINDS.items():
+        if kind == "ollama":
+            category, label, where = _ollama_disclosure()
         row = rows.get(kind)
         out.append({
             "kind": kind,

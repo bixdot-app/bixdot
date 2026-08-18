@@ -146,10 +146,16 @@ class LLMAdapter:
         record_net("ollama")
         active_model = self.model or get_setting("local_model") or settings.local_model
 
+        # BXD-001: derived from the URL this call actually uses, never asserted.
+        # These two fields were literals (True/False), so pointing Ollama at a
+        # remote host produced an intact hash chain certifying a false claim.
+        is_local = settings.ollama_is_local
+
         audit.log(
             AuditEvent.AGENT_QUERY,
             {"backend": "ollama", "model": active_model,
-             "local": True, "data_leaves_device": False,
+             "local": is_local, "data_leaves_device": not is_local,
+             "ollama_host": settings.ollama_host,
              "has_tools": bool(tools)},
             user_id=self.user_id,
         )
@@ -172,7 +178,7 @@ class LLMAdapter:
             payload["tools"] = tools_to_ollama_format(tools)
 
         async with httpx.AsyncClient(
-            base_url=settings.ollama_url,
+            base_url=settings.effective_ollama_url,
             timeout=120
         ) as client:
             try:
@@ -181,7 +187,7 @@ class LLMAdapter:
                 data = resp.json()
             except httpx.ConnectError:
                 raise RuntimeError(
-                    f"Cannot connect to Ollama at {settings.ollama_url}.\n"
+                    f"Cannot connect to Ollama at {settings.effective_ollama_url}.\n"
                     "Make sure Ollama is running. Install from https://ollama.ai\n"
                     f"Then run: ollama pull {settings.local_model}"
                 )

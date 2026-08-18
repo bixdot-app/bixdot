@@ -107,6 +107,18 @@ CREATE TABLE IF NOT EXISTS users (
     username        TEXT UNIQUE NOT NULL,
     email           TEXT,                       -- optional; used for license detection
     password_hash   TEXT NOT NULL,
+    -- BXD-014: 'sha256-bcrypt' pre-hashes with SHA-256 so passphrases past 72
+    -- bytes still count. 'bcrypt-legacy' is a pre-v0.7 row, upgraded in place
+    -- on the owner's next successful login.
+    password_scheme TEXT NOT NULL DEFAULT 'bcrypt-legacy',
+    -- BXD-004: set on password change/recovery. Access tokens issued before
+    -- this instant are refused, so "all sessions revoked" is immediate rather
+    -- than "within 15 minutes".
+    password_changed_at TEXT,
+    -- BXD-004: bcrypt hash of the single-use recovery code. The code itself is
+    -- shown to the user exactly once, at setup, and is never stored.
+    recovery_code_hash    TEXT,
+    recovery_code_set_at  TEXT,
     role            TEXT NOT NULL DEFAULT 'operator'
                     CHECK(role IN ('owner', 'operator')),
     created_at      TEXT NOT NULL DEFAULT (datetime('now')),
@@ -408,6 +420,22 @@ def init_db() -> None:
             conn.execute("ALTER TABLE sessions ADD COLUMN persona_id TEXT")
         except Exception:
             pass  # Column already exists — safe to ignore
+
+        # Migration (v0.7, BXD-004/BXD-014): password scheme, change tracking and
+        # recovery code. Each is idempotent and nullable-or-defaulted, because
+        # SQLite cannot ADD COLUMN NOT NULL without a constant default.
+        # An existing v0.6.3 account keeps working: its rows default to
+        # 'bcrypt-legacy' and are upgraded on the next successful login.
+        for _stmt in (
+            "ALTER TABLE users ADD COLUMN password_scheme TEXT NOT NULL DEFAULT 'bcrypt-legacy'",
+            "ALTER TABLE users ADD COLUMN password_changed_at TEXT",
+            "ALTER TABLE users ADD COLUMN recovery_code_hash TEXT",
+            "ALTER TABLE users ADD COLUMN recovery_code_set_at TEXT",
+        ):
+            try:
+                conn.execute(_stmt)
+            except Exception:
+                pass  # Column already exists — safe to ignore
 
 
 # ─── First-Run Detection ──────────────────────────────────────────────────────

@@ -10,8 +10,10 @@ BixDot — system information routes (v0.6.3), mounted under /system.
 
 GET /system/hardware — RAM/disk capability probe behind a model
 recommendation. JWT required like every other route (the data is benign,
-but there are no unauthenticated routes outside PUBLIC_ROUTES), and every
-call is written to the audit log.
+but there are no unauthenticated routes outside
+core.auth.middleware.PUBLIC_ROUTES — enforced by AuthGateMiddleware and
+asserted by tests/test_route_auth.py), and every call is written to the
+audit log.
 """
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel

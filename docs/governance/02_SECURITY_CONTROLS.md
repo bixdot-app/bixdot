@@ -7,15 +7,29 @@ Target file for all constraint tests: `tests/test_constraints.py` — a single
 dedicated module so an enterprise reviewer can be handed one file. It must be run
 by `ci.yml`, by `daily-security-audit.yml`, and by `release.yml` before artefact upload.
 
+> **Status:** `tests/test_constraints.py` is a **Phase 3** deliverable. The
+> controls already implemented in Phase 1 (marked ✅ below) live in
+> finding-scoped modules and are run by the full suite today:
+>
+> | Control | Where it lives now |
+> |---|---|
+> | C-1.1 – C-1.3 | `tests/test_ollama_transport.py` |
+> | C-3.1 – C-3.3 | `tests/test_route_auth.py` |
+> | BXD-003 governance | `tests/test_workflow_audit.py` |
+> | BXD-004 / BXD-014 | `tests/test_auth_recovery.py` |
+>
+> Phase 3 consolidates these under the C-x.y / S-x names in one module. Until
+> then, this table is the mapping.
+
 ---
 
 ## C-1 — Local-first always
 
 | # | Test | Asserts | Finding |
 |---|---|---|---|
-| C-1.1 | `test_ollama_url_must_be_loopback` | Startup fails if `ollama_url` host is not `127.0.0.1`/`localhost`/`::1` without explicit acknowledgement | BXD-001 |
-| C-1.2 | `test_remote_ollama_is_labelled_cloud` | With acknowledged remote URL, privacy report category is `cloud` and shows the real host | BXD-001 |
-| C-1.3 | `test_data_leaves_device_is_derived` | The audit event field is computed from the resolved URL, not a literal | BXD-001 |
+| C-1.1 | `test_non_loopback_ollama_url_fails_startup` | Startup fails if `ollama_url` host is not `127.0.0.1`/`localhost`/`::1` without explicit acknowledgement | BXD-001 ✅ |
+| C-1.2 | `test_remote_ollama_is_reported_as_cloud_with_real_host` | With acknowledged remote URL, privacy report category is `cloud` and shows the real host | BXD-001 ✅ |
+| C-1.3 | `test_remote_inference_audits_data_leaving_device` | The audit event field is computed from the resolved URL, not a literal | BXD-001 ✅ |
 | C-1.4 | `test_cloud_models_rejected` | `classify_model` → `CLOUD` for `:cloud`, `-cloud`, `cloud` capability; the chat route returns 400 and audits `cloud_model_blocked` | exists — keep |
 | C-1.5 | `test_cloud_llm_off_by_default` | `settings.cloud_llm_enabled is False`; constructing a cloud adapter without it raises | exists — keep |
 | C-1.6 | `test_all_record_net_kinds_registered` | Every `record_net("x")` literal in the source exists in `NET_KINDS` | BXD-010 |
@@ -33,9 +47,25 @@ by `ci.yml`, by `daily-security-audit.yml`, and by `release.yml` before artefact
 
 | # | Test | Asserts | Finding |
 |---|---|---|---|
-| C-3.1 | `test_every_route_is_authenticated_or_allowlisted` | Iterate `app.routes`; each has `require_auth`/`require_owner` in its dependency chain **or** its path is in `PUBLIC_ROUTES` | BXD-002 |
-| C-3.2 | `test_public_routes_is_exactly` | `PUBLIC_ROUTES` equals the 6 approved paths — a new addition fails until reviewed | BXD-002 |
-| C-3.3 | `test_middleware_denies_unknown_path_without_token` | A route added without the dependency is still rejected by middleware | BXD-002 |
+| C-3.1 | `test_every_route_is_authenticated_or_allowlisted` | Iterate `app.routes`; each has `require_auth`/`require_owner` in its dependency chain **or** its path is in `PUBLIC_ROUTES` | BXD-002 ✅ |
+| C-3.2 | `test_public_routes_is_exactly` | `PUBLIC_ROUTES` equals the 7 approved paths — a new addition fails until reviewed | BXD-002 ✅ |
+| C-3.3 | `test_middleware_denies_route_without_dependency` | A route added without the dependency is still rejected by middleware | BXD-002 ✅ |
+
+> **C-3.2 was specified as 6 paths.** It is **7**. `/auth/recover` (BXD-004) is
+> used precisely when the user cannot log in, so it cannot require a JWT.
+> It is rate limited to 3/minute, verifies a single-use code against a bcrypt
+> hash, and audits both success and failure. The other six are unchanged:
+> `/auth/login`, `/auth/refresh`, `/health`, `/`, `/auth/setup`,
+> `/auth/setup-status`.
+>
+> The OAuth callbacks are deliberately **not** in the allowlist. They are
+> top-level browser redirects that can never carry an `Authorization` header,
+> so they are authenticated by their existing short-lived, single-use,
+> user-bound `state` token, which `AuthGateMiddleware` verifies via
+> `peek_oauth_state()` before the request reaches the route.
+>
+> `/static/` is allowlisted separately as `PUBLIC_PREFIXES`, so the page
+> allowlist above stays an exact, reviewable set.
 | C-3.4 | `test_role_never_from_client_input` | An `X-Role`/`senderIsOwner`-style header cannot elevate; role comes from the JWT | exists — keep |
 | C-3.5 | `test_setup_disabled_after_first_run` | Second `POST /auth/setup` → 410 | exists — keep |
 | C-3.6 | `test_revoked_token_rejected` | Blocklisted `jti` → 401 | exists — keep |
