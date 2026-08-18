@@ -5,6 +5,23 @@
 # Security disclosures: security@bixdot.app
 # See LICENSE in the project root for full terms.
 
+# BXD-003 — this job is ADVISORY-PLUS-PR. It is never the author of record.
+#
+# Governing rule (docs/governance/03_GOVERNANCE.md section 2):
+#     "No automation pushes to main. Bots open pull requests."
+#
+# Enforced here by construction:
+#   - lint is REPORTED, never auto-applied to product code
+#   - the full test suite runs BEFORE anything is committed
+#   - dependency bumps land on security/audit-YYYY-MM-DD and open a PR
+#   - an unresolved CVE fails the job (no `|| true`)
+#
+# Enforced in repository settings (cannot be expressed in this file):
+#   - branch protection on main: require PR + status checks, block force push,
+#     no bypass for Actions or admins.
+#
+# tests/test_workflow_audit.py asserts every one of the properties above.
+
 name: Daily Security Audit
 
 on:
@@ -14,7 +31,12 @@ on:
   workflow_dispatch: # allow manual trigger from GitHub Actions UI
 
 permissions:
-  contents: write  # needed to commit + push fixes back
+  # contents: write is the minimum that can create a commit — no token scope
+  # allows a pull request without it. The control is scope, not absence: this
+  # job pushes ONLY to a security/audit-* branch and never to main, and branch
+  # protection on main is what mechanically enforces that. Never widen this.
+  contents: write
+  pull-requests: write
 
 jobs:
   audit:
@@ -28,7 +50,9 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set up Python 3.11
+      # NOTE: pinned to 3.12 to match ci.yml. release.yml still builds on 3.11 —
+      # unifying all three onto one declared version is BXD-008 (Phase 2).
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -40,7 +64,8 @@ jobs:
           pip install pip-audit bandit ruff
 
       - name: Install project dependencies
-        run: pip install -r requirements.txt
+        # requirements-dev.txt supplies pytest — the suite gates every commit.
+        run: pip install -r requirements.txt -r requirements-dev.txt
 
       # ── 1. CVE Audit ────────────────────────────────────────────────────────
       - name: pip-audit — check for CVEs
@@ -69,9 +94,13 @@ jobs:
       - name: pip-audit — auto-bump vulnerable packages
         if: steps.pip_audit.outputs.cve_found == 'true'
         run: |
-          # pip-audit can auto-fix by upgrading to safe versions
+          # Preview only — informational, never gates.
           pip-audit -r requirements.txt --fix --dry-run 2>&1 || true
-          pip-audit -r requirements.txt --fix 2>&1 || true
+
+          # The real fix. NOT wrapped in `|| true`: if pip-audit cannot resolve a
+          # CVE, this step fails and the job fails with it (BXD-003 / BXD-015).
+          # A green run must mean "clean", not "we tried".
+          pip-audit -r requirements.txt --fix
 
           # Sync requirements.txt with what was actually upgraded
           pip freeze | grep -F -f <(grep -v '^#' requirements.txt | sed 's/[>=<].*//' | tr '[:upper:]' '[:lower:]') \
@@ -140,63 +169,78 @@ jobs:
           path: bandit-report.json
           retention-days: 30
 
-      # ── 3. Ruff Lint Fix (core/ CI gate + full-repo success bar) ────────────
-      - name: ruff — auto-fix lint issues (core/ and full repo)
+      # ── 3. Ruff Lint — REPORT ONLY ──────────────────────────────────────────
+      # BXD-003: `ruff --fix` used to run here and its output was committed to
+      # main unreviewed. `--fix` is not always semantically neutral (removing an
+      # "unused" import removes its side effects), and this job has no way to
+      # tell a safe rewrite from a breaking one. Lint findings are reported to
+      # the job summary for a human. This job never edits core/.
+      - name: ruff — report lint issues (core/ and full repo)
         id: ruff
         run: |
-          set +e
-          ruff check core/ --fix --quiet
-          ruff check . --fix --quiet
-          set -e
-
-          if git diff --quiet; then
-            echo "ruff_fixed=false" >> "$GITHUB_OUTPUT"
-            echo "### ✅ Ruff — No lint issues" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "ruff_fixed=true" >> "$GITHUB_OUTPUT"
-            echo "### 🔧 Ruff — Auto-fixed lint issues" >> "$GITHUB_STEP_SUMMARY"
-            git diff --name-only >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-          # Report remaining (non-auto-fixable) issues for BOTH scopes
           for SCOPE in "core/" "."; do
-            REMAINING=$(ruff check "$SCOPE" --quiet 2>&1 || true)
+            REMAINING=$(ruff check "$SCOPE" 2>&1 || true)
             if [ -n "$REMAINING" ]; then
-              echo "### ⚠️ Ruff — Remaining issues in '$SCOPE' (need manual fix)" >> "$GITHUB_STEP_SUMMARY"
+              echo "### ⚠️ Ruff — issues in '$SCOPE' (manual fix required)" >> "$GITHUB_STEP_SUMMARY"
               echo "\`\`\`" >> "$GITHUB_STEP_SUMMARY"
               echo "$REMAINING" >> "$GITHUB_STEP_SUMMARY"
               echo "\`\`\`" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "### ✅ Ruff — no lint issues in '$SCOPE'" >> "$GITHUB_STEP_SUMMARY"
             fi
           done
 
-      # ── 4. Commit & Push (if anything changed) ─────────────────────────────
-      - name: Commit and push fixes
-        id: commit
+      # ── 4. Test gate — no green tests, no PR ────────────────────────────────
+      # A dependency floor bump IS a code change. Nothing this job produces may
+      # be proposed without the suite passing against it first.
+      - name: pytest — full suite must pass before anything is proposed
+        run: pytest tests/ -q
+
+      # ── 5. Open a pull request (never a push to main) ────────────────────────
+      - name: Open pull request with dependency fixes
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name  "BixDot Security Bot"
           git config user.email "security@bixdot.app"
 
-          git add requirements.txt pyproject.toml core/ tests/ scripts/ docs/ ruff.toml || true
+          # Dependency manifests only. This job does not author product code —
+          # core/, tests/, scripts/ and docs/ are deliberately NOT staged.
+          git add requirements.txt pyproject.toml
 
           if git diff --cached --quiet; then
             echo "committed=false" >> "$GITHUB_OUTPUT"
-            echo "### ℹ️ No changes — repo is clean" >> "$GITHUB_STEP_SUMMARY"
-          else
-            DATE=$(date +%Y-%m-%d)
-            PARTS=""
-            [ "${{ steps.pip_audit.outputs.cve_found }}" = "true" ] && PARTS="CVE bump"
-            [ "${{ steps.ruff.outputs.ruff_fixed }}"    = "true" ] && PARTS="${PARTS:+$PARTS, }lint fix"
-
-            git commit -m "security: daily audit $DATE — ${PARTS:-fixes}
-
-          Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
-            git push origin main
-            echo "committed=true" >> "$GITHUB_OUTPUT"
-            SHA=$(git rev-parse --short HEAD)
-            echo "### ✅ Committed & Pushed — \`$SHA\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "### ℹ️ No dependency changes — nothing to propose" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
           fi
 
-      # ── 5. Fail job if HIGH bandit issues remain (triggers email alert) ─────
+          DATE=$(date +%Y-%m-%d)
+          BRANCH="security/audit-$DATE"
+          git switch -c "$BRANCH"
+          git commit -m "security: daily audit $DATE — dependency CVE bump"
+          git push -u origin "$BRANCH" --force-with-lease
+
+          {
+            echo "Automated dependency bump from the nightly security audit."
+            echo
+            echo "- CVEs found: \`${{ steps.pip_audit.outputs.cve_found }}\`"
+            echo "- Full test suite passed before this PR was opened."
+            echo "- Lint was reported only; this job does not edit \`core/\`."
+            echo
+            echo "Review the dependency diff and the run summary before merging."
+          } > pr-body.md
+
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "security: audit $DATE" \
+            --body-file pr-body.md
+
+          echo "committed=true" >> "$GITHUB_OUTPUT"
+          echo "### ✅ Pull request opened from \`$BRANCH\`" >> "$GITHUB_STEP_SUMMARY"
+
+      # ── 6. Fail job if HIGH bandit issues remain (triggers email alert) ─────
       - name: Fail if HIGH severity issues found (triggers GitHub notification)
         if: steps.bandit.outputs.bandit_issues == 'true'
         run: |

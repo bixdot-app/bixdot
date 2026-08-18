@@ -6,6 +6,9 @@
 pytest>=9.0.3
 pytest-asyncio>=0.24.0
 httpx>=0.28.1           # Async test client
+PyYAML>=6.0.2           # MIT — lets tests/test_workflow_audit.py read the CI
+                        # workflows as data instead of grepping strings (BXD-003).
+                        # Dev-only: never in requirements.txt, never bundled.
 
 # Security scanning (CI only — not shipped in the bundled binary)
 bandit>=1.7.10

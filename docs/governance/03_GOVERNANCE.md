@@ -22,7 +22,6 @@ the founder's diligence directly.
 
 ## 2. Branch protection on `main` — required
 
-Currently absent (inferred from `daily-security-audit.yml:191` pushing directly).
 Configure:
 
 - Require a pull request before merging
@@ -35,6 +34,41 @@ Configure:
 This is the single highest-leverage governance change available, and the answer to
 the standard enterprise question *"can unreviewed automated changes reach your
 default branch?"*
+
+### Status — the two halves of this control
+
+BXD-003 is fixed in **two places**, and only one of them lives in the repository.
+
+| Half | Where | Status |
+|---|---|---|
+| The bot does not *try* to push `main` | `.github/workflows/daily-security-audit.yml` | ✅ Done — pushes only to `security/audit-YYYY-MM-DD`, then opens a PR. Asserted by `tests/test_workflow_audit.py`. |
+| `main` *rejects* a push even if one were attempted | GitHub repository settings | ⬜ **Manual — not yet applied** |
+
+A workflow file cannot configure its own repository's branch protection, so the
+second half must be applied by hand and cannot be tested from CI. Until it is
+done, the control rests on the workflow's good behaviour alone.
+
+**Why `contents: write` is still present.** Creating a commit requires it — no
+GitHub token scope permits opening a pull request without write access to
+contents, and third-party actions such as `peter-evans/create-pull-request` need
+the same. The control is therefore *scope*, not absence: the job pushes only to
+a `security/audit-*` branch, and branch protection is what makes that binding.
+`tests/test_workflow_audit.py::test_contents_permission_is_documented_as_branch_only`
+fails if the inline justification is ever removed.
+
+### Apply the manual half
+
+Settings → Branches → Add branch ruleset, targeting `main`:
+
+1. **Restrict deletions** ✔ and **Block force pushes** ✔
+2. **Require a pull request before merging** ✔ — 1 approval; dismiss stale
+   approvals on push
+3. **Require status checks to pass** ✔ — add each check from the table above as
+   it comes into existence (Phase 2 adds the licence and cargo/npm gates)
+4. **Bypass list: empty.** Do not add Actions, admins, or the repository owner.
+5. Verify: `git push origin main` from a clean checkout must be rejected.
+
+Record the date applied here once done: _not yet applied_
 
 ---
 
