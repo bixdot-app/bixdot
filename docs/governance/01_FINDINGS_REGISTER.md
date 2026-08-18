@@ -12,15 +12,17 @@ here is inferred from documentation or memory.
 
 | Severity | Count | Gate impact |
 |---|---|---|
-| CRITICAL | 3 (2 fixed, **1 partial** — BXD-003 awaits branch protection) | Blocks user testing |
+| CRITICAL | 3 (3 fixed) | Blocks user testing |
 | HIGH | 5 (1 fixed) | Blocks v0.7.0 tag |
 | MEDIUM | 8 (2 fixed — BXD-014, and BXD-018 found during remediation) | Fix in v0.7 |
 | LOW | 2 | Batch |
 
-> **BXD-003 is deliberately not counted as fixed.** Its repository-side half —
-> branch protection on `main` — is unapplied, and confirmed absent live:
-> `GET /repos/bixdot-app/bixdot/rulesets` returns `[]`. Counting it as fixed
-> would be exactly the kind of unearned green this register exists to prevent.
+> **All three CRITICAL findings are now closed.** BXD-003's repository-side
+> half — branch protection on `main` — was applied 2026-08-18 and verified live
+> against `GET /repos/bixdot-app/bixdot/rulesets/20978788`: enforcement `active`,
+> empty bypass list, force-push and deletion blocked, PR and status checks
+> required. See `03_GOVERNANCE.md` section 2 for the full configuration and two
+> recorded deviations from the original checklist.
 
 **Test coverage added in Phase 1 — verified, not asserted:** `origin/main`
 collects **300** tests; the Phase 1 branch collects **395**. The delta of **+95**
@@ -29,10 +31,9 @@ is exactly `test_workflow_audit` (10) + `test_ollama_transport` (26) +
 deleted** — `tests/test_hardware.py:91` was rescoped in place (its docstring no
 longer claims to be the C-3 check), which does not change the count.
 
-**Phase 1 status (as of PR #23):** BXD-001, BXD-002, BXD-003 (workflow half —
-branch protection still manual), BXD-004, BXD-014, and BXD-018 (new) fixed and
-tested. BXD-005 through BXD-013, BXD-015 through BXD-017 remain open for
-Phases 2–4.
+**Phase 1 status (PR #23, merged 2026-08-18):** BXD-001, BXD-002, BXD-003 (both
+halves), BXD-004, BXD-014 and BXD-018 (new) fixed and tested. BXD-005 through
+BXD-013 and BXD-015 through BXD-017 remain open for Phases 2–4.
 
 **First, the good news — verified as claimed:**
 
@@ -153,17 +154,25 @@ and nothing catches it.
 ---
 
 ### BXD-003 — An unattended bot pushes to `main` and can rewrite production code
-**Severity:** CRITICAL · **Control:** governance · **Status:** ⚠️ PARTIALLY FIXED (Phase 1, PR #23)
+**Severity:** CRITICAL · **Control:** governance · **Status:** ✅ FIXED (Phase 1, PR #23)
 **Enforcing test:** `tests/test_workflow_audit.py` (10)
 
-> **The workflow half is done; the enforcing half is NOT.** The job no longer
-> attempts a `main` push, stages only dependency manifests, gates every commit
-> on the full suite, and opens a PR. But **branch protection on `main` is still
-> absent** — verified live against
-> `GET /repos/bixdot-app/bixdot/rulesets`, which returns `[]`.
-> Until it is applied, nothing on GitHub's side *stops* a push to `main`; the
-> control rests entirely on the workflow behaving well. This finding must NOT
-> be marked fully fixed until `03_GOVERNANCE.md` section 2 records the date applied.
+> **Both halves are now in place.**
+>
+> *Workflow half* — the job no longer attempts a `main` push, stages only
+> dependency manifests, gates every commit on the full suite, and opens a PR.
+> Frozen by `tests/test_workflow_audit.py`.
+>
+> *Enforcing half* — branch protection applied **2026-08-18**, verified live
+> against `GET /repos/bixdot-app/bixdot/rulesets/20978788`: enforcement
+> `active`, empty bypass list, `deletion` and `non_fast_forward` blocked,
+> `pull_request` and `required_status_checks` required. Configuration and two
+> recorded deviations are in `03_GOVERNANCE.md` section 2.
+>
+> Note the asymmetry deliberately: the workflow half has a test that fails if it
+> regresses; the repository half does not and cannot, because CI cannot read its
+> own repository's settings. If the ruleset is ever weakened or deleted, nothing
+> in this codebase will notice. That is a residual risk, not a closed one.
 
 **Evidence** — `.github/workflows/daily-security-audit.yml`
 - `:16-17` — `permissions: contents: write`

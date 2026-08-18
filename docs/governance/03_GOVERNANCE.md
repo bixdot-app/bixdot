@@ -42,11 +42,10 @@ BXD-003 is fixed in **two places**, and only one of them lives in the repository
 | Half | Where | Status |
 |---|---|---|
 | The bot does not *try* to push `main` | `.github/workflows/daily-security-audit.yml` | ✅ Done — pushes only to `security/audit-YYYY-MM-DD`, then opens a PR. Asserted by `tests/test_workflow_audit.py`. |
-| `main` *rejects* a push even if one were attempted | GitHub repository settings | ⬜ **Manual — not yet applied** |
+| `main` *rejects* a push even if one were attempted | GitHub repository settings | ✅ **Applied 2026-08-18** |
 
 A workflow file cannot configure its own repository's branch protection, so the
-second half must be applied by hand and cannot be tested from CI. Until it is
-done, the control rests on the workflow's good behaviour alone.
+second half had to be applied by hand and cannot be tested from CI.
 
 **Why `contents: write` is still present.** Creating a commit requires it — no
 GitHub token scope permits opening a pull request without write access to
@@ -68,22 +67,35 @@ Settings → Branches → Add branch ruleset, targeting `main`:
 4. **Bypass list: empty.** Do not add Actions, admins, or the repository owner.
 5. Verify: `git push origin main` from a clean checkout must be rejected.
 
-Record the date applied here once done: _not yet applied_
+**Date applied: 2026-08-18.** Ruleset `default` (id `20978788`), verified live
+via `GET /repos/bixdot-app/bixdot/rulesets/20978788`:
 
-**Verified absent, 2026-08-18.** `GET /repos/bixdot-app/bixdot/rulesets` returns
-`[]` and no legacy branch protection is set. Both write paths were attempted
-from the Phase 1 agent session and refused at the infrastructure layer:
+| Setting | Value | Control |
+|---|---|---|
+| `enforcement` | `active` | — |
+| `conditions.ref_name.include` | `~DEFAULT_BRANCH` | targets `main` |
+| `bypass_actors` | *(empty)* | no Actions or admin bypass |
+| `deletion` | present | branch cannot be deleted |
+| `non_fast_forward` | present | force push blocked |
+| `pull_request` | present | PR required before merge |
+| `required_status_checks` | Lint, Security Scan, Tests, Import Check | CI gates the merge |
 
-```
-POST /repos/bixdot-app/bixdot/rulesets              → HTTP 403
-PUT  /repos/bixdot-app/bixdot/branches/main/protection → HTTP 403
-     "Write access to this GitHub API path is not permitted through this proxy."
-```
+**Why this half mattered.** Repository-settings endpoints are blocked for
+automated sessions — `POST /rulesets` and
+`PUT /branches/main/protection` both returned HTTP 403 *"Write access to this
+GitHub API path is not permitted through this proxy"* — which is this control's
+own principle applied one layer up. It had to be a human, and that is the point.
 
-Repository-settings endpoints are blocked for automated sessions by design —
-which is the same principle this control encodes, applied one layer up. **A
-human with admin rights must apply it through the GitHub UI.** Until then
-BXD-003 stays PARTIALLY FIXED in the register.
+### Two deviations from the checklist above, recorded rather than smoothed over
+
+1. **`required_approving_review_count: 0`.** A pull request is required; an
+   *approval* is not. On a single-maintainer repository there is nobody to
+   approve, so this is a defensible choice — but it means the PR requirement is
+   a speed bump and an audit trail, not a second pair of eyes. Revisit when a
+   second maintainer exists. Do not describe this as "peer reviewed".
+2. **`strict_required_status_checks_policy: false`.** Branches need not be up to
+   date with `main` before merging, so a PR can merge green against a stale base.
+   Low risk at current commit volume; raise it if concurrent PRs become normal.
 
 ---
 
