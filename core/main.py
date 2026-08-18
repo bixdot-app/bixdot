@@ -76,7 +76,7 @@ async def lifespan(app: FastAPI):
     _ollama_started = False
     try:
         async with _httpx.AsyncClient(timeout=2) as _c:
-            _r = await _c.get(f"{settings.ollama_url}/api/tags")
+            _r = await _c.get(f"{settings.effective_ollama_url}/api/tags")
             if _r.status_code == 200:
                 print("[BixDot] Ollama is already running.")
     except Exception:
@@ -210,7 +210,7 @@ async def onboarding_status():
 
     try:
         async with httpx.AsyncClient(
-            base_url=settings.ollama_url, timeout=3
+            base_url=settings.effective_ollama_url, timeout=3
         ) as client:
             r = await client.get("/api/tags")
             if r.status_code == 200:

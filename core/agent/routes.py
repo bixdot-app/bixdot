@@ -128,7 +128,7 @@ async def _resolve_model_and_mode(
         model_mode = ModelMode.CLOUD
     else:
         try:
-            async with httpx.AsyncClient(base_url=cfg.ollama_url, timeout=5) as client:
+            async with httpx.AsyncClient(base_url=cfg.effective_ollama_url, timeout=5) as client:
                 r = await client.get("/api/tags")
                 r.raise_for_status()
                 for m in r.json().get("models", []):
@@ -445,7 +445,7 @@ async def list_models(user=Depends(require_auth)):
 
     default_base = (get_setting("local_model") or cfg.local_model).split(":")[0]
     try:
-        async with httpx.AsyncClient(base_url=cfg.ollama_url, timeout=5) as client:
+        async with httpx.AsyncClient(base_url=cfg.effective_ollama_url, timeout=5) as client:
             r = await client.get("/api/tags")
             r.raise_for_status()
             raw_models = r.json().get("models", [])
@@ -503,7 +503,7 @@ async def pull_model(request: SetModelRequest, user=Depends(require_auth)):
             # Model downloads are multi-GB: bounded connect, unbounded read —
             # Ollama emits progress lines continuously, keeping the stream live.
             pull_timeout = httpx.Timeout(connect=10, read=None, write=30, pool=10)
-            async with httpx.AsyncClient(base_url=cfg.ollama_url, timeout=pull_timeout) as client:
+            async with httpx.AsyncClient(base_url=cfg.effective_ollama_url, timeout=pull_timeout) as client:
                 async with client.stream(
                     "POST", "/api/pull", json={"model": model, "stream": True}
                 ) as resp:
@@ -547,7 +547,7 @@ async def download_ollama(request: Request, user=Depends(require_auth)):
 
     # Refuse when Ollama is already reachable (same probe as /health/onboarding).
     try:
-        async with httpx.AsyncClient(base_url=cfg.ollama_url, timeout=3) as probe:
+        async with httpx.AsyncClient(base_url=cfg.effective_ollama_url, timeout=3) as probe:
             r = await probe.get("/api/tags")
             already_running = r.status_code == 200
     except Exception:
