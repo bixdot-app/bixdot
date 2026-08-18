@@ -389,6 +389,48 @@ Hard-won lessons — each of these shipped a broken release once:
   must stay non-cloud, non-embedding models so the picker can actually offer
   them, and they RECOMMEND — the UI must never block a manual choice.
 
+### 21. Auth is deny-by-default (v0.7, BXD-002) — do not weaken
+
+`core/auth/middleware.py` — **two independent layers**, both required:
+
+1. `AuthGateMiddleware` — a **raw ASGI** middleware (NOT `BaseHTTPMiddleware`:
+   it must pass `send` straight through or the NDJSON streams on
+   `/agent/models/pull` and `/agent/onboarding/download-ollama` get buffered).
+   Rejects anything not allowlisted that carries no valid JWT, before routing.
+2. `Depends(require_auth)` / `require_owner` on every route — defence in depth,
+   and the source of the authenticated user and role checks.
+
+Rules:
+- `PUBLIC_ROUTES` is **exact-match, never prefix** — that is what keeps
+  `/health` public while `/health/onboarding` is not. 7 entries, each with a
+  justification comment. `tests/test_route_auth.py` freezes the set and
+  enumerates `app.routes`; **a new unauthenticated route fails CI.**
+- Register the gate **before** `CORSMiddleware` in `main.py`. Starlette makes
+  the last-added middleware outermost, so this ordering leaves CORS able to
+  answer preflight `OPTIONS` (which carry no Authorization header).
+- OAuth callbacks are **not** allowlisted. They are browser redirects that can
+  never carry a bearer token, so they are authenticated by their existing
+  single-use, user-bound `state` via `peek_oauth_state()` — which peeks, so the
+  route handler still pops it and single-use is preserved.
+
+### 22. Passwords, recovery and session revocation (v0.7, BXD-004/BXD-014)
+
+- **Always pre-hash before bcrypt.** `core/auth/jwt.py` `_prehash()` = SHA-256 →
+  base64 (44 bytes, no NUL — bcrypt stops at the first NUL). Raw passwords past
+  72 bytes either truncate silently (bcrypt < 4.1) or raise (>= 4.1, our floor),
+  and `SetupRequest` allows 128 chars.
+- `users.password_scheme` distinguishes new rows from pre-v0.7 ones; legacy rows
+  are re-hashed in place on next successful login. **Never break an existing
+  account** — a lockout bug in the fix for a lockout bug.
+- Exactly **one** bcrypt call per login on either path, and `dummy_hash()` must
+  stay a *real* hash, or the timing normalisation in `/auth/login` is fiction.
+- `users.password_changed_at` vs the token's `iat` is what makes session
+  revocation immediate; there is no registry of issued access tokens. The
+  comparison is strict `<` on purpose — `<=` would revoke the token
+  `/auth/recover` itself returns. Bounded sub-second window, documented in code.
+- Recovery codes: only the bcrypt hash is stored, single-use, regenerated on
+  use. **Never log the code or the password**, on any path.
+
 ---
 
 ## Current Status — v0.6.3 ✅ SHIPPED
@@ -487,10 +529,30 @@ Priority order:
 
 - Never use `shell=True` in any subprocess call
 - Never expose the backend on `0.0.0.0`
-- Never add unauthenticated routes outside `PUBLIC_ROUTES`
-- Never log sensitive data (passwords, tokens, PII) to the audit log
+- Never add unauthenticated routes outside `PUBLIC_ROUTES` — and adding one to
+  that set is a reviewed decision that must update `tests/test_route_auth.py`
+- Never log sensitive data (passwords, tokens, recovery codes, PII) to the audit log
 - Never disable the audit log chain verification
 - Never add cloud features as defaults — always opt-in
+- **Never assert a privacy fact as a literal.** `local`, `data_leaves_device`
+  and every ledger label are DERIVED from the resolved transport at call time
+  (`settings.ollama_is_local` / `ollama_host`). A hardcoded "127.0.0.1" is how
+  a tamper-evident log ends up certifying a false statement (BXD-001).
+- Use `settings.effective_ollama_url`, never `settings.ollama_url`, for any
+  outbound call — the latter is loopback-only by validator and ignores the
+  acknowledged-remote setting.
+
+---
+
+## Governance — read before any security-adjacent change
+
+`docs/governance/` is the authoritative audit trail: the charter and its six
+controls (`00`), the findings register (`01`), and each control mapped to its
+enforcing test (`02`). **A control is not satisfied by correct code — it is
+satisfied by correct code plus a test that fails when the code changes.**
+
+Findings are never deleted, only marked fixed. A register showing twenty
+findings found and fixed is a stronger trust signal than one showing zero.
 
 ---
 
