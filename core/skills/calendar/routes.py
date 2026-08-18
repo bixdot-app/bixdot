@@ -50,6 +50,22 @@ def _cleanup_oauth_states() -> None:
         del _oauth_states[k]
 
 
+def peek_oauth_state(state: str) -> bool:
+    """
+    Is `state` a live, unexpired, user-bound authorization state?
+
+    Read-only by design: AuthGateMiddleware calls this to authenticate the
+    OAuth callbacks (which cannot carry a JWT — see core/auth/middleware.py
+    STATE_AUTHENTICATED), while the route handler below still pops the entry.
+    Peeking rather than consuming is what keeps a state token single-use.
+    """
+    if not state:
+        return False
+    _cleanup_oauth_states()
+    pending = _oauth_states.get(state)
+    return bool(pending) and pending.get("expires_at", 0) >= time.monotonic()
+
+
 # ─── Request / Response Models ────────────────────────────────────────────────
 
 class GoogleConnectRequest(BaseModel):

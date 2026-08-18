@@ -89,7 +89,16 @@ def test_recommendations_never_return_an_empty_list(monkeypatch):
 # ─── Route ─────────────────────────────────────────────────────────────────────
 
 def test_hardware_route_requires_jwt(client):
-    """Constraint 3: no unauthenticated routes outside PUBLIC_ROUTES."""
+    """
+    This route specifically requires a JWT.
+
+    NOTE: this asserts one route only. It used to claim to be the C-3 check
+    ("no unauthenticated routes outside PUBLIC_ROUTES") and passed while the
+    allowlist and reality were six routes apart (BXD-002). The actual
+    constraint is enforced by
+    tests/test_route_auth.py::test_every_route_is_authenticated_or_allowlisted,
+    which enumerates every registered route. Do not re-broaden this docstring.
+    """
     r = client.get("/system/hardware")
     assert r.status_code in (401, 403)
 

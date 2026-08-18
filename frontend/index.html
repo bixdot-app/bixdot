@@ -443,7 +443,7 @@ function OnboardingWizard({onDismiss,token}){
 
   const check=async()=>{
     setChecking(true);
-    try{ const r=await fetch('http://localhost:8747/health/onboarding'); setStatus(await r.json()); }
+    try{ const r=await fetch('http://localhost:8747/health/onboarding',{headers:{'Authorization':'Bearer '+token}}); setStatus(await r.json()); }
     catch(e){ setStatus({ollama_running:false,models:[],has_models:false,ready:false}); }
     setChecking(false);
   };
@@ -2090,7 +2090,7 @@ function App(){
     // Fetch persisted model on login
     api('/agent/model',{},t).then(r=>setActiveModel(r.model)).catch(()=>{});
     // Check if Ollama is ready; show wizard if not
-    fetch('http://localhost:8747/health/onboarding')
+    fetch('http://localhost:8747/health/onboarding',{headers:{'Authorization':'Bearer '+t}})
       .then(r=>r.json())
       .then(s=>{ if(!s.ready) setShowOnboarding(true); })
       .catch(()=>setShowOnboarding(true));
