@@ -623,14 +623,21 @@ BXD-018's postmortem warned about. Each of the 15 is ignored individually in
 `src-tauri/deny.toml`'s `[advisories] ignore` with a named, crate-specific
 reason, cross-referenced here and in `docs/governance/LICENCE_ALLOWLIST.md`.
 
-**Who accepted this risk — nobody yet.** The evidence above (unmaintained not
-exploitable, transitive via Tauri, "no safe upgrade available") was gathered
-and written by Claude Code during Phase 2. Suppressing an advisory is a
-risk-acceptance decision, which `03_GOVERNANCE.md` section 1 assigns to the
-founder. Treat the 15 ignores as a documented proposal pending that decision,
-on the same footing as the exceptions table in `LICENCE_ALLOWLIST.md` — CI
-enforces that each suppression is *justified in writing*, never that anyone
-*agreed* with the justification.
+**Who accepted this risk — the founder, on 2026-08-19.** The evidence above
+(unmaintained not exploitable, transitive via Tauri, "no safe upgrade
+available") was gathered and written by Claude Code during Phase 2. Suppressing
+an advisory is a risk-acceptance decision, which `03_GOVERNANCE.md` section 1
+assigns to the founder. Shanker reviewed the 15 suppressions and accepted them
+on **2026-08-19**, alongside the licence exceptions table in
+`LICENCE_ALLOWLIST.md`.
+
+Scope of that acceptance: **these 15 advisory IDs, at the Tauri version pinned
+on that date.** It is not a standing waiver for the `ignore` list as a
+construct. A new advisory appearing later — or an existing one whose "no safe
+upgrade available" basis expires — falls outside it and needs its own decision.
+CI enforces that each suppression is *justified in writing*, never that anyone
+*agreed* with the justification, so this paragraph and the log below are the
+only record of agreement.
 
 **This list must be re-checked, not assumed to shrink.** "No safe upgrade is
 available" is true as of the Tauri version pinned today and stops being true
@@ -650,6 +657,7 @@ with no recorded check is indistinguishable from no check having happened.
 | Date | Tauri version | Advisories before | after | Notes |
 |---|---|---|---|---|
 | 2026-08-18 | *(as pinned in `Cargo.lock` at Phase 2)* | — | 15 | Initial scan — the first time this tree was ever checked (BXD-006). Baseline, not a re-check. |
+| 2026-08-19 | *(unchanged — same `Cargo.lock`)* | 15 | 15 | **Founder approval of the baseline, not a re-check.** Shanker reviewed and accepted the 15 suppressions. `cargo deny` was NOT re-run against a newer Tauri, and no advisory was re-evaluated — the count is unchanged because nothing was re-tested, not because a test showed no change. The first genuine re-check is still outstanding: due at the next quarterly review or the next Tauri bump, whichever comes first, per `05_COMPLIANCE_MAP.md` section 4. |
 
 **Fix** — `src-tauri/deny.toml` `[advisories] ignore` list (15 entries, one
 per RUSTSEC ID). This list must **shrink**, not grow, as Tauri releases land;

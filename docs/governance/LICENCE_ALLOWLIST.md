@@ -21,14 +21,18 @@ whose licence text does not literally match the allowlist below, with the
 justification for why acceptance is proposed. Nothing here is silent: an
 undocumented mismatch fails CI.
 
-**Status of this document.** The exceptions table below is a *proposal*, not a
-ratified decision. `docs/governance/03_GOVERNANCE.md` section 1 assigns
-"New production dependency" to the founder, after a licence → CVE →
-enterprise-impact review. That review has not happened for these rows. CI
-enforces that every exception is *documented*; it cannot and does not enforce
-that anyone *agreed* with it. Until the founder-review row at the top of the
-table is replaced with a dated sign-off, treat this as machine-verified
-evidence awaiting a human decision — not as a governance approval.
+**Status of this document.** The 12 exceptions below were **reviewed and
+approved by the founder on 2026-08-19**, satisfying the
+`docs/governance/03_GOVERNANCE.md` section 1 requirement that a new production
+dependency carries a founder decision after a licence → CVE →
+enterprise-impact review. The approval row at the top of the table is the
+record of that decision.
+
+Scope, stated precisely: the approval covers **those 12 rows as they stand on
+that date**, and nothing else. A row added later is not covered by it and needs
+its own sign-off. CI enforces that every exception is *documented* — it still
+cannot and does not enforce that anyone *agreed*, so the approval row is the
+only evidence of agreement, and it must be re-dated whenever the table changes.
 
 ## 2. The allowlist
 
@@ -58,12 +62,13 @@ exactly these package names — `tests/test_license_gate.py` fails if the two
 drift apart.
 
 The "Proposed by" column records who *wrote* the justification, which is not
-the same as who *approved* it. Approval is recorded by replacing the
-founder-review row below, and by nothing else.
+the same as who *approved* it. Approval is recorded in the founder-review row
+below and nowhere else — never by editing a "Proposed by" cell to name someone
+who signed off on the table as a whole.
 
 | Package | Ecosystem | Reported licence | Why acceptable | Proposed by | Date |
 |---|---|---|---|---|---|
-| **⚠️ FOUNDER REVIEW: PENDING** | — | — | **Nothing below this line has been reviewed by a human.** Every row was proposed by Claude Code during Phase 2 remediation and is machine-verified only — the licence strings are real and were read from the resolved trees, but the *acceptability judgement* in each "Why acceptable" cell is an automated proposal awaiting founder sign-off. Replace this row with a dated approval once reviewed. | — | — |
+| **✅ FOUNDER REVIEW: APPROVED** | — | — | **All 12 rows below reviewed and approved.** Shanker (founder, DigiTech Business Pte. Ltd) reviewed the exceptions table and accepted each licence justification. Covers the 12 rows **as they stand on this date** — a row added later is NOT covered by this approval and needs its own sign-off. | **Shanker (founder)** | **2026-08-19** |
 | `ddgs` | pip | MIT | Direct, unambiguous. Annotated in `requirements.txt` — was previously an unpinned-licence debt item. | Claude Code (Phase 2) | 2026-08-18 |
 | `icalendar` | pip | BSD-2-Clause | Direct, unambiguous. Annotated in `requirements.txt` — was previously an unpinned-licence debt item. | Claude Code (Phase 2) | 2026-08-18 |
 | `regex` | pip (transitive, via `nltk`/`dateparser` stack) | Apache-2.0 AND CNRI-Python | Both components are permissive. CNRI-Python is the OSI-approved licence covering historical CPython-derived source (used by `regex` for some Unicode tables); it carries no copyleft or commercial restriction. | Claude Code (Phase 2) | 2026-08-18 |
