@@ -97,6 +97,37 @@ def test_login_username_case_insensitive(client):
     assert r.status_code == 200
 
 
+# ── BXD-013: login rate limit is keyed on username, not the shared loopback IP ──
+
+def test_login_rate_limit_is_per_account_not_shared(client):
+    """
+    Exhausting one account's 5/minute bucket must not lock out a different
+    account — every caller here is 127.0.0.1 (C-2), so an address-keyed
+    limit was one shared bucket any local process could drain to lock the
+    real owner out of their own account.
+    """
+    client.post("/auth/setup", json={"username": "alice", "password": "S3cur3P@ss!1"})
+
+    for _ in range(5):
+        client.post("/auth/login", json={"username": "alice", "password": "wrong"})
+    r = client.post("/auth/login", json={"username": "alice", "password": "wrong"})
+    assert r.status_code == 429, "alice's bucket should be exhausted by now"
+
+    r = client.post("/auth/login", json={"username": "bob", "password": "wrong"})
+    assert r.status_code == 401, "a different account must not be blocked by alice's attempts"
+
+
+def test_login_rate_limit_still_bounds_username_churn(client):
+    """The address-keyed ceiling is a real second layer, not decorative."""
+    client.post("/auth/setup", json={"username": "owner", "password": "S3cur3P@ss!1"})
+
+    statuses = [
+        client.post("/auth/login", json={"username": f"nosuchuser{i}", "password": "x"}).status_code
+        for i in range(31)
+    ]
+    assert 429 in statuses, "unlimited username churn from one address was never bounded"
+
+
 # ── Protected routes ────────────────────────────────────────────────────────────
 
 def test_protected_route_requires_auth(client):

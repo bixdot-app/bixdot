@@ -9,7 +9,33 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  # docs/governance/02_SECURITY_CONTROLS.md: "if this script cannot produce
+  # that output, the version does not ship." Runs first and gates every
+  # platform build — a tag that fails a control never reaches a multi-hour,
+  # multi-platform build, let alone a draft release.
+  verify-constraints:
+    name: Verify Security Constraints
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: '.python-version'
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Verify security constraints
+        run: python scripts/verify_constraints.py
+        env:
+          BIXDOT_DEBUG: "true"
+          BIXDOT_HOST: "127.0.0.1"
+
   build:
+    needs: verify-constraints
     permissions:
       contents: write
 

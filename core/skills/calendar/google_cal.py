@@ -30,7 +30,22 @@ GOOGLE_AUTH_URL   = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_URL  = "https://oauth2.googleapis.com/token"
 GOOGLE_EVENTS_URL = "https://www.googleapis.com/calendar/v3/calendars/primary/events"
 REDIRECT_URI      = "http://127.0.0.1:8747/calendar/oauth/callback"
-SCOPES            = "https://www.googleapis.com/auth/calendar"
+
+# BXD-012: was "https://www.googleapis.com/auth/calendar" — full read/write
+# access to the calendar LIST itself (create/delete calendars, change ACLs
+# and sharing settings), not just events. Nothing in BixDot touches calendar
+# management; get_events() and create_event() below only ever read or write
+# events on the primary calendar. `calendar.events` is Google's scope for
+# exactly that: read/write on events, no calendar-management surface.
+#
+# Not narrowed to `calendar.events.readonly` — create_event() is a real,
+# shipped, capability-gated (calendar:write) feature exercised by the
+# "Assistant" persona (core/agent/personas.py) and by POST /calendar/events.
+# A readonly scope would silently break it. "Least scope that still works"
+# for a product that ships both a read and a write feature is calendar.events,
+# not readonly — seeking a read-only grant to satisfy a docs sentence while
+# breaking a shipped feature would be worse, not more secure.
+SCOPES            = "https://www.googleapis.com/auth/calendar.events"
 
 
 class GoogleCalendarProvider(CalendarProvider):
