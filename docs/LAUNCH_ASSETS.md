@@ -1,5 +1,29 @@
 # BixDot — Launch Assets
 
+> ## 🛑 DO NOT EXECUTE — BLOCKED ON LEGAL REVIEW
+> **None of the sequence below (Show HN, Product Hunt, Reddit, or any other
+> search-indexed public marketing) may be run until the AWS conflict-of-interest
+> question is resolved.**
+>
+> This is a **legal question, not a documentation one.** See
+> `docs/governance/04_RISK_REGISTER.md` **R-1 — AWS conflict of interest**
+> (score 20, BLOCKER): BixDot overlaps an employer's product space
+> (Amazon Quick, Bedrock agents) while its builder is employed there, with a
+> trademark filing already in motion and an IP-assignment clause probably in
+> the contract. Changing the GitHub org, account, or domain registrant does
+> not resolve this — the obligation is rooted in the employment contract, not
+> in branding or repository ownership.
+>
+> **Required before any item below is executed:** consult a Singapore
+> employment lawyer, bringing the employment contract, IP-assignment clause,
+> moonlighting policy, the trademark filing, and the DigiTech incorporation
+> documents. Document the date advice was sought and its outcome in
+> `04_RISK_REGISTER.md`.
+>
+> This header exists so the sequence is never run out of habit without
+> rechecking R-1's status first. Do not delete or shorten it until R-1 is
+> marked resolved in the risk register.
+
 ---
 
 ## GitHub Repo Description (160 chars max)

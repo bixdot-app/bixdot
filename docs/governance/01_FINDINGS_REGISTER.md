@@ -614,6 +614,8 @@ failure.
 ## LOW
 
 ### BXD-016 — Public claims have drifted from the repository
+**Status:** ✅ FIXED (Phase 4) · **Enforcing evidence:** `docs/evidence/CVE_CLAIMS.md`
+
 - `README.md` project-status table still shows `Desktop app (Tauri) 🔨 In progress`
   and a roadmap headed `Now — v0.1 (current)`. The repo is v0.6.3 with a shipping
   Tauri app and an auto-updater. A visitor reads a stalled v0.1 project.
@@ -630,6 +632,21 @@ failure.
 **Fix:** regenerate the README status/roadmap from actual state; fix all URLs;
 create `docs/evidence/CVE_CLAIMS.md` where every public number traces to a
 verifiable source, or delete the number. See `05_COMPLIANCE_MAP.md`.
+
+> The first two bullets (README status table, LAUNCH_ASSETS org links) were
+> already fixed before Phase 1 began — reconfirmed clean, not re-touched.
+> `docs/evidence/CVE_CLAIMS.md` now traces every public CVE-count claim to a
+> real source or marks it UNSOURCED: "433 CVEs studied" had no source anywhere
+> and was deleted from `CLAUDE.md` and the website, replaced with the
+> qualitative claim README already used; "8 CVEs patched since v0.1.1" is
+> sourced to `CHANGELOG.md`'s `[0.1.1]` entry but was mislabeled (only 1 of the
+> 8 fixes has an assigned CVE/advisory ID) and is now "8 security fixes"
+> everywhere it appears. The PII-scrubbing, "Zero CVEs", and sandboxed-skill
+> claims were reworded to match exactly what the code does — see
+> `05_COMPLIANCE_MAP.md` for the per-claim before/after. `docs/LAUNCH_ASSETS.md`
+> now opens with an unmissable blocking header citing `04_RISK_REGISTER.md` R-1;
+> the launch sequence itself is not executed by this remediation — R-1 is a
+> legal question for a human, not a documentation fix.
 
 ### BXD-017 — Scope has outrun validation: 20 architecture patterns, 0 users
 `CLAUDE.md` documents 20 numbered patterns through v0.6.3 — personas, routines,
