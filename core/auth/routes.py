@@ -21,7 +21,7 @@ import uuid
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from core.security import limiter
+from core.security import limiter, login_key
 from core.auth.jwt import (
     BCRYPT_SHA256,
     create_token_pair,
@@ -138,7 +138,8 @@ async def setup(request: SetupRequest, req: Request):
 # ─── Login ────────────────────────────────────────────────────────────────────
 
 @router.post("/login", response_model=TokenResponse)
-@limiter.limit("5/minute")
+@limiter.limit("30/minute")                      # BXD-013: generous 2nd-layer ceiling, per address
+@limiter.limit("5/minute", key_func=login_key)    # BXD-013: the actual fix — per submitted account
 async def login(request: Request, body: LoginRequest):
     """
     Authenticate with username + password.
@@ -146,6 +147,12 @@ async def login(request: Request, body: LoginRequest):
 
     Timing-safe: identical response time for wrong username vs wrong password.
     Never reveals which field was incorrect.
+
+    Rate limited on the submitted username (BXD-013), not the caller's
+    address: every caller here is 127.0.0.1 (C-2), so an address-keyed limit
+    was one shared bucket any local process could drain to lock the owner
+    out. A generous address-keyed ceiling stays as a second layer so
+    unlimited username churn from one source is still bounded.
     """
     user = _get_user_by_username(body.username)
 
@@ -360,7 +367,8 @@ async def change_password(
 
 
 @router.post("/recover", response_model=TokenResponse)
-@limiter.limit("3/minute")
+@limiter.limit("15/minute")                       # BXD-013: 2nd-layer ceiling, per address
+@limiter.limit("3/minute", key_func=login_key)    # BXD-013: per submitted account
 async def recover(request: Request, body: RecoverRequest):
     """
     Reset a forgotten password with the single-use recovery code from setup.
@@ -368,6 +376,10 @@ async def recover(request: Request, body: RecoverRequest):
     Unauthenticated by necessity — it exists precisely for the case where the
     user cannot log in. That makes it the 7th and last entry in PUBLIC_ROUTES,
     and it is the most tightly rate-limited route in the product.
+
+    Same BXD-013 reasoning as /auth/login: keyed on the submitted username so
+    one account's attempts cannot exhaust another's, with a generous
+    address-keyed ceiling as a second layer.
 
     On success the code is consumed and a fresh one is issued, so the user is
     never left without a way back in.

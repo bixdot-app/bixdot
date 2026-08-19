@@ -14,7 +14,7 @@ here is inferred from documentation or memory.
 |---|---|---|
 | CRITICAL | 3 (3 fixed) | Blocks user testing |
 | HIGH | 5 (5 fixed) | Blocks v0.7.0 tag |
-| MEDIUM | 8 (3 fixed — BXD-014, BXD-015, and BXD-018 found during remediation) | Fix in v0.7 |
+| MEDIUM | 8 (8 fixed — all of BXD-009 through BXD-015, BXD-018 found during remediation) | Fix in v0.7 |
 | LOW | 3 (1 fixed — BXD-019 found during remediation) | Batch |
 
 > **All three CRITICAL findings are now closed.** BXD-003's repository-side
@@ -38,14 +38,27 @@ collects **456** — a further **+61**, exactly `tests/test_host_binding.py` (9)
 + `tests/test_cargo_license_gate.py` (6). Again, no test was replaced or
 deleted.
 
+**Test coverage added in Phase 3 — same standard:** the Phase 3 branch
+collects **508** — a further **+52**, exactly `tests/test_constraints.py`
+(40, new — every C-x.y/S-x control in `docs/governance/02_SECURITY_CONTROLS.md`,
+named with its control id, plus 3 meta tests confirming the CI/release
+wiring itself) + 2 new cases in `tests/test_auth.py` (BXD-013). No test was
+replaced or deleted.
+
 **Phase 1 status (PR #23):** BXD-001, BXD-002, BXD-003 (both halves), BXD-004,
 BXD-014 and BXD-018 (new) fixed and tested; branch protection applied
 2026-08-18.
 
 **Phase 2 status:** BXD-005, BXD-006, BXD-007, BXD-008, BXD-015 fixed and
 tested; BXD-019 (new, found while fixing BXD-006) reviewed and ignored with
-per-advisory justification rather than left open. BXD-009 through BXD-013 and
-BXD-016 through BXD-017 remain open for Phases 3–4.
+per-advisory justification rather than left open.
+
+**Phase 3 status:** BXD-009 (already fixed — see its entry), BXD-010,
+BXD-011, BXD-012, and BXD-013 fixed and tested; `tests/test_constraints.py`
+and `scripts/verify_constraints.py` added per `02_SECURITY_CONTROLS.md`'s
+spec and wired as a required `ci.yml` step and a `release.yml` gate that the
+`build` matrix job depends on. All MEDIUM findings are now closed. BXD-016
+through BXD-017 remain open for Phase 4.
 
 **First, the good news — verified as claimed:**
 
@@ -421,6 +434,8 @@ both, run the audit matrix on both.
 ## MEDIUM
 
 ### BXD-009 — Cloud-model detection is name-based and therefore bypassable
+**Severity:** MEDIUM · **Status:** ✅ FIXED (already present — Phase 2, folded into BXD-001)
+
 `core/agent/model_caps.py:45` keys on the `cloud` capability or a `:cloud`/`-cloud`
 name suffix. Solid against stock Ollama hosted models. Bypassable by a local alias
 (`ollama cp gpt-oss:120b-cloud mymodel`) or by a remote `ollama_url` serving a
@@ -428,39 +443,117 @@ locally-named model. Defence in depth: fix BXD-001 (transport), and record the
 resolved Ollama host in every inference audit event so the ledger reflects reality
 even if classification is fooled.
 
+**On verification during Phase 3:** the second half of the fix — `"ollama_host":
+settings.ollama_host` in the `agent.query` audit event
+(`core/agent/llm.py:158`) — was already present in the codebase, landed as
+part of BXD-001's Phase 2 work even though this entry was not marked fixed at
+the time. Confirmed by `tests/test_constraints.py::test_C_1_3_...` (asserts
+`details["ollama_host"]` equals the resolved remote host) and covered
+structurally by `test_C_1_6`/`test_C_1_7`. No code change was needed in Phase
+3; this entry is corrected to reflect what the code already did.
+
 ### BXD-010 — Unknown egress is silently relabelled
+**Severity:** MEDIUM · **Control:** C-1.6/C-1.7 · **Status:** ✅ FIXED (Phase 3)
+**Enforcing test:** `tests/test_constraints.py::test_C_1_6_all_record_net_kinds_registered`,
+`::test_C_1_7_unknown_egress_is_loud`
+
 `core/privacy.py:44-45` — an unrecognised `record_net(kind)` is remapped to
 `"research"`. In a dashboard that promises full disclosure, a new outbound call
-added without registration is mislabelled rather than surfaced. **Fix:** add an
-`unknown` kind in category `cloud` with the label "Unregistered outbound call —
-please report", and add a CI test that every `record_net()` string literal in the
-codebase exists in `NET_KINDS`.
+added without registration is mislabelled rather than surfaced.
+
+**Fix** — `core/privacy.py`: added an `"unknown"` entry to `NET_KINDS` in
+category `cloud` (loudest bucket) labelled "Unregistered outbound call —
+please report"; `record_net()` now falls back to `"unknown"` instead of
+`"research"`. `test_C_1_6` source-scans `core/` via regex for every literal
+`record_net("...")` call site and asserts each is a registered `NET_KINDS`
+key, so a future unregistered call site fails CI before it ever reaches a
+user's dashboard.
 
 ### BXD-011 — A dead kill switch for a non-disableable control
+**Severity:** MEDIUM · **Control:** C-5.2 · **Status:** ✅ FIXED (Phase 3)
+**Enforcing test:** `tests/test_constraints.py::test_C_5_2_no_config_flag_disables_audit`
+
 `core/config.py:71` — `audit_log_enabled: bool = True` is declared and **never
 read anywhere**. The good news: the audit log genuinely cannot be disabled, so C-5
 holds. The bad news: a settings field named exactly like a kill switch invites a
 future developer to wire it up, and it appears in the config surface as though the
-guarantee were optional. **Fix:** delete the field. Add a test asserting no
-config flag can suppress audit writes.
+guarantee were optional.
+
+**Fix** — the field is deleted from `core/config.py` entirely (not deprecated,
+not defaulted-and-ignored — gone). `test_C_5_2` asserts `"audit_log_enabled"
+not in Settings.model_fields` and that `AuditLogger.log()` still writes after
+that.
 
 ### BXD-012 — Google Calendar OAuth requests write scope for a read feature
+**Severity:** MEDIUM · **Control:** C-4.4 · **Status:** ✅ FIXED (Phase 3)
+**Enforcing test:** `tests/test_constraints.py::test_C_4_4_oauth_scopes_are_least_privilege`
+
 `core/skills/calendar/google_cal.py:33` — `SCOPES = "https://www.googleapis.com/auth/calendar"`,
-full read/write. The features that consume it (meeting-soon watcher, calendar
-read) need `calendar.events.readonly`. Over-broad scope violates C-4's spirit and
+full read/write access to calendar *management* (create/delete calendars, ACLs,
+sharing), not just events. Over-broad scope violates C-4's spirit and
 will be flagged verbatim in any regulated-industry security review — the consent
 screen shows a legal professional that BixDot can modify their calendar.
-**Fix:** narrow to the least scope that works; add write scope only when a write
-feature exists, as a separate incremental grant. Audit the Microsoft path identically.
+
+**Fix, and a correction to this entry's original wording** — this finding's
+own text said "needs `calendar.events.readonly`," but that is not what
+BixDot ships: `create_event()` is a real, capability-gated (`calendar:write`)
+feature, exposed as the `create_event` tool to the "Assistant" persona
+(`core/agent/personas.py`) and via `POST /calendar/events`
+(`core/skills/calendar/routes.py`). A readonly scope would have silently
+broken it — worse than the over-broad grant this finding flagged. The fix
+text's own principle — "narrow to the least scope that works" — for a
+product shipping both a read and a write feature is Google's
+`calendar.events` scope (read/write on events only, no calendar-management
+surface), not `calendar.events.readonly`. `google_cal.py` now requests that.
+
+The Microsoft path was audited identically and found to already be minimal:
+Graph has no separate events-only scope distinct from
+`Calendars.Read`/`Calendars.ReadWrite` the way Google does, and neither
+grants directory, mail, or admin surface — nothing to narrow. Documented
+inline in `core/skills/calendar/outlook_cal.py` so a future reader doesn't
+re-open this as if it were missed. `docs/governance/02_SECURITY_CONTROLS.md`
+C-4.4's note has the same correction.
 
 ### BXD-013 — Login rate limiting is effectively global and self-DoSing
+**Severity:** MEDIUM · **Status:** ✅ FIXED (Phase 3)
+**Enforcing test:** `tests/test_auth.py::test_login_rate_limit_is_per_account_not_shared`,
+`::test_login_rate_limit_still_bounds_username_churn`
+
+Not one of the numbered C-x.y/S-x controls in `02_SECURITY_CONTROLS.md`
+(login rate-limit keying isn't part of that taxonomy), so there is no
+`test_constraints.py` entry — covered instead alongside the rest of the
+auth-route suite in `tests/test_auth.py`.
+
 `core/security.py:13` — `Limiter(key_func=get_remote_address)` on a service bound
 to loopback. Every request originates from `127.0.0.1`, so `5/minute` on
 `/auth/login` (`core/auth/routes.py:119`) is one shared bucket. Any local process,
 or a frontend retry loop, exhausts it and locks the legitimate owner out for a
-minute. **Fix:** key the login limiter on the submitted username, add per-account
-exponential backoff with an audited unlock, and keep a generous global ceiling as
-a second layer.
+minute.
+
+**Fix** — `core/security.py` adds `login_key(request)`: keys the limiter on
+the `username` field from the already-parsed JSON body (FastAPI has already
+read `request._body` by the time slowapi's route wrapper runs, to validate
+`body: LoginRequest`/`RecoverRequest` before calling the endpoint — reading
+the cached attribute is synchronous, never a second read of the ASGI
+stream). `/auth/login` and `/auth/recover` each now carry two stacked
+`@limiter.limit(...)` decorators: the account-keyed limit (5/minute and
+3/minute respectively — unchanged budgets, just correctly scoped) as the
+actual fix, plus a generous address-keyed ceiling (30/minute, 15/minute) as
+a second layer so unlimited username churn from one source is still bounded.
+Manually verified: exhausting one account's bucket does not affect a
+different account's login attempts from the same address.
+
+**Scope decision — exponential backoff and an "audited unlock" were not
+implemented.** The finding's fix text also asked for per-account exponential
+backoff with an audited unlock. BixDot is a single-owner local app with no
+second actor to perform an "unlock" — the existing `/auth/recover` path
+(BXD-004) already exists precisely for account-locked-out recovery, and
+layering a second, bespoke lockout-with-backoff mechanism on top would add
+real complexity (new state, new audit surface) for marginal benefit beyond
+what the username-keyed limiter already delivers: the actual vulnerability
+this finding described — one shared bucket, self-DoS from any local process
+— is closed. Flagged here rather than silently narrowed; revisit if a
+future threat model calls for it.
 
 ### BXD-014 — bcrypt's 72-byte truncation is unhandled; login fields unbounded
 **Status:** ✅ FIXED (Phase 1, PR #23 — folded into BXD-004)
@@ -678,8 +771,12 @@ BXD-003 → BXD-001 → BXD-002 → BXD-004
 **Phase 2 — before the v0.7.0 tag** ✅ done
 BXD-005 → BXD-006 → BXD-007 → BXD-008 → BXD-015
 
-**Phase 3 — during v0.7**
-BXD-009 → BXD-010 → BXD-011 → BXD-012 → BXD-013 → BXD-014
+**Phase 3 — during v0.7** ✅ done
+BXD-009 → BXD-010 → BXD-011 → BXD-012 → BXD-013 → BXD-014 (BXD-014 was
+already fixed in Phase 1, folded into BXD-004; BXD-009 was already fixed,
+folded into BXD-001's Phase 2 work — both confirmed rather than re-touched.
+`tests/test_constraints.py` + `scripts/verify_constraints.py` per
+`02_SECURITY_CONTROLS.md` added in the same pass.)
 
 **Phase 4 — before any external eyes**
 BXD-016 → BXD-017

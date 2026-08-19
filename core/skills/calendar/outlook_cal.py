@@ -44,6 +44,14 @@ MS_AUTH_URL    = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize
 MS_TOKEN_URL   = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
 GRAPH_BASE     = "https://graph.microsoft.com/v1.0"
 REDIRECT_URI   = "http://127.0.0.1:8747/calendar/oauth/microsoft/callback"
+
+# BXD-012: audited alongside the Google scope narrowing. Unlike Google Calendar
+# API, Microsoft Graph has no separate "events only" delegated scope distinct
+# from calendar management — Calendars.Read / Calendars.ReadWrite are already
+# the finest-grained scopes Graph offers for get_events()/create_event() below,
+# and neither grants directory, mail, or admin surface. offline_access is
+# required for the refresh token; User.Read is Microsoft's minimum
+# sign-in scope. Nothing to narrow here — this was already least-privilege.
 SCOPES         = "Calendars.Read Calendars.ReadWrite offline_access User.Read"
 
 

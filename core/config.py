@@ -125,9 +125,6 @@ class Settings(BaseSettings):
     sandbox_max_memory_mb: int = 256
     sandbox_allow_network: bool = False
 
-    # ─── Audit ─────────────────────────────────────────────────────────────
-    audit_log_enabled: bool = True
-
     @validator("debug", always=True)
     def validate_debug_ignored_when_packaged(cls, v):
         """

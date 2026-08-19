@@ -40,13 +40,22 @@ NET_KINDS: dict[str, tuple[str, str, str]] = {
     "github":    ("optin", "GitHub (your account)",         "api.github.com"),
     "calendar":  ("optin", "Calendar (your account)",       "Google / Microsoft"),
     "setup":     ("optin", "Setup downloads (Ollama installer)", "ollama.com — one-time, you clicked it"),
+    # BXD-010: a call site that records a kind never added here used to be
+    # silently folded into "research" — a real, disclosed, opt-in purpose. A
+    # dashboard that promises full disclosure must not let an unregistered
+    # outbound call hide inside a legitimate bucket, so it lands here instead:
+    # loudest category (cloud), and a label that tells the user something is
+    # wrong. tests/test_constraints.py::test_C_1_6_all_record_net_kinds_registered
+    # keeps every literal record_net(...) call site in the source registered
+    # above, so this bucket should stay empty in practice.
+    "unknown":   ("cloud", "Unregistered outbound call — please report", "unclassified — treat as leaving this device until reviewed"),
 }
 
 
 def record_net(kind: str) -> None:
     """Count one outbound call of the given kind. Must never break the caller."""
     if kind not in NET_KINDS:
-        kind = "research"  # unknown purposes surface in the most visible bucket
+        kind = "unknown"  # BXD-010: surface loudly, never mislabel as a real purpose
     try:
         now = datetime.now(timezone.utc).isoformat()
         with get_connection() as conn:

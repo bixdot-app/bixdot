@@ -82,6 +82,17 @@ jobs:
           BIXDOT_DEBUG: "true"
           BIXDOT_HOST: "127.0.0.1"
 
+      # docs/governance/02_SECURITY_CONTROLS.md: every control implemented
+      # as a test plus the offline report generator that proves it. Runs
+      # after the full suite (tests/test_constraints.py is already part of
+      # it) so this is the human-readable enforcement report, not a second
+      # pass — see scripts/verify_constraints.py's docstring.
+      - name: Verify security constraints
+        run: python scripts/verify_constraints.py
+        env:
+          BIXDOT_DEBUG: "true"
+          BIXDOT_HOST: "127.0.0.1"
+
   # ─── Lint ───────────────────────────────────────────────────────────────────
   lint:
     name: Lint
