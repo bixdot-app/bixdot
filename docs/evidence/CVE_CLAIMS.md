@@ -6,13 +6,18 @@ removed/reworded at every location it appears. See
 `docs/governance/05_COMPLIANCE_MAP.md` ("Rule: no claim without evidence")
 and `docs/governance/01_FINDINGS_REGISTER.md` BXD-016.
 
-Date checked: 2026-08-19. **Corrected 2026-08-19:** this file originally
-marked the website occurrences of Claims 1 and 2 as "fixed" on the strength
-of a pushed branch and an open PR (`bixdot-app/bixdot-website` PR #1),
-without verifying the PR had actually merged. It had not — it was closed
-without merging, and the live `main` branch is unchanged. That is exactly
-the class of unverified claim BXD-016 exists to catch. Corrected below:
-"fixed" now means verified live on the target branch, not "a PR exists."
+Date checked: 2026-08-19. **Corrected 2026-08-19 (first pass):** this file
+originally marked the website occurrences of Claims 1 and 2 as "fixed" on
+the strength of a pushed branch and an open PR (`bixdot-app/bixdot-website`
+PR #1), without verifying the PR had actually merged. It had not — it was
+closed without merging, and the live `main` branch was unchanged. That is
+exactly the class of unverified claim BXD-016 exists to catch.
+
+**Updated 2026-08-19 (second pass):** PR #1 was subsequently reopened and
+merged (`bixdot-app/bixdot-website` commit `b8ee5ab`, 2026-08-19T21:07:59Z).
+Re-verified directly against that commit — see below. "Fixed" continues to
+mean verified live on the target branch, checked again after the merge
+notification, not assumed from the notification alone.
 
 ---
 
@@ -39,23 +44,22 @@ and fixed them architecturally"), that claim stays — it is what
 `docs/THREAT_MODEL.md`'s CVE-to-mitigation map actually demonstrates — but
 without inventing a count nobody can check.
 
-**Occurrences fixed (file:line as of the commit that added this file):**
+**Occurrences fixed:**
 - `CLAUDE.md:10` — merged to `main` via `bixdot-app/bixdot` PR #26.
+- `bixdot-app/bixdot-website` `index.html` — stat block, now reads `6` /
+  "CVE classes mapped to mitigations" (the six illustrative CVEs actually
+  named and mapped in `docs/THREAT_MODEL.md` — a sourced number, not a
+  reuse of the deleted 433), and the section-sub paragraph now reads "We
+  studied known CVE classes from existing AI agent platforms and fixed
+  every one at the architecture level — see our public CVE-to-mitigation
+  map." Merged via `bixdot-app/bixdot-website` PR #1
+  (commit `b8ee5ab`, 2026-08-19T21:07:59Z). **Re-verified by fetching the
+  live file at that commit directly — not inferred from the merge
+  notification.**
 
-**Occurrences identified, NOT yet fixed — requires separate access to
-bixdot-app/bixdot-website:**
-- `bixdot-app/bixdot-website` `index.html` — stat block (`stat-num` "433" /
-  `stat-label` "CVEs studied") and the section-sub paragraph beginning "We
-  studied 433 CVEs from existing AI agent platforms…" **A fix was drafted and
-  pushed as `bixdot-app/bixdot-website` PR #1, but that PR was closed without
-  merging on 2026-08-19. The live `main` branch of that repo is unchanged
-  since 2026-08-02 and still shows the unsourced "433" figure verbatim.**
-  Verified directly against `main` (commit `ca229e2`), not against the PR
-  diff — do not re-mark this fixed on the strength of a PR existing; check
-  the live file.
-
-The qualitative rewording ("studying every known CVE class…") is live in
-`CLAUDE.md` only. The website still states the unsourced number.
+Both reworded to the same qualitative, defensible claim `README.md` already
+uses: *"studying every known CVE class from existing AI agent platforms and
+fixing each one at the architecture level."*
 
 ---
 
@@ -84,11 +88,10 @@ internally-found-and-fixed bugs "CVEs" overstates both their formality and
 their provenance to a reader who will try to look up "CVE-2026-XXXXX: BixDot
 permission gate bypass" and find nothing.
 
-**Disposition:** every occurrence in the `bixdot` repo reworded from "N CVEs
-patched/fixed" to "N security fixes", citing `CHANGELOG.md`'s `[0.1.1]`
-entry. The list of what was fixed (permission gate bypass, path traversal,
-etc.) is accurate and is kept verbatim — only the word "CVEs" changes. The
-website occurrence is **not** reworded — see below.
+**Disposition:** every occurrence reworded from "N CVEs patched/fixed" to "N
+security fixes", citing `CHANGELOG.md`'s `[0.1.1]` entry. The list of what
+was fixed (permission gate bypass, path traversal, etc.) is accurate and is
+kept verbatim — only the word "CVEs" changes.
 
 **Occurrences fixed:**
 - `README.md:106` (status table) and `README.md:213` (changelog-style entry)
@@ -97,13 +100,10 @@ website occurrence is **not** reworded — see below.
 
 All three merged to `main` via `bixdot-app/bixdot` PR #26.
 
-**Occurrences identified, NOT yet fixed — requires separate access to
-bixdot-app/bixdot-website:**
-- `bixdot-app/bixdot-website` `index.html` — stat block (`stat-num` "8" /
-  `stat-label` "CVEs patched since v0.1.1"). Same status as Claim 1's website
-  occurrence: drafted in `bixdot-app/bixdot-website` PR #1, which was closed
-  without merging on 2026-08-19. `main` (commit `ca229e2`) still shows the
-  unlabeled "CVEs patched" text.
+- `bixdot-app/bixdot-website` `index.html` — stat block, now reads `8` /
+  "security fixes since v0.1.1". Merged via `bixdot-app/bixdot-website` PR #1
+  (commit `b8ee5ab`, 2026-08-19T21:07:59Z). Re-verified against the live file
+  at that commit.
 
 ---
 
