@@ -17,11 +17,26 @@ Cloud LLM is an optional add-on the user explicitly enables.
 It is never the default. It is never a fallback.
 """
 import ipaddress
+import os
 import secrets
+import sys
 from urllib.parse import urlparse
 
 from pydantic_settings import BaseSettings
 from pydantic import Field, validator
+
+# ─── Host binding (BXD-007) ─────────────────────────────────────────────────────
+# C-2 says the binary CANNOT bind to a non-loopback interface. `debug` must never
+# be the thing that decides that — an environment variable is not a boundary.
+# The one deliberately awkward escape hatch is BIXDOT_DEV_UNSAFE_BIND=1, read
+# directly from the environment (never a pydantic field, so it cannot be set via
+# .env in a shipped app) and refused outright in a packaged (frozen) build.
+_DEV_UNSAFE_BIND_ENV = "BIXDOT_DEV_UNSAFE_BIND"
+
+
+def _is_packaged_build() -> bool:
+    """True inside the PyInstaller bundle — see core/__main__.py."""
+    return getattr(sys, "frozen", False)
 
 # ─── Transport resolution (BXD-001) ────────────────────────────────────────────
 # The Privacy Proof dashboard and the audit log both state where inference
@@ -113,11 +128,44 @@ class Settings(BaseSettings):
     # ─── Audit ─────────────────────────────────────────────────────────────
     audit_log_enabled: bool = True
 
+    @validator("debug", always=True)
+    def validate_debug_ignored_when_packaged(cls, v):
+        """
+        BXD-007: a packaged build must not honour DEBUG from the environment
+        at all — a shipped .env or stray env var must not be able to flip on
+        /docs, /redoc, reload, or (via validate_host below) off-loopback bind.
+        """
+        if _is_packaged_build():
+            return False
+        return v
+
     @validator("host")
     def validate_host(cls, v, values):
-        if v not in ("127.0.0.1", "localhost") and not values.get("debug"):
-            raise ValueError("Host must be 127.0.0.1 in production.")
-        return v
+        """
+        BXD-007: unconditional. Non-loopback fails whether or not debug is on —
+        debug must never be able to widen the bind surface. The only way past
+        this is the explicit, out-of-band BIXDOT_DEV_UNSAFE_BIND=1, and even
+        that is refused in a packaged build.
+        """
+        if v in ("127.0.0.1", "localhost"):
+            return v
+
+        if os.environ.get(_DEV_UNSAFE_BIND_ENV) == "1" and not _is_packaged_build():
+            print(
+                "\n" + "=" * 70 +
+                f"\n⚠️  UNSAFE BIND — host={v!r}. The backend is reachable from "
+                f"the network, not just this machine.\n   {_DEV_UNSAFE_BIND_ENV}=1 "
+                "was set — this is refused outright in a packaged build.\n" +
+                "=" * 70 + "\n",
+                file=sys.stderr,
+            )
+            return v
+
+        raise ValueError(
+            f"Host must be 127.0.0.1 in production — got {v!r}. This check does "
+            f"not depend on debug. For local LAN testing only, set "
+            f"{_DEV_UNSAFE_BIND_ENV}=1 (refused in packaged builds)."
+        )
 
     @validator("ollama_url")
     def validate_ollama_url_is_loopback(cls, v):

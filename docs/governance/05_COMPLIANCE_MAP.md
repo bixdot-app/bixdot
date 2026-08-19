@@ -112,8 +112,42 @@ immediately. Generate it in `release.yml` alongside the SBOM.
 |---|---|
 | Every release | Regenerate README status; re-verify claims table; generate SBOM + `THIRD_PARTY_LICENSES.txt`; attach constraint verification output |
 | Monthly | Confirm scheduled workflows are still enabled (BXD-015); review findings register status |
-| Quarterly | Full claims re-verification; licence tree review; risk register rescore |
+| Quarterly | Full claims re-verification; licence tree review (pip **and** cargo); risk register rescore; **re-run `cargo deny check advisories` against the then-current Tauri version and prove the BXD-019 ignore list shrank — see below** |
+| On any Tauri version bump | Same BXD-019 re-check as the quarterly row. A Tauri upgrade is the *only* thing that can retire these advisories, so it is the event that actually matters; quarterly is the floor, not the trigger. |
 | On any dependency change | Licence gate → CVE gate → note in `LICENCE_ALLOWLIST.md` |
+
+### The BXD-019 ignore list must be re-checked, never assumed to shrink
+
+`src-tauri/deny.toml` suppresses 15 RustSec advisories. Every one is justified
+on the grounds that it is unmaintained-not-exploitable, transitive via Tauri,
+and **"no safe upgrade is available"**. That last clause is a statement about a
+moment in time, and it is the whole basis for the suppression. It stops being
+true the day Tauri ships a release that drops gtk-rs GTK3, `urlpattern`'s
+Unicode dependency, or the `proc-macro-error` macro chain — and nothing in this
+repository will notice on its own. A suppression whose justification has
+expired is indistinguishable, in the file, from one that is still sound.
+
+So the quarterly check is **adversarial, not confirmatory**:
+
+1. Update the Tauri dependency to the current release, then run
+   `cargo deny check advisories` in `src-tauri/` **with the `ignore` list
+   temporarily emptied**. Running it with the list in place proves nothing —
+   it will pass whether or not the advisories still apply.
+2. Compare the resulting advisory IDs against the 15 recorded in BXD-019.
+3. **Delete every ID that no longer fires.** Removing a stale entry is the
+   point of the exercise; leaving it costs nothing today and hides a real
+   advisory tomorrow, since a matching ID would be silently swallowed.
+4. For each ID that *does* still fire, re-read its advisory text and confirm
+   "no safe upgrade available" is still accurate. If a fix now exists, take it
+   rather than re-suppressing.
+5. Record the outcome in BXD-019 with the date, the Tauri version tested, and
+   the **count before and after** — including "15 → 15, no change", which is a
+   valid result and must be written down rather than left implicit. An
+   unchanged count with no recorded check is indistinguishable from no check.
+
+The expected trajectory is that this list shrinks to zero as Tauri modernises.
+If it has not moved across several quarters, that is itself a finding about the
+upstream dependency, not a reason to stop looking.
 
 ---
 

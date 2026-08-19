@@ -39,10 +39,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # BXD-008: one Python version, declared once in .python-version and
+      # referenced by ci.yml, daily-security-audit.yml, and here — the audit
+      # must validate the same interpreter this job ships.
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version-file: '.python-version'
 
       - name: Install Python dependencies
         run: pip install -r requirements.txt
@@ -60,8 +63,7 @@ jobs:
       # every release so users can audit our tree without taking our word for it.
       # cyclonedx-bom is Apache-2.0 and CI-only — never add it to requirements.txt
       # or requirements-dev.txt (it must not reach a production install path).
-      # TODO(v0.7): cargo-cyclonedx for the Rust dependency tree.
-      - name: Generate SBOM (CycloneDX)
+      - name: Generate SBOM (CycloneDX) — Python
         if: matrix.platform == 'ubuntu-22.04'
         run: |
           pip install cyclonedx-bom
@@ -131,6 +133,61 @@ jobs:
 
       - name: Install Tauri CLI v2
         run: cargo install tauri-cli --version "^2.0"
+
+      # ── THIRD_PARTY_LICENSES.txt — a real attribution obligation ────────────
+      # MIT/BSD/Apache-2.0 all require reproducing the dependency's copyright
+      # notice and licence text, not just naming the licence. Generated on
+      # EVERY platform leg (not just ubuntu) because tauri.conf.json's
+      # `bundle.resources` embeds THIRD_PARTY_LICENSES.txt into every
+      # installer, and a resource glob that doesn't exist at build time fails
+      # `cargo tauri build`.
+      - name: Cache cargo-about binary
+        id: cache-cargo-about
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-about*
+          key: cargo-about-bin-${{ runner.os }}-v0.9
+
+      - name: Install cargo-about
+        if: steps.cache-cargo-about.outputs.cache-hit != 'true'
+        run: cargo install cargo-about --locked --features cli
+
+      - name: Generate THIRD_PARTY_LICENSES.txt
+        shell: bash
+        run: |
+          pip install pip-licenses
+          python -m piplicenses --format=json --with-authors --with-license-file \
+            --no-license-path > pip-licenses.json
+
+          (cd src-tauri && cargo about generate --format json -o ../cargo-about.json)
+
+          python scripts/generate_third_party_licenses.py \
+            --pip pip-licenses.json --cargo cargo-about.json \
+            --out THIRD_PARTY_LICENSES.txt
+
+          rm -f pip-licenses.json cargo-about.json
+
+      # BXD-006: extend SBOM generation to the Rust tree — an SBOM that omits
+      # a dependency tree is worse than none in a procurement review. Only
+      # generated once (ubuntu leg, like the Python SBOM above); it's a
+      # release asset, not a bundle resource, so it doesn't need every leg.
+      - name: Cache cargo-cyclonedx binary
+        id: cache-cargo-cyclonedx
+        if: matrix.platform == 'ubuntu-22.04'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-cyclonedx
+          key: cargo-cyclonedx-bin-${{ runner.os }}-v0.5
+
+      - name: Install cargo-cyclonedx
+        if: matrix.platform == 'ubuntu-22.04' && steps.cache-cargo-cyclonedx.outputs.cache-hit != 'true'
+        run: cargo install cargo-cyclonedx --locked
+
+      - name: Generate SBOM (CycloneDX) — Rust
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          (cd src-tauri && cargo cyclonedx --format json)
+          mv src-tauri/bixdot.cdx.json bixdot-cargo-sbom.json
 
       - name: Generate macOS icon
         if: matrix.platform == 'macos-latest'
@@ -217,8 +274,14 @@ jobs:
           find src-tauri/target/release/bundle -name "*.deb" -exec cp {} staging/ \;
           find src-tauri/target/release/bundle -name "*.AppImage" -exec cp {} staging/ \;
           find src-tauri/target/release/bundle -name "*.AppImage.sig" -exec cp {} staging/ \; || true
-          # Ship the dependency SBOM as a release asset (generated earlier in this job).
+          # Ship the dependency SBOMs (pip + cargo) and the attribution
+          # document as release assets (all generated earlier in this job).
+          # THIRD_PARTY_LICENSES.txt also ships INSIDE every installer via
+          # tauri.conf.json bundle.resources — this copy is for someone who
+          # wants to review it before installing anything.
           cp bixdot-sbom.json staging/ || true
+          cp bixdot-cargo-sbom.json staging/ || true
+          cp THIRD_PARTY_LICENSES.txt staging/ || true
           ls staging/
 
       - name: Upload installers

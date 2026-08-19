@@ -20,7 +20,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version-file: ".python-version"
 
       - name: Install dependencies
         run: |
@@ -71,7 +71,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version-file: ".python-version"
 
       - name: Install dependencies
         run: pip install -r requirements.txt -r requirements-dev.txt
@@ -92,13 +92,95 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version-file: ".python-version"
 
       - name: Install ruff
         run: pip install ruff
 
       - name: Ruff lint
         run: ruff check core/   # config from ruff.toml in repo root
+
+  # ─── Licence gate (pip) ─────────────────────────────────────────────────────
+  # BXD-005: resolves the FULL transitive pip tree and fails on any licence
+  # outside docs/governance/03_GOVERNANCE.md section 4's allowlist, unless the
+  # package has a reviewed exception in docs/governance/LICENCE_ALLOWLIST.md.
+  licenses-python:
+    name: Licence Gate (pip)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: ".python-version"
+
+      - name: Install project dependencies + pip-licenses
+        run: |
+          pip install -r requirements.txt
+          pip install pip-licenses
+
+      - name: Check pip dependency licences
+        run: python scripts/check_licenses.py
+
+  # ─── Licence + advisory gate (cargo) ───────────────────────────────────────
+  # BXD-005/BXD-006: the Rust/Tauri tree previously had NO licence gate and NO
+  # vulnerability scanning at all — it is the highest-privilege code in the
+  # product (owns the webview, the IPC boundary, and the auto-updater).
+  # cargo-deny covers both in one pass: `check licenses` against the same
+  # allowlist as the pip gate (src-tauri/deny.toml), `check advisories`
+  # against the RustSec database. Reviewed exceptions for both live in
+  # src-tauri/deny.toml with reasons, cross-referenced from
+  # docs/governance/LICENCE_ALLOWLIST.md and docs/governance/
+  # 01_FINDINGS_REGISTER.md (BXD-019).
+  cargo-deny:
+    name: Licence + Advisory Gate (cargo)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo-deny binary
+        id: cache-cargo-deny
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-deny
+          key: cargo-deny-bin-${{ runner.os }}-v0.20
+
+      - name: Install cargo-deny
+        if: steps.cache-cargo-deny.outputs.cache-hit != 'true'
+        run: cargo install cargo-deny --locked
+
+      - name: cargo deny check advisories licenses
+        working-directory: src-tauri
+        run: cargo deny check advisories licenses
+
+  # ─── Licence + audit gate (npm) ─────────────────────────────────────────────
+  # BXD-006: there is currently no npm-managed frontend tree — React ships as
+  # two vendored, pinned UMD builds (frontend/static/react*.production.min.js,
+  # both MIT) per CLAUDE.md's "NO separate frontend build". This job is a
+  # no-op guard, not a fabricated dependency tree: it activates automatically
+  # the moment a package.json is introduced, so the gate exists before the
+  # tree does rather than being bolted on after the fact.
+  npm-audit:
+    name: Licence + Audit Gate (npm)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: npm audit + licence check (skips — no package.json yet)
+        run: |
+          if [ ! -f package.json ]; then
+            echo "No package.json in the repo — nothing for npm to audit."
+            echo "Frontend deps today are two vendored, pinned, MIT-licensed"
+            echo "UMD builds (frontend/static/react*.production.min.js)."
+            echo "This step activates automatically once package.json exists."
+            exit 0
+          fi
+          npm audit --audit-level=high
+          npx license-checker --failOn "GPL;AGPL;LGPL;SSPL" --summary
 
   # ─── Build check ────────────────────────────────────────────────────────────
   build:
@@ -111,7 +193,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version-file: ".python-version"
 
       - name: Install dependencies
         run: pip install -r requirements.txt
