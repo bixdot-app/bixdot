@@ -632,6 +632,25 @@ on the same footing as the exceptions table in `LICENCE_ALLOWLIST.md` — CI
 enforces that each suppression is *justified in writing*, never that anyone
 *agreed* with the justification.
 
+**This list must be re-checked, not assumed to shrink.** "No safe upgrade is
+available" is true as of the Tauri version pinned today and stops being true
+the moment upstream drops gtk-rs GTK3, `urlpattern`'s Unicode dependency, or
+the `proc-macro-error` chain. Nothing in this repository detects that: CI runs
+`cargo deny` *with* the ignore list, so it passes whether or not the advisories
+still apply, and a suppression whose justification has expired looks identical
+in the file to one that is still sound.
+
+`05_COMPLIANCE_MAP.md` section 4 therefore requires an adversarial re-check
+quarterly **and on any Tauri version bump** — re-running
+`cargo deny check advisories` with the `ignore` list temporarily emptied,
+deleting every ID that no longer fires, and recording the before/after count
+here. Log each check below, including a "no change" result; an unchanged count
+with no recorded check is indistinguishable from no check having happened.
+
+| Date | Tauri version | Advisories before | after | Notes |
+|---|---|---|---|---|
+| 2026-08-18 | *(as pinned in `Cargo.lock` at Phase 2)* | — | 15 | Initial scan — the first time this tree was ever checked (BXD-006). Baseline, not a re-check. |
+
 **Fix** — `src-tauri/deny.toml` `[advisories] ignore` list (15 entries, one
 per RUSTSEC ID). This list must **shrink**, not grow, as Tauri releases land;
 `tests/test_cargo_license_gate.py::test_every_ignored_advisory_has_a_named_reason`
