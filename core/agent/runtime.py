@@ -23,6 +23,7 @@ from pydantic import BaseModel
 from core.agent.llm import LLMAdapter
 from core.agent.permissions import Capability, get_permission_store
 from core.audit.logger import AuditEvent, get_audit_logger
+from core.config import _is_packaged_build
 from core.agent.paths import resolve_path, get_system_context
 from core.agent.model_caps import ModelMode, strip_thinking_tokens
 
@@ -512,6 +513,11 @@ class AgentRuntime:
             allowed = set(persona["allowed_tools"])
             all_tools = [t for t in all_tools if t["name"] in allowed]
         if self._is_subagent:
+            all_tools = [t for t in all_tools if t["name"] != "delegate_tasks"]
+        if _is_packaged_build():
+            # BXD-017: multi-agent orchestration is Quarantined
+            # (docs/governance/06_SCOPE_FREEZE.md item #10) — kept in the
+            # codebase but never offered as a tool in a packaged build.
             all_tools = [t for t in all_tools if t["name"] != "delegate_tasks"]
 
         # ── Memory injection: prepend relevant memories before Phase 1 ───────

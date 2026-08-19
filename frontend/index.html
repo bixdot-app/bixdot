@@ -1262,6 +1262,8 @@ function SkillsPanel({token}){
   };
 
   return el('div',{className:'s-card'},
+    el('div',{className:'mp-warn',style:{margin:'10px 14px 0'}},
+      '⚠️ Experimental. Installed skills are third-party code you approve capability-by-capability. They run sandboxed (subprocess, stripped environment) but network access is not yet blocked — see docs/THREAT_MODEL.md.'),
     skills.length===0&&!pending&&el('div',{className:'s-row'},
       el('div',{className:'s-info'},
         el('p',null,'No skills installed'),
@@ -1478,6 +1480,7 @@ function TelegramSettings({token}){
   const[busy,setBusy]=useState(false);
   const[msg,setMsg]=useState('');
   const[code,setCode]=useState(null);
+  const[ack,setAck]=useState(false); // BXD-017: must acknowledge api.telegram.org before connecting
 
   const load=()=>{api('/agent/telegram/status',{},token).then(setSt).catch(()=>{});};
   useEffect(()=>{load();},[token]);
@@ -1508,12 +1511,19 @@ function TelegramSettings({token}){
   return el('div',{className:'s-card'},
     !st.enabled&&el('div',{className:'setup-form',style:{borderTop:'none'}},
       el('div',{style:{fontSize:12,color:'var(--text)',marginBottom:4,fontWeight:500}},'Chat with BixDot from your phone'),
+      el('div',{style:{fontSize:9,fontWeight:700,letterSpacing:'.06em',color:'var(--warn)',marginBottom:6}},'EXPERIMENTAL'),
       el('div',{style:{fontSize:11,color:'var(--muted)',marginBottom:8,lineHeight:1.6}},
         '1. On Telegram, message ',el('code',{style:{color:'var(--accent)'}},'@BotFather'),' and send ',el('code',{style:{color:'var(--accent)'}},'/newbot'),el('br'),
-        '2. Paste the token BotFather gives you below.',el('br'),
-        'Your agent keeps running on THIS computer — nothing is exposed.'),
+        '2. Paste the token BotFather gives you below.'),
+      el('div',{className:'mp-warn',style:{marginBottom:8}},
+        '⚠️ Once connected, messages between your phone and BixDot pass through Telegram’s servers (',
+        el('code',null,'api.telegram.org'),') before reaching this computer. That traffic leaves your local-first guarantee — do not use this for privileged or confidential material.'),
+      el('label',{className:'ack-row'},
+        el('input',{type:'checkbox',checked:ack,onChange:e=>setAck(e.target.checked)}),
+        el('span',null,'I understand conversation content will transit api.telegram.org.')
+      ),
       el('input',{className:'setup-input',placeholder:'123456789:ABCdef…',value:tok,onChange:e=>setTok(e.target.value),type:'password'}),
-      el('button',{className:'connect-btn',onClick:connect,disabled:busy||!tok.trim()},busy?'Connecting…':'Connect bot')
+      el('button',{className:'connect-btn',onClick:connect,disabled:busy||!tok.trim()||!ack},busy?'Connecting…':'Connect bot')
     ),
     st.enabled&&el('div',null,
       el('div',{className:'s-row'},
@@ -1593,7 +1603,7 @@ function PersonasPanel({token}){
 }
 
 // ── Settings ──────────────────────────────────────────────────────────────────
-function Settings({token, onModelChange}){
+function Settings({token, onModelChange, packaged}){
   const[cloud,setCloud]=useState(false);
   const[perms,setPerms]=useState([]);
   useEffect(()=>{ api('/agent/permissions',{},token).then(setPerms).catch(()=>{}); },[token]);
@@ -1616,7 +1626,9 @@ function Settings({token, onModelChange}){
       el('div',{className:'s-label'},'My Files — ask anything'),
       el(MyFilesPanel,{token})
     ),
-    el('div',{className:'s-section'},
+    // BXD-017: Personas is Quarantined — code stays, but it's not reachable
+    // in a packaged build (core/main.py doesn't mount its router there).
+    !packaged&&el('div',{className:'s-section'},
       el('div',{className:'s-label'},'Personas'),
       el(PersonasPanel,{token})
     ),
@@ -1986,6 +1998,8 @@ function Routines({token}){
   const when=(s)=>FREQ_LABEL[s.frequency]+(s.frequency==='weekly'?' ('+WEEKDAYS[s.weekday||0]+')':'')+(s.frequency==='hourly'?' at :'+s.at_time.split(':')[1]:' at '+s.at_time);
 
   return el('div',{className:'routines-body'},
+    el('div',{className:'mp-warn',style:{marginBottom:14}},
+      '⚠️ Experimental. Routines and Watchers act on your behalf while you are away, using only the capabilities you approve for each one below. A routine or watcher can only reach a third party (e.g. Telegram) if you explicitly grant that capability to it.'),
     el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}},
       el('div',null,
         el('div',{style:{fontSize:14,fontWeight:600}},'Routines'),
@@ -2206,6 +2220,7 @@ function App(){
   const[screen,setScreen]=useState('chat');
   const[activeModel,setActiveModel]=useState('llama3.2');
   const[showOnboarding,setShowOnboarding]=useState(false);
+  const[packaged,setPackaged]=useState(false); // BXD-017: Quarantined-tier UI hidden when true
   const[licenseBanner,setLicenseBanner]=useState(null); // null = no banner
   const[toasts,setToasts]=useState([]);
 
@@ -2249,7 +2264,7 @@ function App(){
     // Check if Ollama is ready; show wizard if not
     fetch('http://localhost:8747/health/onboarding',{headers:{'Authorization':'Bearer '+t}})
       .then(r=>r.json())
-      .then(s=>{ if(!s.ready) setShowOnboarding(true); })
+      .then(s=>{ if(!s.ready) setShowOnboarding(true); setPackaged(!!s.packaged); })
       .catch(()=>setShowOnboarding(true));
     // Show license banner for commercial users — non-blocking
     if(licenseRequired&&licenseMessage) setLicenseBanner(licenseMessage);
@@ -2311,7 +2326,7 @@ function App(){
       screen==='calendar'&&el(Calendar,{token}),
       screen==='terminal'&&el(Terminal,{token}),
       screen==='audit'&&el(Audit,{token}),
-      screen==='settings'&&el(Settings,{token,onModelChange:m=>setActiveModel(m)}),
+      screen==='settings'&&el(Settings,{token,onModelChange:m=>setActiveModel(m),packaged}),
       showOnboarding&&el(OnboardingWizard,{onDismiss:()=>setShowOnboarding(false),token})
     ),
     toasts.length>0&&el('div',{className:'toasts'},

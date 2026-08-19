@@ -544,15 +544,23 @@ Priority order:
 
 ---
 
-## Governance — read before any security-adjacent change
+## Governance — read docs/governance/ before any security-adjacent or scope-adjacent change
 
 `docs/governance/` is the authoritative audit trail: the charter and its six
-controls (`00`), the findings register (`01`), and each control mapped to its
-enforcing test (`02`). **A control is not satisfied by correct code — it is
-satisfied by correct code plus a test that fails when the code changes.**
+controls (`00`), the findings register (`01`), each control mapped to its
+enforcing test (`02`), the risk register (`04`), and the feature support
+tiers (`06`). **A control is not satisfied by correct code — it is satisfied
+by correct code plus a test that fails when the code changes.**
 
 Findings are never deleted, only marked fixed. A register showing twenty
 findings found and fixed is a stronger trust signal than one showing zero.
+
+Every feature is Core, Experimental, or Quarantined per
+`docs/governance/06_SCOPE_FREEZE.md` — `core/governance_tiers.py` and
+`tests/test_scope_tiers.py` enforce that a new route or built-in persona
+cannot ship unclassified. Do not add a new feature outside that
+classification, and see `06_SCOPE_FREEZE.md`'s freeze section before adding
+any feature at all while the freeze is in effect.
 
 ---
 

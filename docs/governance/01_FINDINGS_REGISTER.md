@@ -15,7 +15,7 @@ here is inferred from documentation or memory.
 | CRITICAL | 3 (3 fixed) | Blocks user testing |
 | HIGH | 5 (5 fixed) | Blocks v0.7.0 tag |
 | MEDIUM | 8 (8 fixed — all of BXD-009 through BXD-015, BXD-018 found during remediation) | Fix in v0.7 |
-| LOW | 3 (1 fixed — BXD-019 found during remediation) | Batch |
+| LOW | 4 (3 fixed — BXD-016, BXD-017, BXD-019 found during remediation; BXD-020 found during remediation, open) | Batch |
 
 > **All three CRITICAL findings are now closed.** BXD-003's repository-side
 > half — branch protection on `main` — was applied 2026-08-18 and verified live
@@ -45,6 +45,10 @@ named with its control id, plus 3 meta tests confirming the CI/release
 wiring itself) + 2 new cases in `tests/test_auth.py` (BXD-013). No test was
 replaced or deleted.
 
+**Test coverage added in Phase 4 — same standard:** the Phase 4 branch
+collects **513** — a further **+5**, exactly `tests/test_scope_tiers.py`
+(5, new). No test was replaced or deleted.
+
 **Phase 1 status (PR #23):** BXD-001, BXD-002, BXD-003 (both halves), BXD-004,
 BXD-014 and BXD-018 (new) fixed and tested; branch protection applied
 2026-08-18.
@@ -57,8 +61,15 @@ per-advisory justification rather than left open.
 BXD-011, BXD-012, and BXD-013 fixed and tested; `tests/test_constraints.py`
 and `scripts/verify_constraints.py` added per `02_SECURITY_CONTROLS.md`'s
 spec and wired as a required `ci.yml` step and a `release.yml` gate that the
-`build` matrix job depends on. All MEDIUM findings are now closed. BXD-016
-through BXD-017 remain open for Phase 4.
+`build` matrix job depends on. All MEDIUM findings are now closed.
+
+**Phase 4 status:** BXD-016 and BXD-017 fixed and tested — `docs/evidence/CVE_CLAIMS.md`,
+the `docs/LAUNCH_ASSETS.md` AWS-COI blocking header, and `core/governance_tiers.py`
++ `tests/test_scope_tiers.py` enforcing the scope tiers. BXD-020 (new, found while
+building BXD-017's route-enumeration test) logged and left open — it is a
+pre-existing gap in a different, already-closed finding's test (BXD-002), not
+something this phase was authorized to fix. All LOW findings except BXD-020
+are now closed.
 
 **First, the good news — verified as claimed:**
 
@@ -649,6 +660,8 @@ verifiable source, or delete the number. See `05_COMPLIANCE_MAP.md`.
 > legal question for a human, not a documentation fix.
 
 ### BXD-017 — Scope has outrun validation: 20 architecture patterns, 0 users
+**Status:** ✅ FIXED (Phase 4) · **Enforcing test:** `tests/test_scope_tiers.py`
+
 `CLAUDE.md` documents 20 numbered patterns through v0.6.3 — personas, routines,
 multi-agent orchestration, watchers, Telegram bridge, ask-my-files, webview IPC,
 auto-updater. Each is individually well-built. Collectively they are a large
@@ -666,6 +679,28 @@ absent from any regulated-industry demo.
 
 **Fix:** see `06_SCOPE_FREEZE.md`. Classify every feature Core / Experimental /
 Quarantined; freeze new features until the first-ten-users milestone is met.
+
+> Applied per `06_SCOPE_FREEZE.md`'s tier assignments: Personas
+> (`core/agent/persona_routes.py`) and multi-agent orchestration
+> (`delegate_tasks` in `core/agent/runtime.py`) are Quarantined — code kept,
+> both entry points now gated behind `core.config._is_packaged_build()` so
+> neither is reachable in a packaged build. Skill Plugin API, Routines,
+> Telegram bridge, and Watchers are Experimental — all were already off by
+> default (nothing exists until a user explicitly creates it), and the
+> Telegram bridge now shows an explicit `api.telegram.org` disclosure gated
+> behind a mandatory acknowledgement checkbox before "Connect bot" is
+> enabled (`frontend/index.html` `TelegramSettings`), matching the
+> established BXD-004 acknowledgement-checkbox pattern; Skills and
+> Routines/Watchers carry an "Experimental" warning banner. None of the
+> Experimental or Quarantined features appear in the website's feature list
+> or in the onboarding wizard — reconfirmed clean, not modified.
+>
+> `core/governance_tiers.py` is the new single source of truth mapping every
+> route prefix and every built-in persona to a tier; `tests/test_scope_tiers.py`
+> enumerates the live app and fails if anything is unclassified — the
+> anti-sprawl control this finding asked for. Building it surfaced a
+> pre-existing, separate issue with route-enumeration on current
+> fastapi/starlette — logged as BXD-020, not folded in here.
 
 ---
 
@@ -778,6 +813,51 @@ entry and the config from drifting apart.
 
 **Enforcing test** — `tests/test_cargo_license_gate.py`.
 
+### BXD-020 — Route-enumeration tests silently check almost nothing on current FastAPI/Starlette
+**Severity:** LOW · **Control:** C-3.1 (BXD-002's enforcing test) · **Status:** ⚠️ OPEN — found during Phase 4, not fixed (out of this phase's authorized scope)
+
+**Evidence** — building BXD-017's anti-sprawl route-classification test
+(`tests/test_scope_tiers.py`), the same `_api_routes()` pattern
+`tests/test_route_auth.py` (BXD-002) uses —
+`[r for r in app.routes if isinstance(r, APIRoute)]` — was found to return
+only **3** routes (`/`, `/health`, `/health/onboarding`) against the fastapi
+version this environment's unpinned `requirements.txt` floor
+(`fastapi>=0.116.0`, `starlette>=0.47.2`) resolves today. Every route
+registered through `app.include_router(...)` — which is nearly the entire
+API, ~70+ endpoints — is wrapped in an internal `_IncludedRouter` object
+whose real leaf routes live on `.original_router.routes`, one level down
+from what a one-level `isinstance(r, APIRoute)` filter sees.
+
+**Consequence** — `test_every_route_is_authenticated_or_allowlisted`
+(C-3.1, BXD-002's central enforcing test — the one written specifically
+because CVE-2026-25253 was an unauthenticated endpoint) still reports green,
+but is silently checking only the 3 routes declared directly on `app`, not
+the ~70+ registered through routers. It has not caught a real regression
+since whichever fastapi release changed this internal representation,
+because there is no version pin or lower/upper bound in `requirements.txt`
+forcing CI onto a version where the old flat representation held.
+
+**Why this is logged rather than fixed here** — `tests/test_scope_tiers.py`
+(BXD-017, this phase) needed a working route enumeration to be meaningful at
+all, so its own `_api_routes()` was written to walk `.routes` and
+`.original_router.routes` recursively and verified against the real,
+now-fully-visible ~70-route surface (see its docstring for the mechanism).
+`tests/test_route_auth.py::_api_routes()` is BXD-002's helper, a different,
+already-closed finding — fixing it is a one-line change applying the same
+recursive walk, but is left to whoever picks up this finding rather than
+folded silently into BXD-017's commit, per the governance principle that a
+finding found during remediation is logged, not silently absorbed into an
+unrelated fix.
+
+**Fix (not yet applied)** — make `tests/test_route_auth.py::_api_routes()`
+recursive the same way `tests/test_scope_tiers.py::_api_routes()` now is;
+consider adding an upper-bound or CI-pinned version for `fastapi`/`starlette`
+so a future internal restructuring cannot silently reopen this gap.
+
+**Enforcing test** — none yet; this finding exists because the test that
+should have failed did not. `tests/test_scope_tiers.py::_api_routes()`
+documents the correct pattern for the fix.
+
 ---
 
 ## Fix order
@@ -795,8 +875,9 @@ folded into BXD-001's Phase 2 work — both confirmed rather than re-touched.
 `tests/test_constraints.py` + `scripts/verify_constraints.py` per
 `02_SECURITY_CONTROLS.md` added in the same pass.)
 
-**Phase 4 — before any external eyes**
-BXD-016 → BXD-017
+**Phase 4 — before any external eyes** ✅ done
+BXD-016 → BXD-017 (BXD-020 found during this phase, logged, left open —
+see its entry)
 
 Rationale: BXD-003 goes first because until the bot stops pushing to `main`,
 every other fix can be silently modified overnight by an unattended process.
