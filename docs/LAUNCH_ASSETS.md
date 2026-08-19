@@ -41,7 +41,7 @@ GitHub: https://github.com/bixdot-app/bixdot
 ### r/selfhosted
 **Title:** BixDot v0.2.0 – self-hostable AI agent with native desktop app (Win/Mac/Linux)
 
-Runs entirely on your machine. Zero data leaves unless you explicitly choose cloud LLM mode (with automatic PII scrubbing). Auth mandatory even on localhost. Native installers for all platforms.
+Runs entirely on your machine. Zero data leaves unless you explicitly choose cloud LLM mode (emails, phone numbers, and API keys are pattern-scrubbed first — not names, addresses, or other personal data). Auth mandatory even on localhost. Native installers for all platforms.
 
 Free to self-host forever under BUSL-1.1.
 
@@ -69,7 +69,7 @@ Public threat model maps each CVE class to specific architectural mitigations.
 - Security: upgraded FastAPI, patched 20 transitive CVEs (starlette, urllib3, jinja2, etc.)
 
 ## v0.1.1 What Shipped (Security Release — 2026-06-05)
-- 8 CVEs patched: permission gate bypass, path traversal, token blocklist, rate limiting, XSS, CSP, OAuth state TTL, PyJWT upgrade
+- 8 security fixes: permission gate bypass, path traversal, token blocklist, rate limiting, XSS, CSP, OAuth state TTL, PyJWT upgrade (see docs/evidence/CVE_CLAIMS.md)
 
 ## v0.1.0 What Shipped
 - Chat (local Ollama LLM)

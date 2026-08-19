@@ -58,7 +58,7 @@ Every other AI agent today sends your data to a cloud server. BixDot doesn't. It
 - **Web search skill** — DuckDuckGo search, no API key required
 - **Calendar skill** — Google Calendar, Outlook/M365, or a local `.ics` file
 - **Terminal skill** — sandboxed command execution with strict allowlist
-- **Skill Plugin API** — install third-party skills from a `.zip`: SHA-256 verified, capability-approved, and run in an isolated sandbox
+- **Skill Plugin API** — install third-party skills from a `.zip`: SHA-256 verified, capability-approved, and run in a subprocess sandbox (network access is not yet blocked — see Security below)
 - **Permission prompts** — you approve every action before it runs
 - **Audit log** — tamper-evident SHA-256 hash chain of everything BixDot does
 - **Onboarding wizard** — guided first-run setup with Ollama detection
@@ -78,8 +78,8 @@ BixDot is built on a zero-trust architecture because AI agents need stronger sec
 - **Mandatory auth** — JWT on every request, no bypass possible
 - **Zero default permissions** — agent starts with nothing
 - **Tamper-evident audit log** — SHA-256 hash chain, verified on every startup
-- **Sandboxed skill execution** — subprocess isolation, stripped environment
-- **PII scrubbing** — if cloud LLM used, personal data is scrubbed first
+- **Sandboxed skill execution** — subprocess isolation, stripped environment; **network access is not yet blocked** (isolation is queued, not shipped — see [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md))
+- **PII scrubbing** — cloud LLM calls scrub emails, phone numbers, and API/GitHub/Anthropic key patterns before sending. This does **not** cover names, addresses, national ID numbers, case numbers, or medical identifiers
 
 Full threat model: [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) · Vulnerability disclosure policy: [SECURITY.md](SECURITY.md)
 
@@ -103,7 +103,7 @@ Full threat model: [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) · Vulnerability
 | Web search skill | ✅ v0.1.0 |
 | Calendar skill | ✅ v0.1.0 |
 | Terminal skill | ✅ v0.1.0 |
-| Security patch release (8 CVEs) | ✅ v0.1.1 |
+| Security patch release (8 security fixes, see docs/evidence/CVE_CLAIMS.md) | ✅ v0.1.1 |
 | Bundled Python (no install needed) | ✅ v0.2.0 |
 | Model selector (all Ollama models) | ✅ v0.2.0 |
 | Onboarding wizard | ✅ v0.2.0 |
@@ -210,7 +210,7 @@ Commercial use detection, Persistent Memory skill (SQLite FTS5), Document Chat (
 Bundled Python backend (PyInstaller), model selector, onboarding wizard, Outlook/M365 calendar, plugin system foundation
 
 **v0.1.1 — Released 5 June 2026**
-Security patch: 8 CVEs fixed (permission gate bypass, path traversal, token blocklist, rate limiting, XSS, CSP, OAuth state TTL, PyJWT upgrade)
+Security patch: 8 security fixes (permission gate bypass, path traversal, token blocklist, rate limiting, XSS, CSP, OAuth state TTL, PyJWT upgrade) — see docs/evidence/CVE_CLAIMS.md
 
 **v0.1.0 — Released 25 May 2026**
 Core agent, local LLM, permissions, audit log, desktop app (Win/Mac/Linux)
