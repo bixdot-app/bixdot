@@ -18,13 +18,13 @@ Status: ✅ verified in code · ⚠️ true but scoped narrower than stated · �
 | Zero default permissions | README | ✅ | Permission store empty at setup; capability check per tool call |
 | Tamper-evident audit log, verified on startup | README | ✅ | `core/main.py` lifespan raises on broken chain; SHA-256 chain in `core/audit/logger.py:172` |
 | Audit log cannot be disabled | Constraint 5 | ✅ | `audit_log_enabled` is never read — remove the dead flag (BXD-011) |
-| Sandboxed skill execution, stripped env | README | ⚠️ | Subprocess isolation present; **network isolation is still queued for v0.7.** Do not claim network isolation until shipped |
+| Sandboxed skill execution, stripped env | README | ✅ | README now states "network access is not yet blocked" explicitly. Subprocess isolation present; **network isolation is still queued for v0.7** |
 | `shell=False` always | Constraint 6 | ✅ | Two call sites, both explicit; no `os.system`/`os.popen` in `core/` |
 | Nothing leaves your machine by default | README, website | ⚠️ | True for models; **transport unvalidated** (BXD-001). Fix, then ✅ |
-| PII scrubbed before cloud calls | README, SECURITY.md | ⚠️ | Real regex pass on emails, SG/US phones, API keys, GitHub/Anthropic tokens. **Not** names, addresses, NRIC/FIN, case numbers, medical identifiers. Reword to "known credential and contact patterns", never "personal data is scrubbed" |
-| Zero CVEs | internal claim | ⚠️ | Python tree only. Rust and npm trees unscanned (BXD-006). Either widen the scan or state the scope |
-| "8 CVEs patched since v0.1.1" | website | ❌ | No evidence file. Produce `docs/evidence/CVE_CLAIMS.md` or delete |
-| "433 CVEs studied" | website, LAUNCH_ASSETS | ❌ | No source. Cite the dataset and date, or reword to a defensible qualitative claim |
+| PII scrubbed before cloud calls | README, CLAUDE.md, LAUNCH_ASSETS | ✅ | Reworded everywhere to state the actual regex pass (emails, phone numbers, API/GitHub/Anthropic keys) and explicitly disclaim names, addresses, NRIC/FIN, case numbers, medical identifiers. Never "personal data is scrubbed" |
+| Zero CVEs | internal claim | ✅ | Scoped and current as of Phase 2 (BXD-006): `pip-audit` (Python), `cargo audit` (Rust), `npm audit --audit-level=high` (npm) — all three gate CI. See `docs/evidence/CVE_CLAIMS.md` Claim 3 |
+| "8 CVEs patched since v0.1.1" | README, CLAUDE.md, LAUNCH_ASSETS, website | ✅ | Reworded to "8 security fixes" everywhere (7 of 8 were never assigned CVE IDs). Sourced to `CHANGELOG.md` `[0.1.1]`. See `docs/evidence/CVE_CLAIMS.md` Claim 2 |
+| "433 CVEs studied" | CLAUDE.md, website | ✅ | Deleted — no source exists. Reworded to the qualitative claim README already used ("every known CVE class"). See `docs/evidence/CVE_CLAIMS.md` Claim 1 |
 | Every known OpenClaw CVE class mapped to a mitigation | THREAT_MODEL.md | ⚠️ | Genuinely strong for the classes present. Verify the class list is complete as of today |
 | Tauri desktop app "in progress" | README status table | 🕐 | Shipping since v0.5 with an auto-updater. Regenerate the table |
 | Roadmap "Now — v0.1 (current)" | README | 🕐 | Repo is v0.6.3. Regenerate |

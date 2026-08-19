@@ -7,7 +7,7 @@
 
 ## Project Overview
 
-**BixDot** is a secure, local-first AI agent desktop application built by **DigiTech Business Pte. Ltd** (Singapore). It is an alternative to OpenClaw/AnythingLLM/similar platforms, rebuilt from scratch after studying 433 CVEs from existing AI agent platforms and fixing every vulnerability class at the architecture level — not with patches.
+**BixDot** is a secure, local-first AI agent desktop application built by **DigiTech Business Pte. Ltd** (Singapore). It is an alternative to OpenClaw/AnythingLLM/similar platforms, rebuilt from scratch after studying known CVE classes from existing AI agent platforms and fixing every vulnerability class at the architecture level — not with patches. (See `docs/evidence/CVE_CLAIMS.md` — no numeric count of CVEs studied is claimed; none is sourceable.)
 
 - **Website:** https://bixdot.app
 - **GitHub:** https://github.com/bixdot-app/bixdot
@@ -47,7 +47,7 @@
 ### AI / LLM
 - **Ollama** — local inference engine, default model `llama3.2`
 - **Two-phase agent runtime** — CRITICAL pattern, see below
-- **Optional cloud** — Anthropic API, user provides own key, PII scrubbed before sending
+- **Optional cloud** — Anthropic API, user provides own key; emails, phone numbers, and API/GitHub/Anthropic key patterns are scrubbed before sending (see `core/agent/llm.py` `_PII_PATTERNS` — names, addresses, national ID numbers, case numbers, and medical identifiers are NOT scrubbed)
 
 ### CI/CD
 - **GitHub Actions** — CI (Bandit, pip-audit, semgrep) + Release (builds all platform installers)
@@ -451,7 +451,7 @@ Rules:
 | Linux .deb/.AppImage | ✅ Done |
 | bixdot.app website (Vercel) | ✅ Done |
 | GitHub Actions CI + Release | ✅ Done |
-| Security patch (8 CVEs — v0.1.1) | ✅ Done |
+| Security patch (8 security fixes — v0.1.1, see `docs/evidence/CVE_CLAIMS.md`) | ✅ Done |
 | Bundled Python (PyInstaller) | ✅ Done |
 | Model selector (persistent) | ✅ Done |
 | Onboarding wizard | ✅ Done |
@@ -544,15 +544,23 @@ Priority order:
 
 ---
 
-## Governance — read before any security-adjacent change
+## Governance — read docs/governance/ before any security-adjacent or scope-adjacent change
 
 `docs/governance/` is the authoritative audit trail: the charter and its six
-controls (`00`), the findings register (`01`), and each control mapped to its
-enforcing test (`02`). **A control is not satisfied by correct code — it is
-satisfied by correct code plus a test that fails when the code changes.**
+controls (`00`), the findings register (`01`), each control mapped to its
+enforcing test (`02`), the risk register (`04`), and the feature support
+tiers (`06`). **A control is not satisfied by correct code — it is satisfied
+by correct code plus a test that fails when the code changes.**
 
 Findings are never deleted, only marked fixed. A register showing twenty
 findings found and fixed is a stronger trust signal than one showing zero.
+
+Every feature is Core, Experimental, or Quarantined per
+`docs/governance/06_SCOPE_FREEZE.md` — `core/governance_tiers.py` and
+`tests/test_scope_tiers.py` enforce that a new route or built-in persona
+cannot ship unclassified. Do not add a new feature outside that
+classification, and see `06_SCOPE_FREEZE.md`'s freeze section before adding
+any feature at all while the freeze is in effect.
 
 ---
 

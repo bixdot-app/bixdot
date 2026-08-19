@@ -29,7 +29,7 @@ from fastapi.staticfiles import StaticFiles
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
-from core.config import settings
+from core.config import settings, _is_packaged_build
 from core.audit.logger import get_audit_logger, AuditEvent
 from core.security import limiter
 from core.auth.jwt import TokenPayload
@@ -257,6 +257,9 @@ async def onboarding_status(user: TokenPayload = Depends(require_auth)):
         "ready": ollama_ok and len(models) > 0,
         # Lets the wizard offer the one-click Ollama download (Win/mac only)
         "platform": {"win32": "windows", "darwin": "darwin"}.get(sys.platform, "linux"),
+        # BXD-017: lets the frontend hide Quarantined-tier UI (e.g. Personas)
+        # in a packaged build, matching the routers main.py actually mounts.
+        "packaged": _is_packaged_build(),
     }
 
 
@@ -285,7 +288,12 @@ if __name__ == "__main__":
 # ─── Routers ──────────────────────────────────────────────────────────────────
 app.include_router(auth_router)
 app.include_router(agent_router)
-app.include_router(persona_router)
+if not _is_packaged_build():
+    # BXD-017: Personas is Quarantined (docs/governance/06_SCOPE_FREEZE.md
+    # item #8) — code stays in the repo, but the entry point is not mounted
+    # in a packaged (consumer) build. Sessions never need this router:
+    # persona_id defaults to "" and the runtime works fully without it.
+    app.include_router(persona_router)
 app.include_router(schedule_router)
 app.include_router(telegram_router)
 app.include_router(privacy_router)
