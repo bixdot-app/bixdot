@@ -15,7 +15,7 @@ here is inferred from documentation or memory.
 | CRITICAL | 3 (3 fixed) | Blocks user testing |
 | HIGH | 7 (5 fixed; BXD-022, BXD-023 found during remediation, open) | Blocks v0.7.0 tag |
 | MEDIUM | 12 (8 fixed — all of BXD-009 through BXD-015, BXD-018 found during remediation; BXD-021, BXD-025, BXD-026, BXD-027 found during remediation, open) | Fix in v0.7 |
-| LOW | 6 (3 fixed — BXD-016, BXD-017, BXD-019 found during remediation; BXD-020, BXD-024, BXD-028 found during remediation, open) | Batch |
+| LOW | 6 (4 fixed — BXD-016, BXD-017, BXD-019, BXD-020, all found during remediation; BXD-024, BXD-028 found during remediation, open) | Batch |
 
 > **All three CRITICAL findings are now closed.** BXD-003's repository-side
 > half — branch protection on `main` — was applied 2026-08-18 and verified live
@@ -66,10 +66,10 @@ spec and wired as a required `ci.yml` step and a `release.yml` gate that the
 **Phase 4 status:** BXD-016 and BXD-017 fixed and tested — `docs/evidence/CVE_CLAIMS.md`,
 the `docs/LAUNCH_ASSETS.md` AWS-COI blocking header, and `core/governance_tiers.py`
 + `tests/test_scope_tiers.py` enforcing the scope tiers. BXD-020 (new, found while
-building BXD-017's route-enumeration test) logged and left open — it is a
-pre-existing gap in a different, already-closed finding's test (BXD-002), not
-something this phase was authorized to fix. All LOW findings except BXD-020
-are now closed.
+building BXD-017's route-enumeration test) was logged and left open at the time —
+it was a pre-existing gap in a different, already-closed finding's test
+(BXD-002), not something Phase 4 was authorized to fix. **Fixed in a later pass —
+see BXD-020's entry.** All LOW findings are now closed.
 
 **First, the good news — verified as claimed:**
 
@@ -814,7 +814,7 @@ entry and the config from drifting apart.
 **Enforcing test** — `tests/test_cargo_license_gate.py`.
 
 ### BXD-020 — Route-enumeration tests silently check almost nothing on current FastAPI/Starlette
-**Severity:** LOW · **Control:** C-3.1 (BXD-002's enforcing test) · **Status:** ⚠️ OPEN — found during Phase 4, not fixed (out of this phase's authorized scope)
+**Severity:** LOW · **Control:** C-3.1 (BXD-002's enforcing test) · **Status:** ✅ FIXED · **Enforcing test:** `tests/test_route_auth.py::test_every_route_is_authenticated_or_allowlisted`
 
 **Evidence** — building BXD-017's anti-sprawl route-classification test
 (`tests/test_scope_tiers.py`), the same `_api_routes()` pattern
@@ -849,14 +849,26 @@ folded silently into BXD-017's commit, per the governance principle that a
 finding found during remediation is logged, not silently absorbed into an
 unrelated fix.
 
-**Fix (not yet applied)** — make `tests/test_route_auth.py::_api_routes()`
-recursive the same way `tests/test_scope_tiers.py::_api_routes()` now is;
-consider adding an upper-bound or CI-pinned version for `fastapi`/`starlette`
-so a future internal restructuring cannot silently reopen this gap.
+**Fix** — `tests/test_route_auth.py::_api_routes()` is now recursive, the
+same way `tests/test_scope_tiers.py::_api_routes()` already was: it walks
+`.routes` and, for the internal nested-router wrapper, `.original_router.routes`.
+Verified directly (not just by the test passing): the helper now returns
+**86** `APIRoute` objects — up from the 3 that exposed this finding — and a
+negative-control check (injecting a genuinely unguarded route into the live
+`app` and re-running the enumeration) confirmed the fixed helper actually
+flags it, rather than the assertion trivially passing because there was
+nothing real left to check.
 
-**Enforcing test** — none yet; this finding exists because the test that
-should have failed did not. `tests/test_scope_tiers.py::_api_routes()`
-documents the correct pattern for the fix.
+`requirements.txt` now pins upper bounds on both packages —
+`fastapi>=0.116.0,<0.142.0` and `starlette>=0.47.2,<1.7.0` — with a comment
+explaining why and how to re-verify before widening either ceiling. A future
+release that restructures route representation again will fail `pip install`
+loudly (version conflict) rather than silently degrading this test back to
+checking almost nothing, which is what let this finding exist undetected in
+the first place.
+
+**Enforcing test** — `tests/test_route_auth.py::test_every_route_is_authenticated_or_allowlisted`,
+now genuinely exercising the full ~86-route surface.
 
 ### BXD-021 — No failure observability; silent failures are undetectable
 **Severity:** MEDIUM · **Control:** validation integrity · **Status:** OPEN

@@ -48,8 +48,38 @@ def _has_auth_dependency(route: APIRoute) -> bool:
 
 
 def _api_routes() -> list[APIRoute]:
+    """
+    Recursively flatten every APIRoute reachable from app.routes.
+
+    BXD-020: a one-level `isinstance(r, APIRoute)` filter over `app.routes`
+    silently degrades to checking only the 3 routes declared directly on
+    `app` (`/`, `/health`, `/health/onboarding`) on any fastapi/starlette
+    release that wraps each `app.include_router(...)` call in an internal
+    nested-router object instead of flattening leaf routes directly into
+    `app.routes` — which is nearly this whole API, ~70+ endpoints registered
+    through routers. That object's own `.routes` is empty; its real routes
+    live one level down, on `.original_router.routes`. Walk both
+    recursively so this test is correct regardless of which
+    fastapi/starlette version resolves the pins in requirements.txt.
+    """
     from core.main import app
-    return [r for r in app.routes if isinstance(r, APIRoute)]
+
+    found: list[APIRoute] = []
+    seen: set[int] = set()
+    stack = list(app.routes)
+    while stack:
+        r = stack.pop()
+        if id(r) in seen:
+            continue
+        seen.add(id(r))
+        if isinstance(r, APIRoute):
+            found.append(r)
+        for attr in ("routes", "original_router"):
+            sub = getattr(r, attr, None)
+            if sub is None:
+                continue
+            stack.extend(sub.routes if attr == "original_router" else sub)
+    return found
 
 
 # ─── C-3.1 — the enumeration test ──────────────────────────────────────────────
