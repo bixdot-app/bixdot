@@ -12,14 +12,21 @@ what the person said from what we concluded they meant.
 
 ## Provenance classes
 
-Not everything that arrives is a data point of the same kind. Three classes,
+Not everything that arrives is a data point of the same kind. Four classes,
 and only one of them counts toward the scope-freeze exit condition.
 
 | Class | Definition | Counts toward the ten? |
 |---|---|---|
 | **A — Real user** | A person who installed BixDot, used it, and reported back | ✅ Yes |
 | **B — Expert review** | A person who examined the product or code without being a target user | ⚠️ Informative, not counted |
-| **C — AI-generated analysis** | LLM output describing or critiquing BixDot, usually synthesised from public repo and docs | ❌ No |
+| **C1 — AI-generated, ungrounded** | LLM analysis with no tool access; may fabricate specifics | ❌ No |
+| **C2 — AI-generated, tool-grounded** | LLM analysis with verified access to the live repo/API (e.g. real GitHub API calls, not synthesis from training data) | ❌ No, but weighted higher than C1 |
+
+**Split added 2026-08-22 (Entry 004):** Entries 002 and 003 predate this split
+and are retroactively **C1** — both were pure synthesis with no verified tool
+access. C1 and C2 are otherwise a single "Class C" for every purpose below;
+the split exists to distinguish provenance, not to create two independent
+quotas.
 
 **Why Class C is quarantined rather than discarded:** BixDot's repository and its
 entire governance document set are public. That means an LLM asked to critique
@@ -27,7 +34,10 @@ BixDot will read the findings register, the compliance map, and the threat model
 and return them as discoveries. The result reads like independent validation and
 is nothing of the kind — it is the project's own self-assessment reflected back.
 Treating it as external signal would be the most flattering possible way to learn
-nothing.
+nothing. Tool access (C2) narrows this problem — a real `get_file_contents` call
+can't fabricate a line that isn't there — but does not eliminate it: the
+*conclusions* drawn from real data can still just restate the project's own
+public documents back as discoveries.
 
 Class C entries are logged because the *fabrications* are diagnostic (they show
 what a confident-sounding wrong analysis of BixDot looks like, which matters when
@@ -95,7 +105,7 @@ a single-maintainer project regardless of what ships.
 
 ---
 
-## Entry 002 — Class C — AI-generated analysis — 2026-08-22
+## Entry 002 — Class C1 (ungrounded) — AI-generated analysis — 2026-08-22
 
 An LLM-produced proposal to write a "BixDot Product & Security Audit Report,"
 structured as a report outline.
@@ -126,7 +136,7 @@ independent occurrence — see Entry 003.
 
 ---
 
-## Entry 003 — Class C — AI-generated analysis — 2026-08-22
+## Entry 003 — Class C1 (ungrounded) — AI-generated analysis — 2026-08-22
 
 An LLM-produced methodology for a third party intending to evaluate BixDot.
 
@@ -146,6 +156,63 @@ original observation across Entries 002 and 003, and it is a good one.
 
 ---
 
+## Entry 004 — Class C2 (tool-grounded) — AI-generated repository audit — 2026-08-22
+
+**Not logged verbatim** — a structured preliminary audit citing
+`github_mcp_direct:get_file_contents`, `list_releases`, and `list_issues`: real
+tool calls against the live repository, not synthesis from training data. This
+is the first entry with verified tool access, which is why the C1/C2 split
+above exists.
+
+**Independently verified before merging (not taken on the report's word):**
+- `v0.6.3` is confirmed the latest tag on `main` (`git tag --sort=-creatordate`).
+- The report's threat-model item on localhost API / origin abuse was checked
+  against the code and confirmed accurate: `CORSMiddleware` carries an explicit
+  `allow_origins=settings.allowed_origins` allowlist (`core/main.py:185-186`),
+  and WebSocket connections separately validate the `Origin` header, closing
+  with code 4001 on mismatch (`core/auth/middleware.py:279-291`, `ws_require_auth`).
+  No dedicated CSRF-token mechanism exists — confirmed no `set_cookie` call
+  anywhere in `core/` — but none is architecturally required: auth is
+  JWT-bearer, not ambient-cookie, which is the precondition CSRF exploits. Not
+  a gap; correctly designed for this auth model.
+- Could not verify the "one open issue" claim — GitHub API rate-limited during
+  the original review. Plausible, not confirmed.
+
+**Overlap with existing tracking — no new action:**
+
+| Report finding | Already tracked as |
+|---|---|
+| Local-first claims need runtime verification | BXD-001 |
+| Prompt injection via untrusted documents | R-12, risk register |
+| Plugin/skill escalation, network isolation | Entry 001 (R-1 reviewer), v0.7 skill isolation item |
+| Scheduled-task / watcher governance surprises | Experimental tier, `06_SCOPE_FREEZE.md` |
+| Model-download integrity | Verified real in Entry 002 analysis (Authenticode/Gatekeeper, delete-on-failure) |
+| PII-scrubbing overclaim risk | BXD-016 wording correction |
+| Beachhead-workflow / narrow-positioning recommendation | Matches existing Ask-My-Files-as-flagship decision, `06_SCOPE_FREEZE.md` |
+
+The convergence of an independent source on the existing narrow-positioning
+strategy is worth noting as validation, not treated as new instruction.
+
+**Genuinely new — logged for later, not actioned:**
+
+An "evaluation workbench" concept: structured feedback records (accept / reject /
+edit / retry / undo) kept distinct from the raw audit trail, saved evaluation
+cases, replay of a saved task against a different model, and regression detection
+across releases. This is categorically different from BXD-021 (which detects
+*failures*) — this would measure whether the product is *improving* release over
+release. Plausible v0.7+ roadmap candidate. **Not actioned — scope freeze in
+effect; revisit only if real design-partner feedback independently surfaces the
+same need.**
+
+Also noted, same disposition: the report's 0–4 benchmark scoring rubric (safety /
+recovery / evidence / completion / comprehension) is a measurement methodology,
+not a feature — it could reasonably be used to structure how the ten-partner
+feedback itself gets scored, without violating the freeze, since it changes how
+existing signal is evaluated rather than adding product surface. Worth considering
+for `07_USER_BASICS_ACCEPTANCE.md`'s scoring, not urgent.
+
+---
+
 ## Actions generated
 
 | Source | Action | Where tracked |
@@ -155,6 +222,8 @@ original observation across Entries 002 and 003, and it is a good one.
 | Entry 001 | Enterprise reorientation | **Deferred to n=10.** Not actioned. |
 | Entry 003 | Failure observability without telemetry | BXD-021, `01_FINDINGS_REGISTER.md` |
 | Entries 002–003 | "Daily Companion" framing now externally adopted | R-17, escalate on next review |
+| Entry 004 | "Evaluation workbench" (accept/reject/edit/retry/undo tracking, saved cases, cross-release replay/regression detection) | **Deferred to n=10 or independent surfacing.** Not actioned. |
+| Entry 004 | 0–4 benchmark scoring rubric as a measurement method for design-partner feedback | Worth considering for `07_USER_BASICS_ACCEPTANCE.md`. Not urgent, not actioned. |
 
 ---
 
