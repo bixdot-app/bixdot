@@ -105,6 +105,37 @@ transits `api.telegram.org`.
 **Control:** Experimental tier, explicit pre-enable warning naming Telegram's
 servers, excluded from every regulated-industry demo.
 
+### R-19 — No fleet or policy management for managed installs · L3 × I3 = **9**
+An enterprise reviewer identified central policy management and fleet management
+— MDM-style configuration push and inventory across managed installations — as
+requirements for organisational adoption. Neither appears in the register, the
+roadmap, or any existing risk entry. They are genuinely absent rather than
+deferred.
+
+**Assessment.** Scored moderate rather than high because enterprise is third in
+the stated sequencing (`00_AUDIT_CHARTER.md` §2), behind non-technical regulated
+professionals and developers. The risk is not that these are missing today; it is
+that they are **structurally hard to retrofit** — central policy enforcement
+interacts directly with C-2 (loopback binding), C-3 (auth), and C-4 (permission
+grants), and a design that assumes a single self-administering user on a single
+machine may not accommodate an IT administrator setting policy for two hundred
+without revisiting all three.
+
+**Controls**
+- No action in the current cycle. Enterprise sequencing is deliberate and holds.
+- **Do** consider fleet manageability when altering the permission model or the
+  auth flow, so that a future central-policy layer is not architecturally
+  foreclosed by decisions made for single-user convenience.
+- Revisit at n=10 alongside the enterprise-reorientation question, which is
+  likewise deferred.
+
+**Related:** R-9 (code signing) is a hard prerequisite — no IT department deploys
+unsigned binaries to a fleet, so R-19 cannot be actioned before R-9 regardless of
+priority.
+
+**Source:** expert review, 2026-08-22 (`docs/evidence/DESIGN_PARTNER_FEEDBACK.md`,
+Entry 001).
+
 ---
 
 ## Business & operational
@@ -149,6 +180,7 @@ is unknown.
 | 16 | R-6 bot pushes · R-10 lockout · R-11 unscanned trees |
 | 15 | R-4 copyleft · R-5 false attestation · R-7 unauth route |
 | 12 | R-2 trademark · R-12 prompt injection · R-13 sprawl · R-14 Telegram · R-17 drift · R-18 claims |
+| 9 | R-19 fleet/policy management |
 
 **Read the top row honestly.** Three of the four highest risks are not
 engineering problems. They are a lawyer's appointment, a certificate purchase, and

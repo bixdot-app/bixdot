@@ -136,12 +136,12 @@ An LLM-produced methodology for a third party intending to evaluate BixDot.
 |---|---|
 | "Explicitly avoids vector databases, relying on SQLite FTS5" — with a semantic-retrieval gap presented as the headline finding | **False, and it is the document's central argument.** Ask My Files uses a local Ollama embedding model (e.g. `nomic-embed-text`), float32 vectors stored as BLOBs in SQLite, cosine top-k retrieval (`core/skills/knowledge/store.py`). FTS5 backs the *memory* store, a different subsystem. The critique is built on the conflation. |
 | Exfiltration via the agent being tricked into running `curl` | **Closed.** `curl`, `wget`, `Invoke-WebRequest`, and `iwr` are in the blocked-pattern list, checked *before* the allowlist. The underlying network gap is real; this specific path is not. |
-| No telemetry, therefore no visibility into failures | **Correct.** See BXD-020. |
+| No telemetry, therefore no visibility into failures | **Correct.** See BXD-021. |
 
 **Provenance tell:** recommends Gemini 1.5 Pro and Claude 3.5 Sonnet for the code
 review — both substantially outdated at time of writing.
 
-**Signal extracted:** the observability gap, logged as BXD-020. This is the single
+**Signal extracted:** the observability gap, logged as BXD-021. This is the single
 original observation across Entries 002 and 003, and it is a good one.
 
 ---
@@ -153,7 +153,7 @@ original observation across Entries 002 and 003, and it is a good one.
 | Entry 001 | Skill network isolation remains the top v0.7 hardening item | Existing roadmap |
 | Entry 001 | Fleet management + enterprise policy management | R-19, `04_RISK_REGISTER.md` |
 | Entry 001 | Enterprise reorientation | **Deferred to n=10.** Not actioned. |
-| Entry 003 | Failure observability without telemetry | BXD-020, `01_FINDINGS_REGISTER.md` |
+| Entry 003 | Failure observability without telemetry | BXD-021, `01_FINDINGS_REGISTER.md` |
 | Entries 002–003 | "Daily Companion" framing now externally adopted | R-17, escalate on next review |
 
 ---
