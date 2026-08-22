@@ -14,7 +14,7 @@ here is inferred from documentation or memory.
 |---|---|---|
 | CRITICAL | 3 (3 fixed) | Blocks user testing |
 | HIGH | 5 (5 fixed) | Blocks v0.7.0 tag |
-| MEDIUM | 8 (8 fixed — all of BXD-009 through BXD-015, BXD-018 found during remediation) | Fix in v0.7 |
+| MEDIUM | 9 (8 fixed — all of BXD-009 through BXD-015, BXD-018 found during remediation; BXD-021 found during remediation, open) | Fix in v0.7 |
 | LOW | 4 (3 fixed — BXD-016, BXD-017, BXD-019 found during remediation; BXD-020 found during remediation, open) | Batch |
 
 > **All three CRITICAL findings are now closed.** BXD-003's repository-side
@@ -704,7 +704,7 @@ Quarantined; freeze new features until the first-ten-users milestone is met.
 
 ---
 
-## Findings discovered during remediation
+## Findings discovered after the original audit
 
 Not present in the original audit. Logged here rather than silently folded in,
 per the governance principle that the register records everything found, not
@@ -857,6 +857,79 @@ so a future internal restructuring cannot silently reopen this gap.
 **Enforcing test** — none yet; this finding exists because the test that
 should have failed did not. `tests/test_scope_tiers.py::_api_routes()`
 documents the correct pattern for the fix.
+
+### BXD-021 — No failure observability; silent failures are undetectable
+**Severity:** MEDIUM · **Control:** validation integrity · **Status:** OPEN
+**Source:** external analysis, 2026-08-22 (`docs/evidence/DESIGN_PARTNER_FEEDBACK.md`, Entry 003)
+
+**Evidence** — repository-wide grep across `core/` for
+`telemetry|sentry|crash_report|analytics` returns **zero hits**. There is no
+telemetry, no crash reporting, no analytics, and no error aggregation of any kind.
+
+**This is correct, and it is not the finding.** Zero telemetry is the right call
+for a product whose thesis is that nothing leaves the device, and it must stay
+that way. The finding is the consequence, which has not been designed for.
+
+**Consequence**
+
+`07_USER_BASICS_ACCEPTANCE.md` lists four failure modes that "never appear in a
+bug report":
+
+- installed and never opened again
+- opened once, no second session
+- locked out and never said so
+- did not understand the permission prompt and denied everything
+
+Every one of these is currently invisible. When a tool call fails, the agent
+loops, or the app throws for one of the first ten design partners, the only way
+that information reaches the maintainer is if the user volunteers it — and the
+target cohort is non-technical professionals who will assume the fault is theirs
+and quietly stop opening the app.
+
+This undermines the scope-freeze exit condition itself. That condition assumes
+the ten-partner cohort produces usable signal. Without any failure record, the
+cohort produces only what people are motivated enough to write down, which is
+systematically biased toward the users who had the *least* trouble.
+
+**What the fix is not**
+
+Telemetry, analytics, background error reporting, or anything that transmits
+without an explicit per-instance user action. All of these violate C-1 and the
+positioning that makes BixDot worth building.
+
+**Proposed fix — a local error journal, not a reporting channel**
+
+1. Errors, failed tool calls, unhandled exceptions, and agent-loop aborts are
+   written to a **local** journal in `~/.bixdot/`, alongside the audit log and
+   subject to the same locality guarantees.
+2. The user can read the journal **in full, in plain language**, in the app. No
+   opaque blobs, no encoded payloads. If they cannot read it, it does not go in it.
+3. A "send this to the developer" action exists. It is manual, per-instance, and
+   shows the **exact, complete** payload for review before anything is sent.
+   Nothing automatic. Nothing background. Nothing pre-ticked.
+4. When invoked, the transmission is recorded in the network ledger as a `cloud`
+   call with the real destination, exactly like any other egress (BXD-001's
+   derive-don't-assert rule applies).
+5. Scrubbing runs before display, not just before send, so the user sees what the
+   scrubber produced and can judge it.
+
+**Enforcing tests**
+- The error journal produces zero network egress unless the user has explicitly
+  invoked send in that session.
+- An invoked send records a `cloud` ledger entry with the resolved host.
+- The journal is readable and complete via the UI with no hidden fields.
+
+**Priority note:** this is freeze-permitted work. It does not add product surface;
+it makes the validation milestone that ends the freeze actually capable of
+producing signal. Worth doing *before* the cohort scales past the first two or
+three people, since failures that happen before it exists are lost permanently.
+
+> **Numbering note:** this finding was logged in
+> `docs/governance/ADDENDUM_BXD-020_R-19.md` as "BXD-020" before that ID was
+> known to already be assigned (see the BXD-020 entry immediately above,
+> logged the same day during Phase 4). Renumbered to BXD-021 on merge;
+> `docs/evidence/DESIGN_PARTNER_FEEDBACK.md`'s references to "BXD-020" were
+> updated to BXD-021 to match.
 
 ---
 
