@@ -12,7 +12,7 @@ what the person said from what we concluded they meant.
 
 ## Provenance classes
 
-Not everything that arrives is a data point of the same kind. Four classes,
+Not everything that arrives is a data point of the same kind. Five classes,
 and only one of them counts toward the scope-freeze exit condition.
 
 | Class | Definition | Counts toward the ten? |
@@ -21,12 +21,18 @@ and only one of them counts toward the scope-freeze exit condition.
 | **B — Expert review** | A person who examined the product or code without being a target user | ⚠️ Informative, not counted |
 | **C1 — AI-generated, ungrounded** | LLM analysis with no tool access; may fabricate specifics | ❌ No |
 | **C2 — AI-generated, tool-grounded** | LLM analysis with verified access to the live repo/API (e.g. real GitHub API calls, not synthesis from training data) | ❌ No, but weighted higher than C1 |
+| **D — Verified technical audit** | Independent audit with confirmed genuine tool execution against the live repository (not synthesis from public documents); technical claims independently re-checked against current code before logging | ❌ No — still not a real user completing a real task. Weighted above B and C for reliability, but does not substitute for design-partner evidence. |
 
 **Split added 2026-08-22 (Entry 004):** Entries 002 and 003 predate this split
 and are retroactively **C1** — both were pure synthesis with no verified tool
 access. C1 and C2 are otherwise a single "Class C" for every purpose below;
 the split exists to distinguish provenance, not to create two independent
 quotas.
+
+**Class D added 2026-08-22 (Entry 005):** sits above B (informal expert
+review, no tool access confirmed) and above C1/C2 (AI-generated analysis)
+because its provenance was independently verified rather than assumed — see
+Entry 005 for what that verification consisted of.
 
 **Why Class C is quarantined rather than discarded:** BixDot's repository and its
 entire governance document set are public. That means an LLM asked to critique
@@ -213,6 +219,100 @@ for `07_USER_BASICS_ACCEPTANCE.md`'s scoring, not urgent.
 
 ---
 
+## Entry 005 — Class D — Verified independent technical/model audit — 2026-08-22
+
+A ten-document audit package: baseline/evidence register, executive verdict,
+product/market audit, model-system evaluation (real Ollama execution, 60-case
+suite, two models, real hardware), technical/security audit, feedback-loop
+design, 30/60/90 roadmap, prioritized findings, and a reproducibility
+specification with exact commands and pinned commits.
+
+**Verification performed:** all eight independently-checkable technical claims
+were re-verified against current `main` before this entry was logged. All eight
+confirmed accurate, several matching down to the exact source-code comment
+explaining the behavior being described. Full detail in
+`01_FINDINGS_REGISTER.md` BXD-022 through BXD-028.
+
+**What could not be independently re-verified from this environment:**
+- The 60-case model-evaluation results themselves (real Ollama inference on
+  specific hardware, specific latency/token-throughput numbers). Given the
+  8-for-8 verification rate on every claim that *could* be checked, and the
+  correct identification of the user's exact stale-checkout commit hash, these
+  results are treated as credible but are logged as **reported, not
+  independently reproduced**.
+- OS-level clean-VM installer/uninstall behavior (disposable VMs unavailable in
+  either audit environment).
+- Full network packet capture across every integration (the audit explicitly
+  states this was partial — loopback confirmed, full egress capture not
+  performed).
+
+**Technical findings:** logged as BXD-022 (audit log tail-truncation not
+detected, HIGH), BXD-023 (system prompt unconditional locality claim, HIGH —
+same bug class as BXD-001, different file, never fixed by Phase 1), BXD-024
+(inert "Cloud boost" control, LOW), BXD-025 (model classification fails open to
+FULL_AGENT, MEDIUM), BXD-026 (tool loop structurally single-round despite
+MAX_TOOL_ROUNDS=5, MEDIUM — architectural, requires its own design pass, not a
+quick fix), BXD-027 (migrations drop legacy tables and swallow all ALTER
+errors indiscriminately, MEDIUM — real data-loss risk on upgrade), BXD-028
+(clean-clone `cargo check` fails on unbuilt sidecar, LOW).
+
+**Operational finding, not a numbered BXD:** the audit's own evidence register
+references "Open PR #28" as a legitimate, mergeable governance fix. Independently
+confirmed: PR #28 exists, is genuinely still open, and was never surfaced in any
+prior session — work moved to the `docs/log-feedback-bxd-020` branch line
+(PR #30/#31) without anyone noticing PR #28 was still pending. Separately worth
+considering: a light governance check — confirm no other PR is sitting open and
+forgotten — before starting any new phase of work. **Not actioned as part of
+this merge** — flagged for the user; merging a PR is a decision for a human to
+make, not something this entry authorizes on its own.
+
+**Strategic content — read as strong external corroboration, not new
+instruction:**
+
+The executive verdict's core recommendation ("continue, but narrow and
+validate; do not scale marketing or call this product-market fit") matches the
+existing scope-freeze posture exactly, arrived at independently. The proposed
+market wedge — Singapore small law practices specifically, cited against real
+Law Society of Singapore advisory material on confidentiality and AI tool use —
+is a materially more specific version of the existing "regulated professionals
+first" strategy in `00_AUDIT_CHARTER.md`.
+
+**Disposition: logged as strong validation of the existing direction, not
+acted on as a new instruction.** The same discipline applied to Entry 001
+applies here with more force, not less, precisely because this source is more
+credible: narrowing to a specific named segment (Singapore law practices, as
+opposed to the broader existing wedge) is exactly the kind of decision that
+should be confirmed by the real ten-partner cohort's composition and response,
+not adopted from even a highly credible external analysis before that evidence
+exists. The audit's own release-acceptance table agrees with this — it
+explicitly does not clear BixDot for public professional release or enterprise
+until observed acceptance evidence exists, which is the same gate already
+defined in `06_SCOPE_FREEZE.md`.
+
+**The feedback-loop design document is the single most substantial addition to
+existing thinking.** Its proposed local event contract (structured task/turn
+IDs, response-feedback reason codes, an "outcome" field distinct from "response
+shown") is considerably more developed than BXD-021's error-journal proposal —
+BXD-021 catches failures; this proposes measuring whether outcomes were
+actually good, with explicit governance around local-only storage, no default
+transmission, and user-previewed redacted export. **Recommend: when BXD-021 is
+eventually built, use this document's event schema and reason-code taxonomy as
+the starting design rather than building a narrower version from scratch.** Not
+actioned now — still freeze-permitted-hardening territory, not urgent.
+
+**The 60-case model-eval suite and its proposed release gate are worth adopting
+as measurement infrastructure**, not product features — same category as
+`verify_constraints.py`: this makes the *existing* validation process more
+rigorous rather than adding user-facing surface. Recommend evaluating for
+adoption once BXD-022/023 (the two HIGH items) are closed.
+
+**Running count toward the exit condition: still 1 of 10.** This is the
+highest-quality single input received since Entry 001, and it does not move
+that number. No amount of audit rigor substitutes for a real person completing
+a real task.
+
+---
+
 ## Actions generated
 
 | Source | Action | Where tracked |
@@ -224,6 +324,16 @@ for `07_USER_BASICS_ACCEPTANCE.md`'s scoring, not urgent.
 | Entries 002–003 | "Daily Companion" framing now externally adopted | R-17, escalate on next review |
 | Entry 004 | "Evaluation workbench" (accept/reject/edit/retry/undo tracking, saved cases, cross-release replay/regression detection) | **Deferred to n=10 or independent surfacing.** Not actioned. |
 | Entry 004 | 0–4 benchmark scoring rubric as a measurement method for design-partner feedback | Worth considering for `07_USER_BASICS_ACCEPTANCE.md`. Not urgent, not actioned. |
+| Entry 005 | Audit log tail-truncation not detected | BXD-022, `01_FINDINGS_REGISTER.md` |
+| Entry 005 | System prompt asserts locality unconditionally | BXD-023, `01_FINDINGS_REGISTER.md` |
+| Entry 005 | Inert "Cloud boost" control | BXD-024, `01_FINDINGS_REGISTER.md` |
+| Entry 005 | Model classification fails open to FULL_AGENT | BXD-025, `01_FINDINGS_REGISTER.md` |
+| Entry 005 | Tool-calling loop structurally single-round | BXD-026, `01_FINDINGS_REGISTER.md` |
+| Entry 005 | Migrations drop legacy tables / swallow ALTER errors | BXD-027, `01_FINDINGS_REGISTER.md` |
+| Entry 005 | Clean-clone `cargo check` fails on unbuilt sidecar | BXD-028, `01_FINDINGS_REGISTER.md` |
+| Entry 005 | Open, unmerged PR #28 discovered | **Flagged for the user, not merged.** Merging a PR is a human decision. |
+| Entry 005 | Feedback-loop event schema/reason-code taxonomy, as the design basis when BXD-021 is built | Noted for BXD-021's eventual implementation. Not actioned now. |
+| Entry 005 | 60-case model-eval suite as measurement infrastructure | Recommend evaluating once BXD-022/023 close. Not actioned now. |
 
 ---
 
