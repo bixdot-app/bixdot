@@ -4,7 +4,16 @@
 # For development/CI tools: pip install -r requirements-dev.txt
 
 # Web framework
-fastapi>=0.116.0
+# Upper bounds on fastapi/starlette are deliberate (BXD-020): a past release
+# wrapped every app.include_router(...) call in an internal nested-router
+# object instead of flattening routes into app.routes, which silently broke
+# tests/test_route_auth.py's route enumeration down to 3 checked routes out
+# of ~70+. tests/test_route_auth.py::_api_routes() now walks the nested
+# object's .original_router.routes and is verified against this pinned
+# range. Bumping either ceiling requires re-running that verification
+# (import core.main; len(_api_routes()) should stay in the 80s, not drop to
+# single digits) before widening the pin.
+fastapi>=0.116.0,<0.142.0
 uvicorn[standard]>=0.30.6
 
 # Authentication
@@ -41,7 +50,7 @@ numpy>=1.26.0           # BSD-3 — cosine similarity for Ask My Files (local em
 psutil>=6.0.0           # BSD-3 — RAM/disk check for model recommendations
 
 # Security pins — transitive dep minimums enforced to avoid known CVEs
-starlette>=0.47.2      # CVE-2024-47874, CVE-2025-54121, PYSEC-2026-161
+starlette>=0.47.2,<1.7.0  # CVE-2024-47874, CVE-2025-54121, PYSEC-2026-161; ceiling: see BXD-020 note above
 urllib3>=2.6.3         # CVE-2025-66418, CVE-2025-66471, CVE-2026-21441
 requests>=2.33.0       # CVE-2026-25645
 jinja2>=3.1.6          # CVE-2024-56326, CVE-2024-56201, CVE-2025-27516
