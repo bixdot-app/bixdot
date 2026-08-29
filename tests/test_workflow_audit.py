@@ -184,6 +184,29 @@ def test_workflow_can_open_pull_requests():
     )
 
 
+def test_licence_gate_runs_isolated_from_dev_dependencies():
+    """
+    BXD-029: this job installs requirements-dev.txt earlier (for pytest),
+    which pulls in semgrep/pyinstaller and their transitive deps
+    (face, peewee, ...) — correctly dev-only tools that never ship. Running
+    check_licenses.py against the job's shared interpreter fails the same
+    production gate ci.yml passes, on packages ci.yml never even installs.
+    The gate must install requirements.txt into an isolated venv instead.
+    """
+    gate_step = next(
+        (s for s in _steps() if "check_licenses.py" in s.get("run", "")), None
+    )
+    assert gate_step is not None, "No step invokes scripts/check_licenses.py"
+    run = gate_step["run"]
+    assert re.search(r"\bvenv\b", run), (
+        "The licence gate must install requirements.txt into an isolated venv, "
+        "not reuse the job's shared environment polluted by requirements-dev.txt — BXD-029"
+    )
+    assert "requirements-dev.txt" not in run, (
+        "The licence gate's isolated environment must not also install requirements-dev.txt — BXD-029"
+    )
+
+
 def test_contents_permission_is_documented_as_branch_only():
     """
     Creating a commit requires contents: write — no token scope avoids that.
