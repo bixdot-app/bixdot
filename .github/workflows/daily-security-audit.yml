@@ -244,11 +244,23 @@ jobs:
       # licence outside docs/governance/03_GOVERNANCE.md section 4 just as
       # easily as it can introduce a CVE. This is the same gate ci.yml runs
       # on every PR, run again here so a bad licence never even reaches a PR.
-      - name: pip-licenses — install for the licence gate
-        run: pip install pip-licenses
-
-      - name: Licence gate — pip
-        run: python scripts/check_licenses.py
+      # BXD-029: this job's shared environment also has requirements-dev.txt
+      # installed (pytest needs it, above), which pulls in semgrep and
+      # pyinstaller — correctly dev-only, GPL/LGPL-licensed tools that never
+      # ship (see requirements-dev.txt's own comments) — plus their
+      # transitive deps (face, peewee, ...). check_licenses.py inspects
+      # whatever is installed against sys.executable, so running it here
+      # against the shared job environment fails the SAME production gate
+      # ci.yml passes, on packages that never reach a build. Install
+      # requirements.txt into a throwaway venv instead — this mirrors
+      # ci.yml's licenses-python job, which only ever installs
+      # requirements.txt before running this gate.
+      - name: Licence gate — pip (isolated venv, requirements.txt only)
+        run: |
+          python -m venv /tmp/licence-gate-venv
+          /tmp/licence-gate-venv/bin/pip install --upgrade pip
+          /tmp/licence-gate-venv/bin/pip install -r requirements.txt pip-licenses
+          /tmp/licence-gate-venv/bin/python scripts/check_licenses.py
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable

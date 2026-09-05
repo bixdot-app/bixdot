@@ -14,7 +14,7 @@ here is inferred from documentation or memory.
 |---|---|---|
 | CRITICAL | 3 (3 fixed) | Blocks user testing |
 | HIGH | 7 (5 fixed; BXD-022, BXD-023 found during remediation, open) | Blocks v0.7.0 tag |
-| MEDIUM | 12 (8 fixed — all of BXD-009 through BXD-015, BXD-018 found during remediation; BXD-021, BXD-025, BXD-026, BXD-027 found during remediation, open) | Fix in v0.7 |
+| MEDIUM | 13 (9 fixed — all of BXD-009 through BXD-015, BXD-018, BXD-029 found during remediation; BXD-021, BXD-025, BXD-026, BXD-027 found during remediation, open) | Fix in v0.7 |
 | LOW | 6 (4 fixed — BXD-016, BXD-017, BXD-019, BXD-020, all found during remediation; BXD-024, BXD-028 found during remediation, open) | Batch |
 
 > **All three CRITICAL findings are now closed.** BXD-003's repository-side
@@ -1176,6 +1176,51 @@ a real first-contribution friction point worth fixing before inviting outside
 contributors.
 
 **Enforcing test** — none yet.
+
+### BXD-029 — Daily security audit's licence gate fails unconditionally, every run
+**Severity:** MEDIUM · **Control:** BXD-015's observability (a green/red signal must mean something) · **Status:** ✅ FIXED · **Enforcing test:** `tests/test_workflow_audit.py::test_licence_gate_runs_isolated_from_dev_dependencies`
+
+**Evidence** — reported by the user 2026-08-29, pointing at a failed run
+(`https://github.com/bixdot-app/bixdot/actions/runs/33231438932/job/99044866723`).
+`daily-security-audit.yml` installs `requirements.txt -r requirements-dev.txt`
+into the job's one shared interpreter (needed for `pytest`, which runs in the
+same job), then later runs `python scripts/check_licenses.py` — the same
+production licence gate `ci.yml`'s `licenses-python` job runs — against that
+same polluted interpreter. `requirements-dev.txt` intentionally carries
+`semgrep` (LGPL-2.1-or-later) and `pyinstaller` (GPLv2-with-exception) as
+CI/build-only tools, each with a comment stating they must never reach
+production — but `pip-licenses` inspects whatever is actually installed
+against `sys.executable`, with no awareness of that intent. The run failed
+with 5 licence-gate failures: `pyinstaller` and `pyinstaller-hooks-contrib`
+(FORBIDDEN GPLv2), `semgrep` (FORBIDDEN LGPL-2.1-or-later), and `face` /
+`peewee` — transitive deps pulled in by `semgrep` and `mcp` — reported as
+licence `'UNKNOWN'`. `ci.yml`'s `licenses-python` job never sees this: it
+installs only `requirements.txt` before running the identical gate script.
+
+**Consequence** — every scheduled run of `daily-security-audit.yml` has been
+failing on this step regardless of the actual CVE/bandit/lint state of the
+repository, since before the packages this job legitimately needs to scan
+were ever polluted by dev-only additions to `requirements-dev.txt`. This is
+the exact failure mode BXD-015 exists to prevent, inverted: BXD-015 fixed
+"green run may not mean clean"; this is "the run can never be green,
+regardless of whether the repository is clean," which trains a human to
+ignore the daily failure email — the opposite of the always-on notification
+BXD-015 added.
+
+**Fix** — the licence-gate step now installs `requirements.txt` (only) into
+a throwaway venv (`python -m venv /tmp/licence-gate-venv`) and runs
+`scripts/check_licenses.py` against that isolated interpreter, mirroring
+exactly what `ci.yml`'s `licenses-python` job already does on its own
+runner. `requirements-dev.txt`, `bandit`, `ruff`, and `pip-audit` — all
+installed earlier in the same job for the tests/CVE/bandit steps — never
+enter that venv, so the gate checks only what would actually ship.
+
+**Enforcing test** — `tests/test_workflow_audit.py::test_licence_gate_runs_isolated_from_dev_dependencies`
+reads the workflow as data and asserts the step invoking `check_licenses.py`
+both creates an isolated venv and never installs `requirements-dev.txt` into
+it. Fails against the pre-fix file (verified directly against `origin/main`
+at commit `1c6b61a`: `venv` is absent from the step's `run` block); passes
+after the fix.
 
 ---
 
