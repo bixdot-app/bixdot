@@ -102,6 +102,27 @@ ignore = [
     # proc-macro-error — maintainer unreachable for 2+ years, pulled in by a
     # build-time macro dependency somewhere in the tauri-macros chain.
     { id = "RUSTSEC-2024-0370", reason = "proc-macro-error — unmaintained, transitive build-time macro dependency, no safe upgrade — BXD-019" },
+    # BXD-030: unlike every entry above, these ARE active vulnerabilities, not
+    # "unmaintained" advisories — all three are zip 4.6.1's own
+    # `ZipArchive::extract()`: SUID/SGID bit preservation, and two flavours of
+    # symlink-target escape from the destination directory. Pulled in by
+    # tauri-plugin-updater 2.10.1 (the latest stable release; only the
+    # 3.0.0-alpha line moves to zip >=9, and pinning a production
+    # auto-updater to an alpha to chase these is the wrong trade). Verified
+    # against tauri-plugin-updater 2.10.1's own source (src/updater.rs): the
+    # one call to extract() (-> extract_zip() -> ZipArchive::extract()) is
+    # reachable only from install()/install_inner(), which is only ever
+    # called with bytes that already passed verify_signature() against the
+    # configured plugins.updater.pubkey (tauri.conf.json) — exploiting any of
+    # these three requires a signature that validates against that key, i.e.
+    # compromising the signing private key (kept outside the repo per
+    # CLAUDE.md), not an open/unauthenticated path. extract_zip() is also
+    # Windows-only (WindowsUpdaterType). Revisit on every tauri-plugin-updater
+    # bump — drop all three the moment a stable (non-alpha) release pins
+    # zip >=9.
+    { id = "RUSTSEC-2026-0367", reason = "zip — SUID/SGID bit preservation on extract, transitive via tauri-plugin-updater, no safe upgrade in a stable release yet — BXD-030" },
+    { id = "RUSTSEC-2026-0368", reason = "zip — symlink target escapes destination directory, transitive via tauri-plugin-updater, no safe upgrade in a stable release yet — BXD-030" },
+    { id = "RUSTSEC-2026-0369", reason = "zip — symlink extraction applies permissions outside destination, transitive via tauri-plugin-updater, no safe upgrade in a stable release yet — BXD-030" },
 ]
 # If this is true, then cargo deny will use the git executable to fetch advisory database.
 # If this is false, then it uses a built-in git library.
