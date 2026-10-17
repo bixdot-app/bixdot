@@ -15,7 +15,7 @@ here is inferred from documentation or memory.
 | CRITICAL | 3 (3 fixed) | Blocks user testing |
 | HIGH | 7 (5 fixed; BXD-022, BXD-023 found during remediation, open) | Blocks v0.7.0 tag |
 | MEDIUM | 13 (9 fixed — all of BXD-009 through BXD-015, BXD-018, BXD-029 found during remediation; BXD-021, BXD-025, BXD-026, BXD-027 found during remediation, open) | Fix in v0.7 |
-| LOW | 6 (4 fixed — BXD-016, BXD-017, BXD-019, BXD-020, all found during remediation; BXD-024, BXD-028 found during remediation, open) | Batch |
+| LOW | 7 (5 fixed — BXD-016, BXD-017, BXD-019, BXD-020, BXD-030, all found during remediation; BXD-024, BXD-028 found during remediation, open) | Batch |
 
 > **All three CRITICAL findings are now closed.** BXD-003's repository-side
 > half — branch protection on `main` — was applied 2026-08-18 and verified live
@@ -1221,6 +1221,68 @@ both creates an isolated venv and never installs `requirements-dev.txt` into
 it. Fails against the pre-fix file (verified directly against `origin/main`
 at commit `1c6b61a`: `venv` is absent from the step's `run` block); passes
 after the fix.
+
+### BXD-030 — zip 4.6.1's three unresolved advisories, reviewed and ignored (not hidden)
+**Severity:** LOW · **Control:** BXD-006/BXD-019's cargo advisory gate · **Status:** ✅ FIXED (reviewed exception, not a code fix) · **Enforcing test:** `tests/test_cargo_license_gate.py::test_ignored_advisories_are_logged_in_the_findings_register`
+
+**Evidence** — reported by the user 2026-10-17, pointing at three consecutive
+failed `daily-security-audit.yml` runs (#130, #131, #132 — all on the same
+`main` commit as the BXD-029 fix, confirming this was a new advisory landing
+in the dependency tree, not a regression). The `Licence + Advisory Gate
+(cargo)` step's `cargo deny check advisories licenses` failed with
+**RUSTSEC-2026-0369** (`zip::ZipArchive::extract()` applies Unix permissions
+through symlinks without confining the target to the destination directory)
+in `zip 4.6.1`, pulled in transitively via `tauri-plugin-updater 2.10.1`
+(`src-tauri/Cargo.lock:493`). Re-running the gate locally against a freshly
+fetched advisory database (the RustSec DB updates independently of this
+repo's commits) surfaced two more active advisories on the same `zip 4.6.1`
+and the same `ZipArchive::extract()` call site: **RUSTSEC-2026-0367** (SUID/SGID
+permission-bit preservation) and **RUSTSEC-2026-0368** (symlink target can
+resolve outside the destination directory) — plus four **new, separately
+fixable** `rustls` advisories (RUSTSEC-2026-0346/0347/0348/0349), all patched
+in `rustls 0.23.46` and bumped in the same pass (routine dependency bump,
+not logged as a separate finding — same as the 0.23.45 bump that closed out
+RUSTSEC-2026-0285 on 2026-10-17's earlier run).
+
+**Why this one is a reviewed exception, not a `cargo update`** — `zip`'s own
+advisories all say the fix is `>=9.0.0`; `tauri-plugin-updater`'s latest
+*stable* release (2.10.1 — already current) pins `zip = "^4"`, and only the
+`3.0.0-alpha.3` pre-release moves to `zip 9.x`. Pinning a production
+auto-updater to an alpha release to chase three advisories is a worse trade
+than the advisories themselves. **Verified directly against
+`tauri-plugin-updater 2.10.1`'s own source** (`src/updater.rs`), not assumed:
+the single call to `extract()` → `extract_zip()` → `zip::ZipArchive::extract()`
+(`src/updater.rs:903-904`) is reachable only from `install()`/`install_inner()`
+(`:718-721`), which is called only with bytes that have already passed
+`verify_signature(&buffer, &self.signature, &self.config.pubkey)` inside
+`download()` (`:712`) — confirmed by reading the actual call sequence in
+`download_and_install()` (`:723-730`): `download()` returns an error via `?`
+if signature verification fails, so `install()` never runs on unverified
+bytes. Exploiting any of the three advisories therefore requires a signature
+that validates against the project's configured `plugins.updater.pubkey`
+(`src-tauri/tauri.conf.json`) — i.e. compromising the signing private key,
+which `CLAUDE.md`'s Known Issues section already documents as living outside
+the repo — not an open, unauthenticated path. `extract_zip()` is additionally
+Windows-only (`WindowsUpdaterType`, confirmed at `src/updater.rs:882-887`).
+
+**Fix** — `rustls` bumped `0.23.45` → `0.23.46` (closes RUSTSEC-2026-0346/
+0347/0348/0349, a real `cargo update`, not an exception). The three `zip`
+advisories (RUSTSEC-2026-0367, -0368, -0369) added to `src-tauri/deny.toml`'s
+`[advisories] ignore` list, each with its own reason citing this finding —
+following the exact pattern BXD-019 established, but called out explicitly
+as a different class: BXD-019's ignores are all "unmaintained crate"
+advisories with no CVE-style exploit; these three are active vulnerabilities
+with a documented, verified mitigating control (signature verification),
+not an absence of real-world impact. **Must be revisited on every
+`tauri-plugin-updater` version bump** — drop all three ignore entries the
+moment a stable (non-alpha) release pins `zip >=9`.
+
+**Enforcing test** — `tests/test_cargo_license_gate.py::test_ignored_advisories_are_logged_in_the_findings_register`
+asserts every RUSTSEC ID in `deny.toml`'s ignore list appears somewhere in
+this register; `test_every_ignored_advisory_has_a_named_reason` asserts each
+carries a non-empty reason. Both already existed from BXD-019/BXD-005;
+`cargo deny check advisories licenses` re-run locally after the fix reports
+`advisories ok, licenses ok` (was `advisories FAILED`).
 
 ---
 
