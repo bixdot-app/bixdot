@@ -15,7 +15,7 @@ here is inferred from documentation or memory.
 | CRITICAL | 3 (3 fixed) | Blocks user testing |
 | HIGH | 7 (5 fixed; BXD-022, BXD-023 found during remediation, open) | Blocks v0.7.0 tag |
 | MEDIUM | 13 (9 fixed — all of BXD-009 through BXD-015, BXD-018, BXD-029 found during remediation; BXD-021, BXD-025, BXD-026, BXD-027 found during remediation, open) | Fix in v0.7 |
-| LOW | 7 (5 fixed — BXD-016, BXD-017, BXD-019, BXD-020, BXD-030, all found during remediation; BXD-024, BXD-028 found during remediation, open) | Batch |
+| LOW | 8 (6 fixed — BXD-016, BXD-017, BXD-019, BXD-020, BXD-030, BXD-031, all found during remediation; BXD-024, BXD-028 found during remediation, open) | Batch |
 
 > **All three CRITICAL findings are now closed.** BXD-003's repository-side
 > half — branch protection on `main` — was applied 2026-08-18 and verified live
@@ -1283,6 +1283,56 @@ this register; `test_every_ignored_advisory_has_a_named_reason` asserts each
 carries a non-empty reason. Both already existed from BXD-019/BXD-005;
 `cargo deny check advisories licenses` re-run locally after the fix reports
 `advisories ok, licenses ok` (was `advisories FAILED`).
+
+### BXD-031 — Three more unmaintained-crate advisories, a new path this time (notify-rust)
+**Severity:** LOW · **Control:** BXD-006/BXD-019's cargo advisory gate · **Status:** ✅ FIXED (reviewed exception, not a code fix) · **Enforcing test:** `tests/test_cargo_license_gate.py::test_ignored_advisories_are_logged_in_the_findings_register`
+
+**Evidence** — the next scheduled `daily-security-audit.yml` run after BXD-030
+landed (run #133, on PR #36's merge commit `ff10de3`) failed again, within
+24 hours. **Not a regression** — same commit's advisory gate had passed
+inside PR #36's own CI the day before; the RustSec database added three new
+advisories in the interim. Unlike BXD-030, this is squarely the **BXD-019
+class**: `cargo deny check advisories` reported RUSTSEC-2026-0370
+(`zvariant`), RUSTSEC-2026-0371 (`zbus_names`), RUSTSEC-2026-0372
+(`zvariant_derive`), each one
+explicitly "unmaintained" (not an exploit-style vulnerability) and each
+one's own advisory says "No safe upgrade is available!" — but via a path
+BXD-019 never saw: `notify-rust` (the Linux D-Bus notification backend) →
+`zbus 5.17.0` → the three crates above, all three merged directly into
+`zbus` itself starting at `6.0.0`. Pulled in by `tauri-plugin-notification
+2.3.3` (`src-tauri/Cargo.lock`), the plugin behind the native OS
+notifications feature (`CLAUDE.md` §17/v0.6.0).
+
+**Checked before ignoring, not assumed** — `notify-rust`'s latest release is
+`4.18.2` (current pin: `4.18.0`); bumped it locally
+(`cargo update -p notify-rust --precise 4.18.2`) and confirmed `zbus` stayed
+at `5.17.0` — that patch only touches the Windows backend
+(`tauri-winrt-notification`), so there is no upgrade available at the
+application-dependency level either, not only within the three crates
+themselves. Reverted that bump (it fixes nothing here, and widening the
+diff to carry an unrelated dependency change was not worth it).
+`tauri-plugin-notification`'s only newer release is `3.0.0-alpha.3` — same
+situation as BXD-030's `tauri-plugin-updater`, and the same conclusion: not
+worth pinning a production notification feature to an alpha to silence
+three "unmaintained" warnings.
+
+**Fix** — the three advisories added to `src-tauri/deny.toml`'s
+`[advisories] ignore` list, each reason citing this finding and the full
+transitive path. Kept as its own finding rather than folded into BXD-019's
+text, matching the precedent BXD-030 already set for this file: each
+discovery event gets its own numbered, dated entry per
+`03_GOVERNANCE.md`'s "findings are never deleted, only marked fixed, and a
+longer register is a stronger trust signal" principle — BXD-019's own text
+already says its list "must shrink as Tauri upgrades land... do not let it
+grow without the same review," and growing it silently by editing BXD-019's
+prose would be exactly the kind of un-reviewed growth that line warns
+against.
+
+**Enforcing test** — same as BXD-030's: `cargo deny check advisories
+licenses` re-run locally reports `advisories ok, licenses ok` (was
+`advisories FAILED`); `tests/test_cargo_license_gate.py`'s two structural
+tests (named reason, logged in this register) pass against all three new
+entries without modification.
 
 ---
 

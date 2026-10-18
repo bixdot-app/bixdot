@@ -123,6 +123,20 @@ ignore = [
     { id = "RUSTSEC-2026-0367", reason = "zip — SUID/SGID bit preservation on extract, transitive via tauri-plugin-updater, no safe upgrade in a stable release yet — BXD-030" },
     { id = "RUSTSEC-2026-0368", reason = "zip — symlink target escapes destination directory, transitive via tauri-plugin-updater, no safe upgrade in a stable release yet — BXD-030" },
     { id = "RUSTSEC-2026-0369", reason = "zip — symlink extraction applies permissions outside destination, transitive via tauri-plugin-updater, no safe upgrade in a stable release yet — BXD-030" },
+    # BXD-031: back to the BXD-019 class — "unmaintained", not an active
+    # vulnerability, every one saying "No safe upgrade is available!" — but
+    # via a path BXD-019 never saw: notify-rust (the Linux D-Bus notification
+    # backend) -> zbus 5.17.0 -> {zbus_names, zvariant, zvariant_derive}, all
+    # three merged into zbus itself starting at 6.0.0. Pulled in by
+    # tauri-plugin-notification 2.3.3 (the latest stable release; only the
+    # 3.0.0-alpha line would move off zbus 5.x). Checked before ignoring:
+    # bumping notify-rust to its latest patch (4.18.2) does not touch this —
+    # that patch only updates the Windows backend (tauri-winrt-notification),
+    # confirming no upgrade exists at the application-dependency level either,
+    # not just within zbus_names/zvariant/zvariant_derive themselves.
+    { id = "RUSTSEC-2026-0370", reason = "zvariant — unmaintained, transitive via tauri-plugin-notification/notify-rust/zbus, no safe upgrade — BXD-031" },
+    { id = "RUSTSEC-2026-0371", reason = "zbus_names — unmaintained, transitive via tauri-plugin-notification/notify-rust/zbus, no safe upgrade — BXD-031" },
+    { id = "RUSTSEC-2026-0372", reason = "zvariant_derive — unmaintained, transitive via tauri-plugin-notification/notify-rust/zbus, no safe upgrade — BXD-031" },
 ]
 # If this is true, then cargo deny will use the git executable to fetch advisory database.
 # If this is false, then it uses a built-in git library.
