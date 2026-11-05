@@ -1284,6 +1284,17 @@ carries a non-empty reason. Both already existed from BXD-019/BXD-005;
 `cargo deny check advisories licenses` re-run locally after the fix reports
 `advisories ok, licenses ok` (was `advisories FAILED`).
 
+> **Follow-up, 2026-11-04.** Run #151 failed on a fourth advisory in the
+> same `zip 4.6.1` / same `ZipArchive::extract()` call site:
+> **RUSTSEC-2026-0429** (a symlink entry with a large declared size aborts
+> the process). Re-checked before re-ignoring, not assumed: `zip`'s own
+> advisory still says `>=9.0.0`, and `tauri-plugin-updater`'s latest stable
+> release is still `2.10.1` (only `3.0.0-alpha.3` moves to `zip 9.x`) — same
+> situation, same verified mitigation (signature verification gates
+> `extract_zip()`, confirmed unchanged in `tauri-plugin-updater 2.10.1`'s
+> source). Added to `deny.toml`'s ignore list alongside the other three,
+> same reasoning, same revisit condition.
+
 ### BXD-031 — Three more unmaintained-crate advisories, a new path this time (notify-rust)
 **Severity:** LOW · **Control:** BXD-006/BXD-019's cargo advisory gate · **Status:** ✅ FIXED (reviewed exception, not a code fix) · **Enforcing test:** `tests/test_cargo_license_gate.py::test_ignored_advisories_are_logged_in_the_findings_register`
 
