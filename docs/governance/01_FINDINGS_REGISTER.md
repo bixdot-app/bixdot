@@ -1295,6 +1295,34 @@ carries a non-empty reason. Both already existed from BXD-019/BXD-005;
 > source). Added to `deny.toml`'s ignore list alongside the other three,
 > same reasoning, same revisit condition.
 
+> **Follow-up, 2026-11-19 — and a correction to the above.** Run #167
+> failed on two more `zip 4.6.1` advisories: **RUSTSEC-2026-0545** (the AES
+> authentication code is checked too late, accepting truncated/tampered
+> ciphertext on `by_name_decrypt`/the `aes-crypto` feature) and
+> **RUSTSEC-2026-0548** (`ZipStreamReader` extracts under local-header names
+> that can differ from the central directory). Re-verified directly against
+> `tauri-plugin-updater 2.10.1`'s source (`src/updater.rs:899-904`) that
+> `extract_zip()` calls only `zip::ZipArchive::new()` + `.extract()` —
+> neither vulnerable API (`by_name_decrypt`, `ZipStreamReader`) is used at
+> all, so both are additionally unreachable, not merely gated by signature
+> verification like the other four.
+>
+> **The "only an alpha moves off zip 4.x" claim in the original entry above
+> is no longer accurate — correcting it here rather than silently editing
+> it out.** `tauri-plugin-updater 2.14.1` is a *stable* release that bumps
+> `zip` to `9.7.0` (closing all six advisories). Checked directly, not
+> assumed: `cargo update -p tauri-plugin-updater --precise 2.14.1` was
+> attempted locally and reverted after inspection — it cascades a `tauri`
+> core bump (`2.11.5` → `2.12.7`) plus `wry`, `tao`, `tray-icon`, `muda`,
+> and dozens of other transitive crates. That is a framework-level upgrade
+> with its own review surface (window/webview/tray behaviour), not a
+> security patch, and deciding to take it is not this session's call to
+> make inside a routine nightly-audit fix. Flagged to the user as a
+> separate, deliberate upgrade to schedule. Until that happens, both new
+> advisories are added to the same ignore list, same revisit condition as
+> the other four: drop all six the moment the 2.14.1 upgrade (or
+> equivalent) actually lands.
+
 ### BXD-031 — Three more unmaintained-crate advisories, a new path this time (notify-rust)
 **Severity:** LOW · **Control:** BXD-006/BXD-019's cargo advisory gate · **Status:** ✅ FIXED (reviewed exception, not a code fix) · **Enforcing test:** `tests/test_cargo_license_gate.py::test_ignored_advisories_are_logged_in_the_findings_register`
 
